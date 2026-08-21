@@ -3,571 +3,359 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Praça de Recarga — Dossiê</title>
-<meta name="description" content="Recarga de veículos elétricos como ativo comercial. Challenge FIAP · GoodWe 2026.">
+<title>Praça de Recarga</title>
+<meta name="description" content="Recarga de carro elétrico como ativo comercial. Challenge FIAP · GoodWe 2026.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@300;400;600;700&display=swap">
 <style>
   :root{
-    --ground:#EDF0F3; --surface:#FFFFFF; --surface-2:#E3E8ED;
-    --ink:#0E151B; --ink-2:#3D4A55; --ink-3:#6B7883;
-    --rule:#CBD4DC; --rule-strong:#A9B6C1;
-    --accent:#D24A16; --accent-soft:#F6E2D8;
-    --data:#0D6480; --data-soft:#DCEAEF;
-    --pos:#1B6B47; --warn:#8A6100; --crit:#A32218;
-    --shadow:0 1px 2px rgba(14,21,27,.06), 0 8px 24px -12px rgba(14,21,27,.18);
+    --ground:#F7F7F8;
+    --surface:#FFFFFF;
+    --ink:#0C0D0F;
+    --ink-2:#4A4F55;
+    --ink-3:#868D94;
+    --rule:#E4E6E9;
+    --rule-2:#CDD1D6;
+    --accent:#B45A00;
+    --accent-soft:#FBF1E4;
+    --glow:rgba(180,90,0,.10);
   }
   @media (prefers-color-scheme: dark){
-    :root{
-      --ground:#0B1015; --surface:#121A21; --surface-2:#1A242C;
-      --ink:#E7EEF3; --ink-2:#B3C0CA; --ink-3:#7F8E9A;
-      --rule:#25313A; --rule-strong:#3A4A56;
-      --accent:#FF7A45; --accent-soft:#33190F;
-      --data:#4FB8D8; --data-soft:#0F2A33;
-      --pos:#4FBE8B; --warn:#D9A227; --crit:#F0705F;
-      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+    :root:not([data-theme="light"]){
+      --ground:#0A0B0D;
+      --surface:#101214;
+      --ink:#EDEEF0;
+      --ink-2:#A2A8AE;
+      --ink-3:#6E757C;
+      --rule:#1C2024;
+      --rule-2:#2B3138;
+      --accent:#FFB020;
+      --accent-soft:#231806;
+      --glow:rgba(255,176,32,.09);
     }
   }
+  :root[data-theme="dark"]{
+    --ground:#0A0B0D; --surface:#101214;
+    --ink:#EDEEF0; --ink-2:#A2A8AE; --ink-3:#6E757C;
+    --rule:#1C2024; --rule-2:#2B3138;
+    --accent:#FFB020; --accent-soft:#231806; --glow:rgba(255,176,32,.09);
+  }
+
   *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
   body{
-    background:var(--ground); color:var(--ink); margin:0;
-    font-family:"Source Serif 4", Georgia, serif; font-size:17px; line-height:1.62;
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family:"Sora",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:16.5px; font-weight:300; line-height:1.65;
     -webkit-font-smoothing:antialiased;
   }
-  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 96px}
-  .col{max-width:68ch}
-  h1,h2,h3,h4,.ui{font-family:"Archivo","Helvetica Neue",Arial,sans-serif}
-  h1{font-size:clamp(2.2rem,5.2vw,3.5rem);line-height:1.02;letter-spacing:-.028em;font-weight:700;margin:0;text-wrap:balance}
-  h2{font-size:clamp(1.45rem,3vw,2rem);line-height:1.12;letter-spacing:-.02em;font-weight:700;margin:0;text-wrap:balance}
-  h3{font-size:1.14rem;line-height:1.25;font-weight:600;margin:0;text-wrap:balance}
+  .wrap{max-width:760px;margin:0 auto;padding:0 28px}
   p{margin:0}
-  a{color:var(--data);text-underline-offset:2px}
-  a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
-  .lbl{font-family:"IBM Plex Mono",monospace;font-size:.68rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
-  .mono{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+  strong{font-weight:600;color:var(--ink)}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--rule-2)}
+  a:hover{border-color:var(--accent)}
+  a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 
-  header.mast{border-bottom:1px solid var(--rule);background:var(--surface)}
-  .mast-in{max-width:1080px;margin:0 auto;padding:56px 24px 40px;display:flex;flex-direction:column;gap:24px}
-  .kicker{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-  .tag{font-family:"IBM Plex Mono",monospace;font-size:.68rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;border:1px solid var(--rule-strong);color:var(--ink-2);padding:4px 9px;border-radius:2px}
-  .tag.hot{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
-  .deck{font-size:1.24rem;color:var(--ink-2);max-width:62ch}
-  .deck b{color:var(--ink);font-weight:600}
+  .mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .tag{
+    font-family:"JetBrains Mono",monospace;font-size:.66rem;font-weight:500;
+    letter-spacing:.22em;text-transform:uppercase;color:var(--ink-3);
+  }
 
-  section{padding-top:64px}
-  .shead{display:flex;flex-direction:column;gap:10px;margin-bottom:26px;padding-bottom:14px;border-bottom:2px solid var(--ink)}
-  .shead .lbl{color:var(--accent)}
-  .stack{display:flex;flex-direction:column;gap:18px}
-  .stack-tight{display:flex;flex-direction:column;gap:10px}
+  /* ---------- hero ---------- */
+  .hero{padding:16vh 0 12vh;display:flex;flex-direction:column;gap:34px}
+  .hero h1{
+    font-size:clamp(2.6rem,8vw,4.6rem);font-weight:700;letter-spacing:-.045em;
+    line-height:.98;margin:0;text-wrap:balance;
+  }
+  .hero .lede{
+    font-size:clamp(1.05rem,2.4vw,1.3rem);font-weight:300;color:var(--ink-2);
+    max-width:34ch;line-height:1.5;
+  }
+  .beam{height:1px;background:var(--rule);position:relative;overflow:hidden}
+  .beam::after{
+    content:"";position:absolute;inset:0 auto 0 0;width:100%;
+    background:linear-gradient(90deg,var(--accent),transparent);
+    transform-origin:left;animation:draw 1.6s cubic-bezier(.2,.8,.2,1) forwards;
+  }
+  @keyframes draw{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  @media (prefers-reduced-motion:reduce){.beam::after{animation:none}}
 
-  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px}
-  .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:16px}
-  .card{background:var(--surface);border:1px solid var(--rule);border-radius:3px;padding:20px;display:flex;flex-direction:column;gap:10px}
-  .card p,.card li{font-size:.95rem}
-  .card .lbl{color:var(--data)}
-  .card.pick{border:2px solid var(--accent);box-shadow:var(--shadow)}
-  .card.pick .lbl{color:var(--accent)}
-  .card.no{opacity:.86}
+  /* ---------- part divider ---------- */
+  .part{padding:11vh 0 3vh;display:flex;align-items:baseline;gap:18px}
+  .part .n{
+    font-family:"JetBrains Mono",monospace;font-size:.72rem;font-weight:700;
+    letter-spacing:.2em;color:var(--accent);
+  }
+  .part h2{
+    font-size:clamp(1.5rem,3.6vw,2.1rem);font-weight:600;letter-spacing:-.03em;
+    margin:0;line-height:1.1;
+  }
+  .part-note{color:var(--ink-3);font-size:.9rem;margin-top:-2vh;padding-bottom:2vh}
 
-  .plate{background:var(--surface);border:1px solid var(--rule);border-radius:3px;display:grid;grid-template-columns:repeat(auto-fit,minmax(152px,1fr));box-shadow:var(--shadow);overflow:hidden}
-  .plate .cell{padding:16px 18px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);display:flex;flex-direction:column;gap:5px}
-  .plate .cell .v{font-family:"Archivo",sans-serif;font-weight:700;font-size:1.5rem;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1}
-  .plate .cell .n{font-size:.82rem;color:var(--ink-3);line-height:1.35;font-family:"Archivo",sans-serif}
+  /* ---------- blocks ---------- */
+  section{padding:34px 0;border-top:1px solid var(--rule)}
+  section:first-of-type{border-top:none}
+  h3{
+    font-size:1.05rem;font-weight:600;letter-spacing:-.015em;margin:0 0 12px;
+    line-height:1.3;
+  }
+  .body{display:flex;flex-direction:column;gap:14px;color:var(--ink-2)}
+  .body p{max-width:64ch}
 
-  .gap{background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--accent);border-radius:0 3px 3px 0;padding:20px 22px;display:flex;flex-direction:column;gap:10px}
-  .gap .hd{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
-  .gap .num{font-family:"IBM Plex Mono",monospace;font-weight:600;color:var(--accent);font-size:.8rem}
-  .gap p{font-size:.97rem;color:var(--ink-2)}
-  .gap p strong{color:var(--ink);font-weight:600}
+  /* ---------- readout: números grandes ---------- */
+  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);margin:8px 0}
+  .readout div{background:var(--ground);padding:20px 18px;display:flex;flex-direction:column;gap:7px}
+  .readout .v{
+    font-family:"JetBrains Mono",monospace;font-size:1.7rem;font-weight:700;
+    letter-spacing:-.045em;line-height:1;color:var(--ink);
+  }
+  .readout .v.hi{color:var(--accent)}
+  .readout .k{font-size:.78rem;color:var(--ink-3);line-height:1.35;font-weight:300}
 
-  .tbl-wrap{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface)}
-  table{border-collapse:collapse;width:100%;min-width:600px}
-  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--rule);font-size:.9rem;vertical-align:top}
-  th{font-family:"Archivo",sans-serif;font-weight:600;font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-2)}
-  td.num{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+  /* ---------- linhas com filete ---------- */
+  .rows{display:flex;flex-direction:column}
+  .row{display:grid;grid-template-columns:1fr;gap:6px;padding:18px 0;border-bottom:1px solid var(--rule)}
+  .row:last-child{border-bottom:none}
+  .row .t{font-weight:600;font-size:.98rem;color:var(--ink)}
+  .row .d{font-size:.92rem;color:var(--ink-2);max-width:62ch}
+  .row .n{font-family:"JetBrains Mono",monospace;font-size:.7rem;letter-spacing:.16em;color:var(--accent);text-transform:uppercase}
+
+  /* ---------- destaque ---------- */
+  .pull{
+    padding:26px 0 26px 26px;border-left:1px solid var(--accent);
+    background:linear-gradient(90deg,var(--glow),transparent 60%);
+    display:flex;flex-direction:column;gap:12px;margin:6px 0;
+  }
+  .pull p{font-size:1.05rem;color:var(--ink);max-width:56ch;font-weight:300}
+  .pull p strong{font-weight:600}
+
+  /* ---------- tabela enxuta ---------- */
+  .tbl{overflow-x:auto;margin:6px 0}
+  table{border-collapse:collapse;width:100%;min-width:420px}
+  th,td{text-align:left;padding:12px 16px 12px 0;border-bottom:1px solid var(--rule);font-size:.9rem;font-weight:300;color:var(--ink-2)}
+  th{
+    font-family:"JetBrains Mono",monospace;font-size:.64rem;font-weight:500;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);
+  }
+  td strong{font-weight:600}
+  td.num{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)}
   tr:last-child td{border-bottom:none}
 
-  .pill{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.66rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;border-radius:2px;white-space:nowrap}
-  .pill.has{background:var(--data-soft);color:var(--data)}
-  .pill.no{background:var(--accent-soft);color:var(--accent)}
-  .pill.mid{background:var(--surface-2);color:var(--ink-2)}
+  /* ---------- as duas telas ---------- */
+  .screens{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule)}
+  .screen{background:var(--ground);padding:24px 22px;display:flex;flex-direction:column;gap:12px}
+  .screen ul{margin:0;padding-left:1.05em;display:flex;flex-direction:column;gap:8px;font-size:.92rem;color:var(--ink-2)}
+  .screen li::marker{color:var(--accent)}
 
-  ul,ol{margin:0;padding-left:1.15em;display:flex;flex-direction:column;gap:7px}
-  li::marker{color:var(--ink-3)}
+  ul.plain{margin:0;padding-left:1.05em;display:flex;flex-direction:column;gap:9px;color:var(--ink-2);font-size:.95rem}
+  ul.plain li::marker{color:var(--ink-3)}
+  ol.plain{margin:0;padding-left:1.4em;display:flex;flex-direction:column;gap:9px;color:var(--ink-2);font-size:.95rem}
+  ol.plain li::marker{color:var(--ink-3);font-family:"JetBrains Mono",monospace;font-size:.8em}
 
-  figure{margin:0;display:flex;flex-direction:column;gap:10px}
-  .figbox{background:var(--surface);border:1px solid var(--rule);border-radius:3px;padding:18px 14px;overflow-x:auto}
-  figcaption{font-size:.85rem;color:var(--ink-3);max-width:64ch}
-  svg{display:block;min-width:600px;width:100%;height:auto}
+  code{font-family:"JetBrains Mono",monospace;font-size:.86em;color:var(--accent)}
 
-  .note{font-size:.88rem;color:var(--ink-3);border-left:2px solid var(--rule-strong);padding-left:14px}
-  code{font-family:"IBM Plex Mono",monospace;font-size:.88em;background:var(--surface-2);padding:1px 5px;border-radius:2px}
-  footer{margin-top:80px;border-top:1px solid var(--rule);padding-top:24px;font-size:.85rem;color:var(--ink-3)}
-
-  nav.toc{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--rule);overflow-x:auto}
-  nav.toc ul{max-width:1080px;margin:0 auto;padding:11px 24px;display:flex;gap:20px;list-style:none;white-space:nowrap}
-  nav.toc a{font-family:"Archivo",sans-serif;font-size:.82rem;font-weight:600;color:var(--ink-2);text-decoration:none}
-  nav.toc a:hover{color:var(--accent)}
+  footer{
+    margin-top:12vh;padding:34px 0 12vh;border-top:1px solid var(--rule);
+    font-size:.82rem;color:var(--ink-3);display:flex;flex-direction:column;gap:8px;
+  }
 </style>
 </head>
 <body>
-
-<header class="mast">
-  <div class="mast-in">
-    <div class="kicker">
-      <span class="tag hot">Dossiê do projeto</span>
-      <span class="tag">Challenge FIAP · GoodWe 2026</span>
-      <span class="tag">Comércio · B2B</span>
-    </div>
-    <h1>Praça de Recarga</h1>
-    <p class="deck">O lojista não quer vender energia. Ele quer saber se o carregador na frente da loja <b>traz cliente e dá retorno</b> — e hoje nenhum painel do mercado responde isso. Nós construímos o painel que responde, e a telinha que faz o motorista confiar no ponto.</p>
-  </div>
-</header>
-
-<nav class="toc">
-  <ul>
-    <li><a href="#tese">A tese</a></li>
-    <li><a href="#lojista">O lojista</a></li>
-    <li><a href="#mercado">O mercado</a></li>
-    <li><a href="#lacuna">A lacuna</a></li>
-    <li><a href="#produto">O produto</a></li>
-    <li><a href="#ia">A IA</a></li>
-    <li><a href="#modelo">Modelo de negócio</a></li>
-    <li><a href="#arquitetura">Arquitetura</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
-  </ul>
-</nav>
-
 <div class="wrap">
 
-  <!-- ================= TESE ================= -->
-  <section id="tese">
-    <div class="shead">
-      <span class="lbl">A tese em quatro parágrafos</span>
-      <h2>Por que comércio, e por que agora</h2>
-    </div>
-    <div class="stack col">
-      <p>A GoodWe quer comercializar recarga. O comprador dessa venda não é um engenheiro — é <strong>o dono de um supermercado, de um restaurante, de uma farmácia, de um estacionamento</strong>. Esse comprador não tem interesse em eletrotécnica e não quer entrar no negócio de energia. Ele tem uma pergunta só, e ela é comercial: <em>"isso aqui me traz cliente?"</em></p>
-      <p>Hoje ninguém consegue responder. Os painéis que existem no mercado — de operadoras de rede como Shell Recharge, EZVolt, Zletric — mostram <strong>quilowatt-hora, sessões e disponibilidade</strong>. Nenhum deles cruza a recarga com o faturamento da loja. O lojista instala o carregador no escuro e continua no escuro depois de instalado.</p>
-      <p>Do outro lado do fio há um segundo problema, do motorista: ele chega no ponto e <strong>não sabe quanto tempo vai levar nem quanto vai pagar</strong>. As estimativas que os equipamentos mostram hoje são contas lineares grosseiras — o próprio SEMS+ da GoodWe calcula autonomia como <span class="mono">kWh × 5</span>, uma constante igual para qualquer carro. Quem não confia na estimativa não planeja a parada, e quem não planeja não entra na loja.</p>
-      <p><strong>São dois produtos, um sistema.</strong> Um painel gerencial que transforma o carregador em canal de marketing mensurável, e uma tela ao lado do ponto que transforma incerteza em promessa. A inteligência artificial entra onde ela ganha do jeito atual de fazer: <strong>prever com precisão o tempo e o custo de cada recarga</strong>.</p>
-    </div>
-  </section>
+  <!-- ============================================================ -->
+  <div class="hero">
+    <span class="tag">Challenge FIAP · GoodWe · 2026</span>
+    <h1>Praça de<br>Recarga</h1>
+    <div class="beam"></div>
+    <p class="lede">O carregador na frente da loja traz cliente? Hoje ninguém sabe responder. A gente responde.</p>
+  </div>
 
-  <!-- ================= LOJISTA ================= -->
-  <section id="lojista">
-    <div class="shead">
-      <span class="lbl">O comprador</span>
-      <h2>O que passa na cabeça do lojista</h2>
-    </div>
-    <div class="stack">
-      <p class="col">Todo o produto se organiza em torno de cinco perguntas. Se o painel responde as cinco, ele se vende sozinho. Se responde só as duas primeiras, é mais um painel técnico.</p>
-      <div class="grid2">
-        <div class="card">
-          <span class="lbl">Pergunta 1 · retorno</span>
-          <h3>"Quanto isso me deu de volta?"</h3>
-          <p>Não em kWh. Em reais de faturamento associado a quem carregou, comparado com o custo da energia consumida e da instalação amortizada.</p>
-          <p><strong>É a pergunta que decide a compra</strong> — e a que nenhum concorrente responde.</p>
-        </div>
-        <div class="card">
-          <span class="lbl">Pergunta 2 · comportamento</span>
-          <h3>"Quem é esse cliente?"</h3>
-          <p>Ele volta? Fica mais tempo na loja que a média? Gasta mais? Vem em que dia e a que hora? Cliente de recarga é cliente identificado — algo que a maioria do varejo físico não tem.</p>
-        </div>
-        <div class="card">
-          <span class="lbl">Pergunta 3 · custo</span>
-          <h3>"Quanto estou gastando?"</h3>
-          <p>Energia por sessão, por dia, por vaga. E o alerta que ninguém dá: <strong>a recarga empurrou minha demanda contratada para cima?</strong> No Grupo A, ultrapassar a demanda gera multa que come o ganho inteiro.</p>
-        </div>
-        <div class="card">
-          <span class="lbl">Pergunta 4 · operação</span>
-          <h3>"Está funcionando?"</h3>
-          <p>Ponto fora do ar, cabo furtado, sessão interrompida, fila. Problemas documentados no Brasil em 2026 — e que hoje o lojista só descobre quando o cliente reclama.</p>
-        </div>
-        <div class="card">
-          <span class="lbl">Pergunta 5 · decisão</span>
-          <h3>"Devo colocar mais uma vaga?"</h3>
-          <p>Quantas sessões recusadas por falta de ponto? Qual a taxa de ocupação por faixa de horário? Qual o retorno marginal da próxima vaga?</p>
-          <p>É a pergunta que transforma um cliente em um cliente que compra de novo.</p>
-        </div>
-        <div class="card" style="border-left:3px solid var(--crit)">
-          <span class="lbl" style="color:var(--crit)">O que ele não pergunta</span>
-          <h3>Nada de técnico</h3>
-          <p>Tensão, corrente, fator de potência, curva de carga, protocolo OCPP. Se isso aparece na primeira tela, o produto errou de público.</p>
-          <p>Vai tudo para uma aba de diagnóstico, para o instalador — que é outro usuário, com outra tela.</p>
-        </div>
-      </div>
+  <!-- ============================================================ -->
+  <div class="part"><span class="n">PARTE 1</span><h2>A ideia</h2></div>
+  <p class="part-note">Sem termo técnico. Se você não é da área, leia só esta parte.</p>
+
+  <section>
+    <h3>O problema</h3>
+    <div class="body">
+      <p>A GoodWe quer vender carregador de carro elétrico para o comércio. Quem compra é o dono do supermercado, do restaurante, da farmácia. E ele tem uma dúvida só: <strong>isso me traz cliente ou é dinheiro jogado fora?</strong></p>
+      <p>Os painéis que existem hoje mostram quanta energia saiu e quantos carros carregaram. Nenhum mostra se a loja vendeu mais por causa disso. O dono instala no escuro e continua no escuro.</p>
+      <p>Do outro lado tem o motorista. Ele chega, pluga e <strong>não sabe quanto tempo vai demorar nem quanto vai pagar</strong>. Sem saber, ele não planeja a parada. E quem não planeja não entra na loja.</p>
     </div>
   </section>
 
-  <!-- ================= MERCADO ================= -->
-  <section id="mercado">
-    <div class="shead">
-      <span class="lbl">Terreno de jogo</span>
-      <h2>O mercado brasileiro em 2026</h2>
-    </div>
-    <div class="stack">
-      <div class="plate">
-        <div class="cell"><span class="v mono">21.061</span><span class="n">Estações de recarga no Brasil · 31% rápidas</span></div>
-        <div class="cell"><span class="v mono">+25%</span><span class="n">Crescimento sobre agosto de 2025</span></div>
-        <div class="cell"><span class="v mono">19,6:1</span><span class="n">Veículos com recarga externa por ponto</span></div>
-        <div class="cell"><span class="v mono">1.788</span><span class="n">Municípios com ao menos um ponto</span></div>
-        <div class="cell"><span class="v mono">615 mil</span><span class="n">Frota eletrificada em circulação</span></div>
-        <div class="cell"><span class="v mono">R$ 0,789</span><span class="n">kWh · Enel SP B1 · REH ANEEL 3.596/2026</span></div>
-      </div>
-
-      <div class="grid2">
-        <div class="card">
-          <span class="lbl">Quem já opera rede</span>
-          <h3>O mercado de operação está consolidando</h3>
-          <p>Shell Recharge, Vibra, EZVolt, Zletric, Tupinambá (a <strong>WEG comprou o controle em out/2025</strong>), WeCharge, Enel X, Voltbras, Voltta (Eneva). A BYD fechou com EZVolt e Tupi a maior plataforma integrada do país; Zletric e Voltbras somaram 2.500+ pontos interoperáveis.</p>
-          <p><strong>Entrar como operadora de rede é entrar tarde e por baixo.</strong> A GoodWe está atrás do medidor, no imóvel do cliente — e é lá que a oportunidade está aberta.</p>
-        </div>
-        <div class="card">
-          <span class="lbl">A regra que libera tudo</span>
-          <h3>REN ANEEL 819/2018</h3>
-          <p>Qualquer pessoa física ou jurídica pode vender recarga livremente no Brasil. <strong>Não precisa de concessão, e o preço é livre.</strong> O lojista pode cobrar, pode dar de graça, pode condicionar a uma compra.</p>
-          <p>É essa liberdade regulatória que torna o modelo de negócio uma escolha de produto, e não uma limitação jurídica.</p>
-        </div>
-      </div>
-
-      <div class="gap">
-        <div class="hd"><span class="num">↯</span><h3>A dor documentada que vira funcionalidade</h3></div>
-        <p>Levantamento de 2026 sobre a experiência real de recarga no Brasil: <strong>furto de cabo de cobre</strong> inutilizando pontos inteiros, manutenção ausente, <strong>informação de disponibilidade desatualizada</strong> nos aplicativos, excesso de apps concorrentes e <strong>cobrança sem controle metrológico</strong> — o motorista pode pagar por energia que não chegou ao carro.</p>
-        <p>Nenhum desses problemas é de hardware. <strong>Todos são de dado e de software</strong> — e cada um deles é uma linha do nosso painel.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= LACUNA ================= -->
-  <section id="lacuna">
-    <div class="shead">
-      <span class="lbl">Análise de lacunas</span>
-      <h2>O que ninguém está fazendo</h2>
-    </div>
-    <div class="stack">
-      <div class="gap">
-        <div class="hd"><span class="num">01</span><h3>Nenhum painel liga recarga a faturamento</h3></div>
-        <p>Todos os painéis de operadora medem o <em>ativo</em>: kWh entregue, tempo de sessão, disponibilidade. Nenhum mede o <em>negócio</em>: o cliente que carregou entrou na loja? Gastou quanto? Voltou?</p>
-        <p><strong>É a diferença entre vender um equipamento e vender um canal de vendas.</strong> E é a única métrica que faz o lojista comprar a segunda unidade.</p>
-      </div>
-      <div class="gap">
-        <div class="hd"><span class="num">02</span><h3>A estimativa de tempo e custo é uma conta de guardanapo</h3></div>
-        <p>A recarga de uma bateria de lítio não é linear: acima de aproximadamente 80% de carga a potência despenca por proteção química, e os últimos 20% podem levar tanto tempo quanto os primeiros 60. Estimativas lineares erram feio justamente onde o motorista está decidindo se espera ou vai embora.</p>
-        <p>Constatação no próprio produto da GoodWe: o SEMS+ calcula a autonomia estimada como <span class="mono">kWh × 5</span> — verificado em várias sessões, sempre a mesma constante, igual para qualquer veículo. <strong>É exatamente o tipo de estimativa que a IA supera com folga.</strong></p>
-      </div>
-      <div class="gap">
-        <div class="hd"><span class="num">03</span><h3>O lojista não é avisado sobre a demanda contratada</h3></div>
-        <p>Comércio geralmente está no Grupo A, com demanda contratada e multa pesada por ultrapassagem. Dois ou três carregadores rápidos ligando no horário de pico da loja levam a demanda para cima sem que ninguém perceba — <strong>até a fatura chegar.</strong></p>
-        <p>Um alerta preditivo aqui paga o produto sozinho, e é engenharia que já temos pronta.</p>
-      </div>
-      <div class="gap">
-        <div class="hd"><span class="num">04</span><h3>A vaga gratuita vira estacionamento</h3></div>
-        <p>O modo de negócio mais atrativo para o varejo — recarga gratuita como isca — tem um problema conhecido: o carro enche e continua ocupando a vaga. Sem regra e sem medição, a isca vira prejuízo.</p>
-        <p>Resolver isso é regra de software: <strong>tempo de cortesia, tarifa de ociosidade, condicionamento à compra.</strong></p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= PRODUTO ================= -->
-  <section id="produto">
-    <div class="shead">
-      <span class="lbl">O que vamos construir</span>
-      <h2>Duas telas, um sistema</h2>
-    </div>
-    <div class="stack">
-      <div class="grid2">
-        <div class="card">
-          <span class="lbl">Tela 1 · para o dono</span>
-          <h3>Painel gerencial</h3>
-          <p>Acesso pelo navegador, em qualquer lugar. A primeira dobra responde a pergunta do retorno, sem rolagem:</p>
-          <ul>
-            <li><strong>Retorno do mês</strong> — faturamento associado × custo de energia</li>
-            <li><strong>Sessões e clientes únicos</strong>, com taxa de retorno</li>
-            <li><strong>Ticket médio</strong> de quem carregou × de quem não carregou</li>
-            <li><strong>Ocupação por faixa de horário</strong> — onde há fila e onde há vaga ociosa</li>
-            <li><strong>Alerta de demanda contratada</strong> — previsão de ultrapassagem antes de acontecer</li>
-            <li><strong>Saúde dos pontos</strong> — fora do ar, sessão interrompida, consumo anômalo</li>
-          </ul>
-          <p>Abas secundárias: financeiro detalhado, clientes, diagnóstico técnico (para o instalador).</p>
-        </div>
-        <div class="card">
-          <span class="lbl">Tela 2 · para o motorista</span>
-          <h3>Totem ao lado do carregador</h3>
-          <p>Tela simples, legível de longe, sem interação obrigatória. Mostra em tempo real:</p>
-          <ul>
-            <li><strong>Tempo até 80%</strong> e <strong>tempo até 100%</strong>, separados — porque a diferença entre os dois é a decisão de ir embora ou esperar</li>
-            <li><strong>Quanto vai custar</strong> quando terminar, ou <strong>"cortesia da casa"</strong></li>
-            <li><strong>Energia entregue até agora</strong>, em kWh e em quilômetros</li>
-            <li><strong>Quanto falta para a cortesia acabar</strong>, quando houver regra de tempo</li>
-            <li>QR para acompanhar no celular e receber aviso quando encher</li>
-          </ul>
-          <p><strong>A promessa de horário é o produto.</strong> "Seu carro estará em 80% às 15h42" é o que faz alguém entrar na loja em vez de esperar no carro.</p>
-        </div>
-      </div>
-
-      <figure>
-        <div class="figbox">
-          <svg viewBox="0 0 720 260" role="img" aria-label="Diagrama do sistema: carregadores e inversor GoodWe alimentam a API, que grava no MongoDB e serve o painel do lojista e o totem do motorista.">
-            <defs>
-              <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-                <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-3)"></path>
-              </marker>
-            </defs>
-            <g font-family="Archivo, sans-serif" font-size="12">
-              <rect x="20" y="40" width="140" height="64" rx="3" fill="var(--surface-2)" stroke="var(--rule-strong)"></rect>
-              <text x="90" y="66" text-anchor="middle" font-weight="600" fill="var(--ink)">Carregadores</text>
-              <text x="90" y="84" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">HCA G2 · sessões</text>
-
-              <rect x="20" y="140" width="140" height="64" rx="3" fill="var(--surface-2)" stroke="var(--rule-strong)"></rect>
-              <text x="90" y="166" text-anchor="middle" font-weight="600" fill="var(--ink)">Inversor + PDV</text>
-              <text x="90" y="184" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">SEMS+ · vendas</text>
-
-              <rect x="250" y="82" width="150" height="80" rx="3" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"></rect>
-              <text x="325" y="110" text-anchor="middle" font-weight="700" fill="var(--accent)">API + IA</text>
-              <text x="325" y="128" text-anchor="middle" font-size="10.5" fill="var(--ink-2)">previsão de tempo</text>
-              <text x="325" y="143" text-anchor="middle" font-size="10.5" fill="var(--ink-2)">previsão de custo</text>
-
-              <rect x="250" y="196" width="150" height="46" rx="3" fill="var(--surface-2)" stroke="var(--rule-strong)"></rect>
-              <text x="325" y="219" text-anchor="middle" font-weight="600" fill="var(--ink)">MongoDB</text>
-              <text x="325" y="234" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">sessões · vendas · pontos</text>
-
-              <rect x="490" y="34" width="210" height="76" rx="3" fill="var(--surface)" stroke="var(--data)" stroke-width="1.5"></rect>
-              <text x="595" y="62" text-anchor="middle" font-weight="700" fill="var(--data)">Painel gerencial</text>
-              <text x="595" y="80" text-anchor="middle" font-size="10.5" fill="var(--ink-2)">retorno · clientes · alertas</text>
-              <text x="595" y="95" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">navegador, qualquer lugar</text>
-
-              <rect x="490" y="140" width="210" height="76" rx="3" fill="var(--surface)" stroke="var(--data)" stroke-width="1.5"></rect>
-              <text x="595" y="168" text-anchor="middle" font-weight="700" fill="var(--data)">Totem do motorista</text>
-              <text x="595" y="186" text-anchor="middle" font-size="10.5" fill="var(--ink-2)">tempo · custo · promessa</text>
-              <text x="595" y="201" text-anchor="middle" font-size="10.5" fill="var(--ink-3)">tela ao lado da vaga</text>
-
-              <g stroke="var(--ink-3)" stroke-width="1.5" fill="none" marker-end="url(#ar)">
-                <path d="M160,72 L205,72 L205,112 L246,112"></path>
-                <path d="M160,172 L205,172 L205,132 L246,132"></path>
-                <path d="M400,110 L445,110 L445,72 L486,72"></path>
-                <path d="M400,134 L445,134 L445,178 L486,178"></path>
-                <path d="M325,166 L325,192"></path>
-              </g>
-            </g>
-          </svg>
-        </div>
-        <figcaption>O sistema tem uma fonte de verdade só. Os carregadores entregam sessões, o PDV entrega vendas, a API cruza os dois e serve as duas telas. O totem funciona mesmo sem internet, com a última previsão em cache — porque uma tela apagada ao lado da vaga é pior que nenhuma tela.</figcaption>
-      </figure>
-    </div>
-  </section>
-
-  <!-- ================= IA ================= -->
-  <section id="ia">
-    <div class="shead">
-      <span class="lbl">Onde a inteligência artificial ganha</span>
-      <h2>Previsão de tempo e de custo</h2>
-    </div>
-    <div class="stack">
-      <p class="col">A IA aqui não é enfeite nem chatbot: ela resolve um problema com resposta errada no mercado inteiro. E dá para provar que ganha, porque existe um jeito atual de fazer para comparar.</p>
-
-      <div class="grid3">
-        <div class="card">
-          <span class="lbl">Modelo 1 · o principal</span>
-          <h3>Tempo até 80% e até 100%</h3>
-          <p>A curva de recarga tem dois regimes: corrente constante até cerca de 80%, depois tensão constante com a potência caindo. O tempo do segundo trecho depende do veículo, da temperatura e do estado da bateria.</p>
-          <p><strong>Baseline a bater:</strong> a estimativa linear <span class="mono">energia ÷ potência</span>, que é o que todo mundo mostra hoje.</p>
-        </div>
-        <div class="card">
-          <span class="lbl">Modelo 2</span>
-          <h3>Custo final da sessão</h3>
-          <p>Energia prevista × preço vigente no horário, mais a regra comercial da loja (cortesia, tempo livre, tarifa de ociosidade). Muda com o posto tarifário ao longo da sessão.</p>
-        </div>
-        <div class="card">
-          <span class="lbl">Modelo 3</span>
-          <h3>Demanda e ocupação</h3>
-          <p>Quantas sessões esperar por faixa de horário e dia da semana. Alimenta o alerta de demanda contratada e a decisão de abrir mais uma vaga.</p>
-        </div>
-      </div>
-
-      <div class="gap">
-        <div class="hd"><span class="num">!</span><h3>Como fazer isso honestamente com pouco dado</h3></div>
-        <p>Não temos milhares de sessões comerciais reais. Fingir que temos é o caminho mais rápido para a banca desmontar o projeto. A abordagem é em camadas, e cada uma é defensável sozinha:</p>
-        <ol>
-          <li><strong>Base física.</strong> Um modelo de curva CC-CV com parâmetros — não precisa de dado nenhum para funcionar e já é melhor que linear. É o piso.</li>
-          <li><strong>Calibração com o que temos.</strong> As 18 sessões medidas no laboratório da FIAP e a série de 5 minutos do inversor ajustam os parâmetros.</li>
-          <li><strong>Aprendizado incremental.</strong> Cada sessão real do sistema em produção realimenta o modelo. O produto <em>melhora com uso</em> — e isso é um argumento de venda, não uma desculpa.</li>
-          <li><strong>Medição de erro sempre visível.</strong> O painel mostra o erro médio da previsão contra o realizado. Um produto que expõe o próprio erro é o oposto de uma caixa-preta.</li>
-        </ol>
-        <p class="note" style="margin-top:6px">Regra que não se quebra: <strong>nada é treinado em dado que nós mesmos inventamos.</strong> Dado sintético serve para testar o sistema, nunca para afirmar acurácia.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= MODELO ================= -->
-  <section id="modelo">
-    <div class="shead">
-      <span class="lbl">A decisão comercial</span>
-      <h2>Qual modelo de negócio</h2>
-    </div>
-    <div class="stack">
-      <div class="grid2">
-        <div class="card pick">
-          <span class="lbl">Recomendado</span>
-          <h3>A · Recarga como isca comercial</h3>
-          <p>O motorista não paga pela energia. A loja absorve o custo como <strong>investimento de marketing</strong> e ganha no consumo dentro do estabelecimento.</p>
-          <p><strong>Por que vence:</strong></p>
-          <ul>
-            <li>O lojista <strong>não entra no negócio de energia</strong> — sem meio de pagamento, sem questão metrológica, sem imposto sobre venda de energia.</li>
-            <li>Marketing tem orçamento próprio, e é mais fácil aprovar <em>"R$ 8 de energia para trazer quem gasta R$ 120"</em> do que <em>"venda kWh com margem apertada"</em>.</li>
-            <li>Já existe precedente no varejo brasileiro — shoppings e supermercados oferecem recarga gratuita como atrativo.</li>
-            <li><strong>E o mais importante para nós:</strong> nesse modelo o software é <em>obrigatório</em>. Sem medir o retorno, o lojista não aprova o investimento. É o que faz a GoodWe vender software junto com o equipamento, em vez de só equipamento.</li>
-          </ul>
-          <p><strong>Com a mecânica que resolve o ponto fraco:</strong> cortesia condicionada — grátis até X kWh ou Y minutos mediante compra mínima, tarifa de ociosidade depois de cheio. Sem isso, a vaga vira estacionamento.</p>
-        </div>
-        <div class="card no">
-          <span class="lbl">Suportado, não recomendado como principal</span>
-          <h3>B · Pagamento por kWh com divisão</h3>
-          <p>O motorista paga; a receita se divide entre manutenção do sistema, GoodWe e lojista.</p>
-          <p><strong>Por que não é o carro-chefe:</strong></p>
-          <ul>
-            <li>Coloca o lojista para <strong>competir com Shell Recharge, EZVolt e Zletric</strong>, que já têm rede, app e base de motoristas.</li>
-            <li>Exige meio de pagamento, conciliação e nota fiscal — atrito que o varejista pequeno não quer.</li>
-            <li>Expõe ao problema metrológico documentado no Brasil: <strong>não há fiscalização sobre a energia efetivamente entregue</strong>, e cobrar sem isso é risco reputacional.</li>
-            <li>A margem é fina, e o software vira opcional — qualquer operadora já entrega o básico.</li>
-          </ul>
-          <p><strong>Mas fica no produto como modo configurável</strong>, porque há casos em que ele é o certo: estacionamento pago, posto de estrada, condomínio comercial sem loja associada.</p>
-        </div>
-      </div>
-
-      <div class="gap">
-        <div class="hd"><span class="num">→</span><h3>A decisão, em uma frase</h3></div>
-        <p><strong>Modelo A como padrão, B como modo. O produto é o mesmo; o que muda é a regra de cobrança.</strong></p>
-        <p>Construir os dois desde o começo custa pouco — uma tabela de regras por ponto de recarga — e evita a pergunta mais chata da banca: <em>"e se o cliente quiser cobrar?"</em>. A resposta vira "é uma configuração", em vez de "não pensamos nisso".</p>
-      </div>
-
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>Regra por ponto</th><th>Modelo A · isca</th><th>Modelo B · pago</th></tr></thead>
-          <tbody>
-            <tr><td>Preço do kWh</td><td class="num">R$ 0,00</td><td class="num">definido pelo lojista</td></tr>
-            <tr><td>Condição de cortesia</td><td>compra mínima no PDV</td><td>—</td></tr>
-            <tr><td>Limite de cortesia</td><td>kWh ou minutos</td><td>—</td></tr>
-            <tr><td>Tarifa de ociosidade</td><td>após cheio + tolerância</td><td>após cheio + tolerância</td></tr>
-            <tr><td>Divisão da receita</td><td>—</td><td>manutenção / GoodWe / lojista</td></tr>
-            <tr><td>O que o painel prova</td><td><strong>retorno em faturamento</strong></td><td>receita e margem</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= ARQUITETURA ================= -->
-  <section id="arquitetura">
-    <div class="shead">
-      <span class="lbl">Como é feito</span>
-      <h2>Arquitetura</h2>
-    </div>
-    <div class="stack">
-      <div class="grid3">
-        <div class="card">
-          <span class="lbl">Frente</span>
-          <h3>HTML, CSS e JavaScript</h3>
-          <p>Sem etapa de build, sem framework. Roda em qualquer hospedagem, inclusive GitHub Pages. Duas aplicações: <code>/dashboard</code> e <code>/kiosk</code>.</p>
-          <p>Decisão deliberada: na véspera da entrega, <strong>ninguém quer depurar build</strong>.</p>
-        </div>
-        <div class="card">
-          <span class="lbl">Trás</span>
-          <h3>Python + FastAPI</h3>
-          <p>A linguagem que o time já domina. Serve a API, executa os modelos de previsão e fala com o banco.</p>
-        </div>
-        <div class="card">
-          <span class="lbl">Dados</span>
-          <h3>MongoDB Atlas</h3>
-          <p>Documentos casam com sessões de recarga, que têm formato irregular. Plano gratuito: <strong>512 MB</strong> — suficiente, desde que a telemetria bruta não fique para sempre.</p>
-        </div>
-      </div>
-
-      <div class="gap">
-        <div class="hd"><span class="num">▣</span><h3>Como caber em 512 MB</h3></div>
-        <p>É pouco espaço, e a decisão de projeto tem que ser explícita agora, não quando o banco encher:</p>
+  <section>
+    <h3>O que a gente faz</h3>
+    <div class="screens">
+      <div class="screen">
+        <span class="tag">Para o dono da loja</span>
+        <h3 style="margin:0">Painel de controle</h3>
         <ul>
-          <li><strong>Sessões e vendas ficam para sempre.</strong> São poucos documentos e são o coração do produto.</li>
-          <li><strong>Telemetria bruta expira em 30 dias</strong>, por índice TTL do próprio MongoDB. Ninguém precisa da potência instantânea de seis meses atrás.</li>
-          <li><strong>Agregados diários ficam para sempre.</strong> Uma linha por ponto por dia — é o que alimenta os gráficos históricos.</li>
+          <li>Quanto a loja faturou com quem veio carregar</li>
+          <li>Quanto gastou de energia</li>
+          <li>Quem volta, quem gasta mais, em que horário</li>
+          <li>Aviso antes de estourar o contrato de energia</li>
+          <li>Qual ponto está com defeito ou com fila</li>
         </ul>
-        <p>Com isso, a estimativa é de <strong>menos de 50 MB por ano</strong> para uma loja com quatro pontos.</p>
       </div>
+      <div class="screen">
+        <span class="tag">Para o motorista</span>
+        <h3 style="margin:0">Telinha na vaga</h3>
+        <ul>
+          <li>Quanto falta para 80% e para encher</li>
+          <li>Quanto vai custar — ou "cortesia da casa"</li>
+          <li>Quantos quilômetros já entraram</li>
+          <li>QR para avisar no celular quando encher</li>
+        </ul>
+      </div>
+    </div>
+    <div class="body" style="margin-top:20px">
+      <p>A inteligência artificial entra aqui: ela é quem <strong>calcula o tempo e o preço</strong>. E não é detalhe — a conta que o mercado usa hoje erra feio.</p>
+    </div>
+  </section>
 
-      <div class="grid2">
-        <div class="card">
-          <span class="lbl">Nuvem ou local</span>
-          <h3>Fica na nuvem</h3>
-          <p>O painel precisa ser acessível de qualquer lugar — o lojista vai olhar no celular, em casa. Banco local só faria sentido se não houvesse internet na loja, e nesse caso o problema é outro.</p>
-          <p><strong>O que resolvemos por engenharia:</strong> o totem guarda a última previsão em cache e continua funcionando offline, e as sessões são enfileiradas localmente até a conexão voltar.</p>
-        </div>
-        <div class="card">
-          <span class="lbl">Segurança</span>
-          <h3>Nada de credencial no repositório</h3>
-          <p>Connection string, chaves de API e senhas ficam em variáveis de ambiente. O repositório carrega apenas <code>.env.example</code>, com os nomes e nenhum valor.</p>
-          <p>O <code>.gitignore</code> já bloqueia <code>.env</code>. Uma credencial commitada em repositório público é vazamento permanente, mesmo depois de removida.</p>
-        </div>
+  <section>
+    <h3>Como ganha dinheiro</h3>
+    <div class="body">
+      <p>O motorista <strong>não paga pela recarga</strong>. A loja banca a energia como quem banca um estacionamento grátis ou um cafezinho: é gasto de marketing para atrair gente que compra dentro.</p>
+    </div>
+    <div class="readout">
+      <div><span class="v">R$ 8</span><span class="k">o que a loja gasta de energia numa recarga</span></div>
+      <div><span class="v hi">R$ 120</span><span class="k">o que um cliente costuma gastar na visita</span></div>
+    </div>
+    <div class="body">
+      <p>É muito mais fácil um dono de loja aprovar isso do que virar vendedor de energia — o que exigiria maquininha, nota fiscal e competir com Shell e EZVolt, que já têm rede montada.</p>
+      <p><strong>Com uma regra para a vaga não virar estacionamento:</strong> grátis até certo ponto, e só para quem comprou algo. Depois que enche, começa a contar uma taxa por ficar parado.</p>
+    </div>
+    <div class="pull">
+      <p>E é aqui que o nosso software vira obrigatório: <strong>sem provar que dá retorno, nenhum dono aprova o investimento.</strong> É isso que faz a GoodWe vender software junto com o equipamento, em vez de só o equipamento.</p>
+    </div>
+    <div class="body" style="margin-top:16px">
+      <p>Quem preferir cobrar pode cobrar — é só mudar uma configuração no ponto. Serve para estacionamento pago e posto de estrada.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <div class="part"><span class="n">PARTE 2</span><h2>A parte técnica</h2></div>
+  <p class="part-note">Como funciona por dentro, os números e as decisões de projeto.</p>
+
+  <section>
+    <h3>A previsão de tempo</h3>
+    <div class="body">
+      <p>O mercado inteiro estima tempo de recarga dividindo energia por potência. Só que bateria não carrega em ritmo constante: perto do fim ela desacelera de propósito, para não se danificar.</p>
+      <p>Resultado da conta simples num caso comum — carro de 50 kWh num carregador de 7,4 kW:</p>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Carga atual</th><th>Até 80%</th><th>Até encher</th><th>Conta simples diz</th><th>Erro</th></tr></thead>
+        <tbody>
+          <tr><td class="num">10%</td><td class="num">5h26</td><td class="num">7h40</td><td class="num">6h59</td><td class="num" style="color:var(--accent)">41 min</td></tr>
+          <tr><td class="num">50%</td><td class="num">2h20</td><td class="num">4h33</td><td class="num">3h53</td><td class="num" style="color:var(--accent)">40 min</td></tr>
+          <tr><td class="num">85%</td><td class="num">—</td><td class="num">1h50</td><td class="num">1h10</td><td class="num" style="color:var(--accent)">40 min</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="body">
+      <p><strong>Quarenta minutos de erro</strong> — e sempre no fim, exatamente quando a pessoa está decidindo se espera ou vai embora.</p>
+      <p>Nosso modelo trata os dois ritmos da bateria e ajusta o ponto de virada conforme a velocidade da recarga. Num carregador lento de 7 kW a bateria só desacelera perto dos 92%. Num rápido de 100 kW ela já desacelera aos 58%. Tratar os dois igual era o erro da primeira versão — inflava a recarga lenta em duas horas.</p>
+      <p>A conta simples fica no código do lado, de propósito: <strong>toda comparação usa o mesmo programa</strong>, e o erro do modelo contra o que realmente aconteceu aparece no painel.</p>
+    </div>
+    <div class="pull">
+      <p>Achado de campo: o próprio SEMS+ da GoodWe estima autonomia como <code>kWh × 5</code> — a mesma constante para qualquer carro. <strong>É esse o número que a gente supera.</strong></p>
+    </div>
+  </section>
+
+  <section>
+    <h3>Como é construído</h3>
+    <div class="rows">
+      <div class="row">
+        <span class="n">Frente</span>
+        <span class="t">HTML, CSS e JavaScript puros</span>
+        <span class="d">Sem framework e sem etapa de build. Roda em qualquer hospedagem, inclusive GitHub Pages. Decisão deliberada: na véspera da entrega ninguém quer depurar build.</span>
+      </div>
+      <div class="row">
+        <span class="n">Trás</span>
+        <span class="t">Python com FastAPI</span>
+        <span class="d">Linguagem que o time já domina. Serve a API, roda a previsão e conversa com o banco.</span>
+      </div>
+      <div class="row">
+        <span class="n">Dados</span>
+        <span class="t">MongoDB Atlas</span>
+        <span class="d">Documento casa bem com sessão de recarga, que tem formato irregular. Fica na nuvem porque o dono vai querer olhar do celular, em casa.</span>
+      </div>
+      <div class="row">
+        <span class="n">Offline</span>
+        <span class="t">A telinha continua funcionando sem internet</span>
+        <span class="d">Guarda a última previsão e enfileira as sessões até a conexão voltar. Tela apagada ao lado da vaga é pior que nenhuma tela.</span>
       </div>
     </div>
   </section>
 
-  <!-- ================= ROADMAP ================= -->
-  <section id="roadmap">
-    <div class="shead">
-      <span class="lbl">Ordem de construção</span>
-      <h2>Roadmap</h2>
+  <section>
+    <h3>Cabendo em 512 MB</h3>
+    <div class="body">
+      <p>O plano gratuito do banco dá 512 MB. A regra de retenção foi decidida agora, e não quando o banco encher:</p>
     </div>
-    <div class="stack">
-      <ol>
-        <li><strong>Fase 1 — o contrato de dados.</strong> Modelar sessão, ponto, loja, venda e regra de cobrança no MongoDB. Sem isso as duas telas divergem.</li>
-        <li><strong>Fase 2 — o totem.</strong> É a tela mais simples e a mais impressionante em demonstração. Previsão física de tempo, custo em tempo real, promessa de horário.</li>
-        <li><strong>Fase 3 — o painel gerencial.</strong> Começar pela primeira dobra: retorno, sessões, ocupação. O resto vem depois.</li>
-        <li><strong>Fase 4 — a IA de verdade.</strong> Calibrar a curva com o dado do laboratório, medir o erro contra o baseline linear, mostrar o erro no painel.</li>
-        <li><strong>Fase 5 — as regras comerciais.</strong> Cortesia condicionada, tarifa de ociosidade, modo pago. É o que torna o modelo de negócio configurável.</li>
-        <li><strong>Fase 6 — os alertas.</strong> Demanda contratada, ponto fora do ar, consumo anômalo.</li>
-      </ol>
-      <p class="note">A ordem é deliberada: cada fase entrega algo demonstrável sozinho. Se o tempo acabar na fase 3, ainda existe um produto que se apresenta.</p>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>O quê</th><th>Por quanto tempo</th><th>Por quê</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Sessões e vendas</strong></td><td class="num">para sempre</td><td>São poucos e são o produto</td></tr>
+          <tr><td><strong>Leitura instantânea</strong></td><td class="num">30 dias</td><td>Ninguém precisa da potência de seis meses atrás</td></tr>
+          <tr><td><strong>Resumo por dia</strong></td><td class="num">para sempre</td><td>Uma linha por ponto por dia, alimenta o histórico</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="body">
+      <p>O apagamento é automático, feito pelo próprio banco. Estimativa: <strong>menos de 50 MB por ano</strong> numa loja com quatro pontos.</p>
     </div>
   </section>
 
-  <!-- ================= HERANÇA ================= -->
-  <section id="heranca">
-    <div class="shead">
-      <span class="lbl">Continuidade</span>
-      <h2>O que sobrevive da fase anterior</h2>
+  <section>
+    <h3>O mercado</h3>
+    <div class="readout">
+      <div><span class="v">21.061</span><span class="k">pontos de recarga no Brasil</span></div>
+      <div><span class="v hi">19,6</span><span class="k">carros disputando cada ponto</span></div>
+      <div><span class="v">R$ 0,789</span><span class="k">preço do kWh · Enel SP</span></div>
+      <div><span class="v">615 mil</span><span class="k">carros eletrificados rodando</span></div>
     </div>
-    <div class="stack">
-      <p class="col">A mudança de alvo — de residencial para comércio — aposenta menos coisa do que parece. Quase toda a fundação continua valendo:</p>
-      <div class="grid2">
-        <div class="card">
-          <span class="lbl">Continua valendo</span>
-          <h3>Fundação preservada</h3>
-          <ul>
-            <li><strong>A análise da GoodWe</strong> — estratégia, portfólio, movimentos de 2025–2026, o eixo "Fonte–Rede–Carga–Armazenamento–Inteligência".</li>
-            <li><strong>A tarifa brasileira</strong> — R$ 0,789/kWh homologado, tarifa branca, Fio B. O comércio tem estrutura tarifária mais complexa, não menos.</li>
-            <li><strong>O dado medido do laboratório</strong> — 18 sessões, série de 5 minutos, curva de SOC. Vira material de calibração da curva de recarga.</li>
-            <li><strong>O achado do <span class="mono">kWh × 5</span></strong> — agora é o baseline que a nossa previsão precisa bater.</li>
-            <li><strong>O otimizador de demanda</strong> — vira o motor do alerta de demanda contratada, que no Grupo A vale mais que no residencial.</li>
-          </ul>
-        </div>
-        <div class="card">
-          <span class="lbl">Fica de fora</span>
-          <h3>O que sai de cena</h3>
-          <ul>
-            <li>O enquadramento de condomínio residencial e a narrativa do "maestro" doméstico.</li>
-            <li>A ênfase em autoconsumo solar como argumento principal — no comércio ela vira um detalhe do custo, não a tese.</li>
-            <li>O painel local em Python puro, substituído pela aplicação web hospedada.</li>
-          </ul>
-          <p class="note" style="margin-top:8px">Nada disso é desperdício: é o trabalho de campo que produziu o entendimento do produto da GoodWe. O dossiê anterior continua como anexo de pesquisa.</p>
-        </div>
-      </div>
+    <div class="body">
+      <p>Operar rede pública já está tomado: Shell Recharge, EZVolt, Zletric, Enel X, e a WEG comprou o controle da Tupinambá em 2025. <strong>Entrar por ali é chegar tarde.</strong> A GoodWe está dentro do imóvel do cliente, e é lá que está aberto.</p>
+      <p>A favor: pela regra da ANEEL, <strong>qualquer pessoa pode vender ou dar recarga livremente</strong>, sem concessão e com preço livre. O modelo de negócio é escolha de produto, não limite jurídico.</p>
     </div>
+  </section>
+
+  <section>
+    <h3>Ordem de construção</h3>
+    <ol class="plain">
+      <li><strong>O contrato de dados.</strong> Modelar loja, ponto, sessão, venda e regra de cobrança. Sem isso as duas telas divergem.</li>
+      <li><strong>A telinha da vaga.</strong> É a mais simples e a que mais impressiona em demonstração.</li>
+      <li><strong>O painel do dono.</strong> Começar pela primeira tela: retorno, sessões, ocupação.</li>
+      <li><strong>A previsão de verdade.</strong> Calibrar com o dado medido no laboratório e mostrar o erro no painel.</li>
+      <li><strong>As regras comerciais.</strong> Cortesia condicionada, taxa de ociosidade, modo pago.</li>
+      <li><strong>Os avisos.</strong> Contrato de energia, ponto fora do ar, consumo estranho.</li>
+    </ol>
+    <div class="body" style="margin-top:16px">
+      <p>Cada etapa entrega algo que se apresenta sozinho. Se o tempo acabar na terceira, ainda existe produto.</p>
+    </div>
+  </section>
+
+  <section>
+    <h3>Regras que não quebramos</h3>
+    <ul class="plain">
+      <li><strong>Nada é treinado com dado que a gente inventou.</strong> Dado simulado serve para testar o sistema, nunca para afirmar precisão.</li>
+      <li><strong>Todo número tem comparação ao lado.</strong> "Melhoramos" só existe em relação a alguma coisa.</li>
+      <li><strong>O erro do modelo aparece no produto.</strong> Sistema que mostra o próprio erro é o oposto de caixa-preta.</li>
+      <li><strong>Nenhuma senha no repositório.</strong> Tudo vem de variável de ambiente.</li>
+    </ul>
   </section>
 
   <footer>
-    Challenge FIAP · GoodWe 2026 · repositório <code>Vitormk1/challange</code><br>
-    Dados de mercado: ABVE 2026 · Tarifa: Resolução Homologatória ANEEL nº 3.596/2026, Enel Distribuição São Paulo, classe B1 · Regulação de recarga: REN ANEEL 819/2018 · Medições: LAB FIAP Eco Smart Home, plataforma SEMS+.
+    <span class="tag">Fontes</span>
+    <span>Mercado: ABVE, 2026 · Tarifa: Resolução ANEEL nº 3.596/2026, Enel São Paulo, classe B1 · Recarga: REN ANEEL 819/2018 · Medições de campo: laboratório Eco Smart Home da FIAP, plataforma SEMS+ da GoodWe.</span>
+    <span style="margin-top:10px">Repositório <a href="https://github.com/Vitormk1/challange">Vitormk1/challange</a></span>
   </footer>
 
 </div>
