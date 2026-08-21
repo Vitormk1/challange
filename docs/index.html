@@ -227,12 +227,35 @@
       <p>O motorista <strong>não paga pela recarga</strong>. A loja banca a energia como quem banca um estacionamento grátis ou um cafezinho: é gasto de marketing para atrair gente que compra dentro.</p>
     </div>
     <div class="readout">
-      <div><span class="v">R$ 8</span><span class="k">o que a loja gasta de energia numa recarga</span></div>
+      <div><span class="v">R$ 3,59</span><span class="k">energia de uma visita típica de 45 min</span></div>
       <div><span class="v hi">R$ 120</span><span class="k">o que um cliente costuma gastar na visita</span></div>
     </div>
     <div class="body">
       <p>É muito mais fácil um dono de loja aprovar isso do que virar vendedor de energia — o que exigiria maquininha, nota fiscal e competir com Shell e EZVolt, que já têm rede montada.</p>
-      <p><strong>Com uma regra para a vaga não virar estacionamento:</strong> grátis até certo ponto, e só para quem comprou algo. Depois que enche, começa a contar uma taxa por ficar parado.</p>
+      <p><strong>Com uma regra para a vaga não virar estacionamento:</strong> a cortesia vale por tempo, só para quem comprou algo, e depois que o carro enche começa a contar uma taxa por ficar parado.</p>
+    </div>
+
+    <h3 style="margin-top:34px">Mas isso carrega o carro de verdade?</h3>
+    <div class="body">
+      <p>É a pergunta certa — não adianta a pessoa parar na loja, gastar dinheiro e sair com quase nada na bateria. Fomos atrás dos números.</p>
+      <p>Uma visita a supermercado no Brasil dura <strong>30 a 45 minutos</strong>. Num ponto comum, é isso que entra:</p>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Carro</th><th>Bateria</th><th>Em 30 min</th><th>Em 45 min</th><th>No teto de 2h</th></tr></thead>
+        <tbody>
+          <tr><td><strong>BYD Dolphin Mini</strong><br><span style="font-size:.82em;color:var(--ink-3)">o mais vendido do país</span></td><td class="num">30 kWh</td><td class="num">32 km</td><td class="num">47 km</td><td class="num">126 km</td></tr>
+          <tr><td><strong>BYD Dolphin</strong></td><td class="num">45 kWh</td><td class="num">24 km</td><td class="num">36 km</td><td class="num">95 km</td></tr>
+          <tr><td><strong>GWM Ora 03</strong></td><td class="num">48 kWh</td><td class="num">17 km</td><td class="num">25 km</td><td class="num">67 km</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pull">
+      <p>Uma ida ao mercado devolve <strong>de 17 a 47 quilômetros</strong>. Para quem roda na cidade, isso é o dia inteiro — e custa <strong>R$ 3,59</strong> para a loja.</p>
+    </div>
+    <div class="body" style="margin-top:16px">
+      <p>Por isso a cortesia é medida <strong>em tempo, não em energia</strong>. Um teto em kWh nunca seria atingido: para levar 25 kWh a pessoa teria de ficar mais de três horas parada na loja. "Grátis enquanto você faz compras, até 2 horas" é o limite real — e é o que qualquer um entende sem explicação.</p>
+      <p>E a tela fala em quilômetros, não em kWh. <em>"Em meia hora são uns 32 km"</em> diz alguma coisa. <em>"3,04 kWh"</em> não diz nada.</p>
     </div>
     <div class="pull">
       <p>E é aqui que o nosso software vira obrigatório: <strong>sem provar que dá retorno, nenhum dono aprova o investimento.</strong> É isso que faz a GoodWe vender software junto com o equipamento, em vez de só o equipamento.</p>
@@ -309,6 +332,16 @@
       <p><a href="vaga/">Abrir a telinha →</a> &nbsp; <a href="vaga/?full=1">em tela cheia →</a><br>
       <span style="font-size:.86rem;color:var(--ink-3)">O cenário muda pela barra de endereço:<br>
       <code>vaga/?soc=0.55&amp;modo=pago&amp;ponto=22</code> — carro em 55%, cobrança por kWh, ponto de 22 kW.</span></p>
+    </div>
+  </section>
+
+  <section>
+    <h3>Um ponto mais potente não adianta</h3>
+    <div class="body">
+      <p>A reação natural do lojista, ao ver que em 45 minutos entram só 5 kWh, é querer um carregador mais forte. <strong>Na maioria dos casos é dinheiro jogado fora.</strong></p>
+      <p>Quem limita a velocidade não é o ponto da loja, é o <strong>carregador que vem dentro do carro</strong>. Os elétricos de entrada — justamente os que o Brasil compra — aceitam por volta de 6,6 kW em corrente alternada. Instalar um ponto de 22 kW não entrega nada a mais para eles.</p>
+      <p>Entregar mais rápido exige <strong>corrente contínua</strong>, que custa uma ordem de grandeza a mais em equipamento e em obra elétrica — e só se paga em posto de estrada, onde a pessoa está de passagem e o tempo é o produto.</p>
+      <p>Para o comércio de bairro, a conta certa é a oposta: <strong>duas vagas de 7,4 kW rendem mais que uma de 22 kW</strong>, porque atendem dois clientes ao mesmo tempo. É esse tipo de resposta que o painel do dono precisa dar.</p>
     </div>
   </section>
 
@@ -403,7 +436,7 @@
 
   <footer>
     <span class="tag">Fontes</span>
-    <span>Mercado: ABVE, 2026 · Tarifa: Resolução ANEEL nº 3.596/2026, Enel São Paulo, classe B1 · Recarga: REN ANEEL 819/2018 · Medições de campo: laboratório Eco Smart Home da FIAP, plataforma SEMS+ da GoodWe.</span>
+    <span>Mercado: ABVE, 2026 · Tarifa: Resolução ANEEL nº 3.596/2026, Enel São Paulo, classe B1 · Recarga: REN ANEEL 819/2018 · Vendas e fichas técnicas dos veículos: CNN Brasil e fabricantes, 1º semestre de 2026 · Tempo de permanência em supermercado: estudos Popai Brasil e Hubert · Medições de campo: laboratório Eco Smart Home da FIAP, plataforma SEMS+ da GoodWe.</span>
     <span style="margin-top:10px">Repositório <a href="https://github.com/Vitormk1/challange">Vitormk1/challange</a></span>
   </footer>
 

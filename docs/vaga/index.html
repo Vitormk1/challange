@@ -202,21 +202,32 @@
 const P = new URLSearchParams(location.search);
 if (P.get('full') === '1') document.documentElement.classList.add('full');
 
+/* Padroes calibrados no carro que o Brasil mais compra: BYD Dolphin Mini,
+   35.681 unidades no primeiro semestre de 2026. Bateria de 30 kWh, carregador
+   de bordo de 6,6 kW, consumo de ~10,4 km/kWh.
+
+   O carregador de bordo do carro e o gargalo, nao o ponto da loja: colocar um
+   ponto CA de 22 kW nao entrega mais rapido para um carro que so aceita 6,6. */
 const cfg = {
   spot:      P.get('vaga')  || 'Vaga 1',
   store:     P.get('loja')  || 'Mercado Bom Preço',
-  batteryKwh:+(P.get('bateria')  || 50),
-  onboardKw: +(P.get('carro')    || 7),
+  batteryKwh:+(P.get('bateria')  || 30),
+  onboardKw: +(P.get('carro')    || 6.6),
   maxKw:     +(P.get('ponto')    || 7.4),
   eff:        0.92,
   tailRatio:  0.15,
-  soc:       +(P.get('soc')      || 0.22),
+  soc:       +(P.get('soc')      || 0.30),
   mode:       P.get('modo')  || 'cortesia',    // cortesia | pago
   priceKwh:  +(P.get('preco')    || 0.95),
-  freeKwh:   +(P.get('gratis')   || 25),       // teto da cortesia
+  /* A cortesia e limitada por TEMPO, nao por energia. Um teto em kWh nunca
+     seria alcancado: para levar 25 kWh num ponto de 7,4 kW a pessoa teria de
+     ficar 3h22 na loja, e a visita media a um supermercado brasileiro dura
+     30 a 45 minutos. Tempo, alem de ser o limite real, e o que o cliente
+     entende sem precisar de explicacao. */
+  freeMin:   +(P.get('gratis')   || 120),      // minutos de recarga por cortesia
   idleFee:   +(P.get('ocioso')   || 0.20),     // R$ por minuto de vaga ocupada
   graceMin:  +(P.get('carencia') || 15),
-  kmPerKwh:  +(P.get('kmkwh')    || 5.6),
+  kmPerKwh:  +(P.get('kmkwh')    || 10.4),
   speed:     +(P.get('speed')    || 180),      // 1 = tempo real
 };
 
@@ -257,8 +268,11 @@ function relative(hours){
 
 const start = cfg.soc;
 let soc = cfg.soc;
-let idleMinutes = 0;
+let chargingMinutes = 0;   // quanto tempo de cortesia ja foi usado
+let idleMinutes = 0;       // quanto tempo a vaga ficou ocupada depois de cheia
 let last = performance.now();
+
+const freeOver = () => cfg.mode === 'cortesia' && chargingMinutes >= cfg.freeMin;
 
 const $ = id => document.getElementById(id);
 $('spot').textContent  = cfg.spot;
@@ -295,11 +309,17 @@ function renderCost(deliveredKwh, isFull){
     value.textContent = 'Nada a pagar';
     value.className = 'v free';
     note.textContent = `vaga livre por mais ${Math.max(0, Math.ceil(cfg.graceMin - idleMinutes))} min`;
+  } else if (freeOver()){
+    label.textContent = 'Cortesia encerrada';
+    value.textContent = 'Recarga pausada';
+    value.className = 'v amber';
+    note.textContent = 'fale no caixa para liberar mais tempo';
   } else {
+    const left = Math.max(0, cfg.freeMin - chargingMinutes);
     label.textContent = 'Custo';
     value.textContent = 'Cortesia da casa';
     value.className = 'v free';
-    note.textContent = `grátis até ${cfg.freeKwh} kWh com sua compra`;
+    note.textContent = `grátis por mais ${relative(left / 60).replace('em ', '')} com sua compra`;
   }
 }
 
@@ -328,20 +348,33 @@ function render(){
 
   renderCost(delivered, isFull);
 
-  $('stateText').textContent = isFull ? 'Completo' : 'Carregando';
-  $('hint').textContent = isFull
-    ? 'Carro cheio. Pode liberar a vaga para o próximo.'
-    : 'Pode ir às compras. A gente avisa quando encher.';
+  const paused = freeOver() && !isFull;
+  $('stateText').textContent = isFull ? 'Completo' : paused ? 'Pausado' : 'Carregando';
+
+  /* A mensagem fala em quilometros, nao em kWh: e o que a pessoa entende e
+     e o que faz a oferta parecer o que ela e. Numa visita de 45 minutos um
+     Dolphin Mini leva cerca de 47 km — um dia inteiro de rodagem urbana. */
+  if (isFull){
+    $('hint').textContent = 'Carro cheio. Pode liberar a vaga para o próximo.';
+  } else if (paused){
+    $('hint').textContent = 'Tempo de cortesia encerrado. Passe no caixa para continuar.';
+  } else {
+    const km30 = Math.round(powerAt(soc) * 0.5 * cfg.kmPerKwh);
+    $('hint').textContent = `Pode ir às compras — em meia hora são uns ${km30} km. A gente avisa quando encher.`;
+  }
 }
 
 function tick(t){
   const dt = (t - last) / 1000;
   last = t;
   const simMinutes = dt * cfg.speed / 60;
-  if (soc < 0.995){
-    soc = Math.min(0.999, soc + (powerAt(soc) * (simMinutes / 60)) / cfg.batteryKwh);
-  } else {
+  if (soc >= 0.995){
     idleMinutes += simMinutes;
+  } else if (freeOver()){
+    // cortesia acabou: a recarga pausa. Ninguem precisa pagar nada por isso.
+  } else {
+    chargingMinutes += simMinutes;
+    soc = Math.min(0.999, soc + (powerAt(soc) * (simMinutes / 60)) / cfg.batteryKwh);
   }
   render();
   requestAnimationFrame(tick);
