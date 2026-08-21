@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Praça de Recarga — Vaga</title>
+<meta name="description" content="Telinha ao lado do carregador: tempo e custo previstos em tempo real.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@300;400;600;700&display=swap">
+<style>
+  /* A telinha fica numa parede, ao lado da vaga. Escura sempre: e um
+     equipamento, nao um documento. Tudo dimensionado para leitura a 3 metros. */
+  :root{
+    --ground:#08090B;
+    --panel:#0F1114;
+    --ink:#F2F3F5;
+    --ink-2:#A2A8AE;
+    --ink-3:#666D74;
+    --rule:#1B1F23;
+    --amber:#FFB020;
+    --done:#5BD08A;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--ground);color:var(--ink);
+    font-family:"Sora",system-ui,sans-serif;font-weight:300;
+    display:flex;flex-direction:column;overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+
+  /* ---------- topo ---------- */
+  header{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:2.2vh 3vw;border-bottom:1px solid var(--rule);flex-shrink:0;
+  }
+  .who{display:flex;align-items:baseline;gap:1.4vw}
+  .who .spot{font-size:clamp(1rem,2.2vw,1.6rem);font-weight:600;letter-spacing:-.02em}
+  .who .store{font-size:clamp(.65rem,1.1vw,.85rem);color:var(--ink-3);letter-spacing:.16em;text-transform:uppercase;font-family:"JetBrains Mono",monospace}
+  .state{display:flex;align-items:center;gap:.8vw}
+  .dot{width:.9vw;height:.9vw;min-width:9px;min-height:9px;border-radius:50%;background:var(--amber)}
+  .dot.pulse{animation:pulse 1.9s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .state span{
+    font-family:"JetBrains Mono",monospace;font-size:clamp(.68rem,1.2vw,.95rem);
+    font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--amber);
+  }
+  .done .dot{background:var(--done);animation:none}
+  .done span{color:var(--done)}
+
+  /* ---------- centro ---------- */
+  main{flex:1;display:flex;flex-direction:column;justify-content:center;gap:3vh;padding:2vh 3vw;min-height:0}
+  .charge{display:flex;align-items:baseline;gap:1.5vw;line-height:.85}
+  .charge .pct{
+    font-family:"JetBrains Mono",monospace;font-weight:700;
+    font-size:clamp(5rem,26vw,18rem);letter-spacing:-.06em;
+  }
+  .charge .sign{font-family:"JetBrains Mono",monospace;font-weight:400;font-size:clamp(2rem,8vw,6rem);color:var(--ink-3)}
+  .charge .now{margin-left:auto;text-align:right;display:flex;flex-direction:column;gap:.6vh}
+  .charge .now b{font-family:"JetBrains Mono",monospace;font-size:clamp(1.1rem,3.4vw,2.4rem);font-weight:500;letter-spacing:-.02em}
+  .charge .now i{font-style:normal;font-size:clamp(.6rem,1.1vw,.82rem);color:var(--ink-3);letter-spacing:.16em;text-transform:uppercase;font-family:"JetBrains Mono",monospace}
+
+  .bar{height:.9vh;min-height:6px;background:var(--rule);position:relative;overflow:hidden}
+  .bar i{position:absolute;inset:0 auto 0 0;background:var(--amber);width:0;transition:width .6s ease}
+  .bar u{position:absolute;top:0;bottom:0;width:1px;background:var(--ink-3);opacity:.7}
+
+  /* ---------- as três respostas ---------- */
+  .answers{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule);border-top:1px solid var(--rule);flex-shrink:0}
+  .answers div{background:var(--ground);padding:2.6vh 3vw;display:flex;flex-direction:column;gap:1vh}
+  .answers .k{font-family:"JetBrains Mono",monospace;font-size:clamp(.6rem,1.1vw,.82rem);letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3)}
+  .answers .v{font-family:"JetBrains Mono",monospace;font-size:clamp(1.3rem,4.2vw,3rem);font-weight:700;letter-spacing:-.04em;line-height:1}
+  .answers .v.amber{color:var(--amber)}
+  .answers .v.free{color:var(--done);font-size:clamp(1rem,3vw,2.1rem)}
+  .answers .s{font-size:clamp(.62rem,1.1vw,.85rem);color:var(--ink-2)}
+  @media (max-width:640px){.answers{grid-template-columns:1fr;}.answers div{padding:1.8vh 5vw}}
+
+  footer{
+    display:flex;justify-content:space-between;align-items:center;gap:2vw;
+    padding:1.8vh 3vw;border-top:1px solid var(--rule);flex-shrink:0;
+    font-size:clamp(.62rem,1.1vw,.8rem);color:var(--ink-3);
+  }
+  footer .qr{display:flex;align-items:center;gap:1vw}
+  footer .qr svg{width:clamp(30px,4vw,46px);height:auto}
+  @media (prefers-reduced-motion:reduce){.dot.pulse{animation:none}.bar i{transition:none}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="who">
+    <span class="spot" id="spot">Vaga 1</span>
+    <span class="store" id="store">Mercado Bom Preço</span>
+  </div>
+  <div class="state" id="state">
+    <span class="dot pulse"></span><span id="stateText">Carregando</span>
+  </div>
+</header>
+
+<main>
+  <div class="charge">
+    <span class="pct mono" id="pct">--</span><span class="sign">%</span>
+    <div class="now">
+      <b class="mono" id="kwh">0,0 kWh</b><i>entregue</i>
+      <b class="mono" id="km">0 km</b><i>de autonomia</i>
+    </div>
+  </div>
+  <div class="bar"><i id="fill"></i><u id="mark80"></u></div>
+</main>
+
+<div class="answers">
+  <div>
+    <span class="k">80% às</span>
+    <span class="v amber" id="t80">--:--</span>
+    <span class="s" id="t80rel">calculando</span>
+  </div>
+  <div>
+    <span class="k">Cheio às</span>
+    <span class="v" id="t100">--:--</span>
+    <span class="s" id="t100rel">calculando</span>
+  </div>
+  <div>
+    <span class="k" id="costLabel">Você vai pagar</span>
+    <span class="v" id="cost">--</span>
+    <span class="s" id="costNote"></span>
+  </div>
+</div>
+
+<footer>
+  <span id="hint">Pode ir às compras. A gente avisa quando encher.</span>
+  <span class="qr">
+    <svg viewBox="0 0 21 21" shape-rendering="crispEdges" aria-hidden="true">
+      <rect width="21" height="21" fill="#08090B"/>
+      <g fill="#666D74">
+        <rect x="1" y="1" width="5" height="5"/><rect x="2" y="2" width="3" height="3" fill="#08090B"/>
+        <rect x="15" y="1" width="5" height="5"/><rect x="16" y="2" width="3" height="3" fill="#08090B"/>
+        <rect x="1" y="15" width="5" height="5"/><rect x="2" y="16" width="3" height="3" fill="#08090B"/>
+        <rect x="8" y="1" width="1" height="1"/><rect x="10" y="2" width="1" height="1"/>
+        <rect x="9" y="4" width="1" height="1"/><rect x="11" y="5" width="1" height="1"/>
+        <rect x="1" y="8" width="1" height="1"/><rect x="3" y="9" width="1" height="1"/>
+        <rect x="5" y="11" width="1" height="1"/><rect x="8" y="8" width="2" height="2"/>
+        <rect x="12" y="9" width="1" height="1"/><rect x="14" y="11" width="1" height="1"/>
+        <rect x="9" y="13" width="1" height="1"/><rect x="11" y="15" width="1" height="1"/>
+        <rect x="16" y="8" width="1" height="1"/><rect x="18" y="10" width="1" height="1"/>
+        <rect x="13" y="17" width="1" height="1"/><rect x="16" y="14" width="2" height="2"/>
+      </g>
+    </svg>
+    <span>Acompanhe no celular</span>
+  </span>
+</footer>
+
+<script>
+/* ------------------------------------------------------------------
+   Curva de recarga — espelha ai/charge_curve.py.
+
+   A conta roda AQUI, no navegador da telinha, de propósito: quando a
+   internet cai, a tela continua funcionando. Tela apagada ao lado da
+   vaga é pior que nenhuma tela.
+------------------------------------------------------------------ */
+const P = new URLSearchParams(location.search);
+const cfg = {
+  spot:      P.get('vaga')   || 'Vaga 1',
+  store:     P.get('loja')   || 'Mercado Bom Preço',
+  batteryKwh:+(P.get('bateria') || 50),
+  onboardKw: +(P.get('carro')   || 7),
+  maxKw:     +(P.get('ponto')   || 7.4),
+  eff:        0.92,
+  tailRatio:  0.15,
+  soc:       +(P.get('soc')     || 0.22),
+  mode:       P.get('modo')  || 'cortesia',   // cortesia | pago
+  priceKwh:  +(P.get('preco')   || 0.95),
+  freeKwh:   +(P.get('gratis')  || 12),
+  kmPerKwh:  +(P.get('kmkwh')   || 5.6),
+  speed:     +(P.get('speed')   || 180),      // 1 = tempo real
+};
+
+const ceilingKw = () => Math.min(cfg.onboardKw, cfg.maxKw) * cfg.eff;
+
+/* Onde a bateria começa a desacelerar. Depende da velocidade da recarga:
+   num ponto lento ela segura quase até o fim; num rápido corta bem antes. */
+function knee(){
+  const cRate = ceilingKw() / Math.max(1e-6, cfg.batteryKwh);
+  return Math.max(0.55, Math.min(0.95, 0.95 - 0.20 * cRate));
+}
+function powerAt(soc){
+  const ceil = ceilingKw(), k = knee();
+  if (soc <= k) return ceil;
+  return ceil * (1 - (1 - cfg.tailRatio) * ((soc - k) / (1 - k)));
+}
+function hoursTo(from, to){
+  if (to <= from) return 0;
+  to = Math.min(to, 0.999);
+  let h = 0, s = from;
+  while (s < to){
+    const step = Math.min(0.001, to - s);
+    h += (cfg.batteryKwh * step) / powerAt(s + step / 2);
+    s += step;
+  }
+  return h;
+}
+
+/* ---------- formatação ---------- */
+const brl = v => v.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+const clock = d => d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+function relative(hours){
+  if (hours <= 0) return 'agora';
+  const m = Math.round(hours * 60);
+  if (m < 60) return `em ${m} min`;
+  const h = Math.floor(m / 60), r = m % 60;
+  return r ? `em ${h}h${String(r).padStart(2,'0')}` : `em ${h}h`;
+}
+
+/* ---------- estado ---------- */
+const start = cfg.soc;
+let soc = cfg.soc;
+let last = performance.now();
+
+const $ = id => document.getElementById(id);
+$('spot').textContent  = cfg.spot;
+$('store').textContent = cfg.store;
+$('mark80').style.left = '80%';
+
+function render(){
+  const full = soc >= 0.995;
+  const delivered = Math.max(0, (soc - start) * cfg.batteryKwh);
+
+  $('pct').textContent = Math.floor(soc * 100);
+  $('fill').style.width = (soc * 100) + '%';
+  $('kwh').textContent = delivered.toFixed(1).replace('.', ',') + ' kWh';
+  $('km').textContent  = Math.round(delivered * cfg.kmPerKwh) + ' km';
+
+  const now = new Date();
+  const h80  = hoursTo(soc, 0.80);
+  const h100 = hoursTo(soc, 1.00);
+
+  if (soc >= 0.80){
+    $('t80').textContent = 'ok';
+    $('t80rel').textContent = 'já passou';
+  } else {
+    $('t80').textContent = clock(new Date(now.getTime() + h80 * 3600e3));
+    $('t80rel').textContent = relative(h80);
+  }
+  $('t100').textContent = full ? 'ok' : clock(new Date(now.getTime() + h100 * 3600e3));
+  $('t100rel').textContent = full ? 'completo' : relative(h100);
+
+  /* custo previsto ao terminar, não o custo até agora — é o que a pessoa
+     precisa saber para decidir se espera */
+  const totalKwh = delivered + Math.max(0, (1 - soc) * cfg.batteryKwh);
+  if (cfg.mode === 'cortesia'){
+    const excess = Math.max(0, totalKwh - cfg.freeKwh);
+    $('costLabel').textContent = 'Você vai pagar';
+    if (excess <= 0){
+      $('cost').textContent = 'Cortesia';
+      $('cost').className = 'v free';
+      $('costNote').textContent = `grátis até ${cfg.freeKwh} kWh na compra`;
+    } else {
+      $('cost').textContent = brl(excess * cfg.priceKwh);
+      $('cost').className = 'v amber';
+      $('costNote').textContent = `${cfg.freeKwh} kWh de cortesia já usados`;
+    }
+  } else {
+    $('costLabel').textContent = 'Você vai pagar';
+    $('cost').textContent = brl(totalKwh * cfg.priceKwh);
+    $('cost').className = 'v amber';
+    $('costNote').textContent = `${brl(cfg.priceKwh)} por kWh`;
+  }
+
+  const state = $('state');
+  if (full){
+    state.classList.add('done');
+    $('stateText').textContent = 'Completo';
+    $('hint').textContent = 'Carro cheio. Pode liberar a vaga para o próximo.';
+  } else {
+    $('stateText').textContent = 'Carregando';
+  }
+}
+
+function tick(t){
+  const dt = (t - last) / 1000;          // segundos reais
+  last = t;
+  if (soc < 0.999){
+    const hours = (dt * cfg.speed) / 3600;
+    soc = Math.min(0.999, soc + (powerAt(soc) * hours) / cfg.batteryKwh);
+  }
+  render();
+  requestAnimationFrame(tick);
+}
+
+render();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

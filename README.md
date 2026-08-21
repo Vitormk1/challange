@@ -10,18 +10,24 @@ Recarga de veículos elétricos **como ativo comercial**. Dois produtos, um sist
 > O lojista não quer vender energia. Quer saber se o carregador na frente da loja
 > traz cliente. Hoje nenhum painel do mercado responde isso.
 
-**Dossiê completo:** [`docs/index.html`](docs/index.html) — abre no navegador, ou
-publique com GitHub Pages e acesse em `<seu-endereço>/challange/`.
+**Dossiê:** [`docs/index.html`](docs/index.html) · **Telinha da vaga:** [`docs/vaga/`](docs/vaga/)
+
+Publique com GitHub Pages (Settings → Pages → branch `main`, pasta `/docs`) e
+acesse em `vitormk1.github.io/challange/`.
+
+> O GitHub Pages só publica arquivo estático — não executa Python. As telas
+> funcionam ali sozinhas, com dado de demonstração. O servidor da API precisa de
+> outra hospedagem quando entrar.
 
 ---
 
 ## Estrutura
 
 ```
-docs/          o dossiê do projeto (página hospedável)
-web/
-  dashboard/   painel gerencial do lojista
-  kiosk/       totem ao lado do carregador
+docs/
+  index.html   o dossiê do projeto
+  vaga/        a telinha ao lado do carregador  (pronta)
+  painel/      o painel do lojista              (a fazer)
 api/
   models.py    o contrato de dados — sessão, ponto, loja, venda, agregado
   db.py        conexão com MongoDB, índices e relatório de armazenamento

@@ -211,8 +211,9 @@
         </ul>
       </div>
     </div>
-    <div class="body" style="margin-top:20px">
-      <p>A inteligência artificial entra aqui: ela é quem <strong>calcula o tempo e o preço</strong>. E não é detalhe — a conta que o mercado usa hoje erra feio.</p>
+    <div class="body" style="margin-top:22px">
+      <p><strong>A inteligência artificial é o que faz as duas telas funcionarem.</strong> Ela prevê três coisas: quanto tempo falta para o carro encher, quanto a recarga vai custar no fim, e quanto movimento a loja deve ter nas próximas horas.</p>
+      <p>Sem a primeira, a telinha não tem o que mostrar. Sem a terceira, o painel não consegue avisar o dono antes de um problema acontecer. E não é detalhe: <strong>a conta que o mercado usa hoje erra por volta de 40 minutos</strong> — sempre no fim, bem na hora em que a pessoa decide se espera ou vai embora.</p>
     </div>
   </section>
 
@@ -242,10 +243,36 @@
   <p class="part-note">Como funciona por dentro, os números e as decisões de projeto.</p>
 
   <section>
-    <h3>A previsão de tempo</h3>
+    <h3>A inteligência artificial</h3>
     <div class="body">
-      <p>O mercado inteiro estima tempo de recarga dividindo energia por potência. Só que bateria não carrega em ritmo constante: perto do fim ela desacelera de propósito, para não se danificar.</p>
-      <p>Resultado da conta simples num caso comum — carro de 50 kWh num carregador de 7,4 kW:</p>
+      <p>Ela é o motor do produto, não um enfeite. São três previsões, e cada uma sustenta uma tela:</p>
+    </div>
+    <div class="rows">
+      <div class="row">
+        <span class="n">Previsão 1 · a principal</span>
+        <span class="t">Quanto tempo falta</span>
+        <span class="d">Para chegar a 80% e para encher. É o que aparece na telinha da vaga e é o que faz a pessoa decidir entrar na loja em vez de esperar no carro.</span>
+      </div>
+      <div class="row">
+        <span class="n">Previsão 2</span>
+        <span class="t">Quanto vai custar</span>
+        <span class="d">O preço no fim da recarga, não o gasto até agora — porque é o número final que a pessoa precisa para decidir. Depende de quanta energia ainda falta e da regra da loja.</span>
+      </div>
+      <div class="row">
+        <span class="n">Previsão 3</span>
+        <span class="t">Quanto movimento vem</span>
+        <span class="d">Quantos carros esperar por hora e por dia da semana. É o que avisa o dono antes de estourar o contrato de energia, e o que responde se vale a pena abrir mais uma vaga.</span>
+      </div>
+    </div>
+    <div class="body" style="margin-top:22px">
+      <p><strong>Como ela aprende, sem inventar dado.</strong> Começa com um modelo do comportamento físico da bateria, que já funciona sem histórico nenhum. Depois é ajustado com as sessões medidas no laboratório da FIAP. E em operação, cada recarga real realimenta o modelo — o produto <strong>melhora com uso</strong>, e isso é argumento de venda.</p>
+      <p>O erro da previsão contra o que de fato aconteceu fica <strong>visível no painel do dono</strong>. Sistema que mostra o próprio erro é o oposto de caixa-preta.</p>
+    </div>
+
+    <h3 style="margin-top:34px">Por que a conta de hoje não serve</h3>
+    <div class="body">
+      <p>O mercado inteiro estima tempo dividindo energia por potência. Só que bateria não carrega em ritmo constante: perto do fim ela desacelera de propósito, para não se danificar.</p>
+      <p>Num caso comum — carro de 50 kWh num carregador de 7,4 kW:</p>
     </div>
     <div class="tbl">
       <table>
@@ -268,48 +295,54 @@
   </section>
 
   <section>
-    <h3>Como é construído</h3>
-    <div class="rows">
-      <div class="row">
-        <span class="n">Frente</span>
-        <span class="t">HTML, CSS e JavaScript puros</span>
-        <span class="d">Sem framework e sem etapa de build. Roda em qualquer hospedagem, inclusive GitHub Pages. Decisão deliberada: na véspera da entrega ninguém quer depurar build.</span>
-      </div>
-      <div class="row">
-        <span class="n">Trás</span>
-        <span class="t">Python com FastAPI</span>
-        <span class="d">Linguagem que o time já domina. Serve a API, roda a previsão e conversa com o banco.</span>
-      </div>
-      <div class="row">
-        <span class="n">Dados</span>
-        <span class="t">MongoDB Atlas</span>
-        <span class="d">Documento casa bem com sessão de recarga, que tem formato irregular. Fica na nuvem porque o dono vai querer olhar do celular, em casa.</span>
-      </div>
-      <div class="row">
-        <span class="n">Offline</span>
-        <span class="t">A telinha continua funcionando sem internet</span>
-        <span class="d">Guarda a última previsão e enfileira as sessões até a conexão voltar. Tela apagada ao lado da vaga é pior que nenhuma tela.</span>
-      </div>
+    <h3>A telinha da vaga</h3>
+    <div class="body">
+      <p>Já está pronta e funcionando. Ela mostra a carga atual, a que horas chega a 80% e a que horas enche, e quanto vai custar no fim — recalculando a cada instante.</p>
+      <p>A conta roda <strong>dentro da própria telinha</strong>, não no servidor. É de propósito: quando a internet da loja cai, a tela continua funcionando. Tela apagada ao lado da vaga é pior que nenhuma tela.</p>
+    </div>
+    <div class="pull">
+      <p><a href="vaga/">Abrir a telinha →</a><br>
+      <span style="font-size:.86rem;color:var(--ink-3)">Dá para mudar o cenário pela barra de endereço. Por exemplo:<br>
+      <code>vaga/?soc=0.4&amp;modo=pago&amp;ponto=22</code> — carro em 40%, cobrança por kWh, ponto de 22 kW.</span></p>
     </div>
   </section>
 
   <section>
-    <h3>Cabendo em 512 MB</h3>
+    <h3>Como é construído</h3>
     <div class="body">
-      <p>O plano gratuito do banco dá 512 MB. A regra de retenção foi decidida agora, e não quando o banco encher:</p>
+      <p>A lista abaixo é a lista fechada. Não entra mais nada sem um bom motivo — cada dependência nova é uma coisa a mais que pode quebrar na véspera.</p>
     </div>
-    <div class="tbl">
-      <table>
-        <thead><tr><th>O quê</th><th>Por quanto tempo</th><th>Por quê</th></tr></thead>
-        <tbody>
-          <tr><td><strong>Sessões e vendas</strong></td><td class="num">para sempre</td><td>São poucos e são o produto</td></tr>
-          <tr><td><strong>Leitura instantânea</strong></td><td class="num">30 dias</td><td>Ninguém precisa da potência de seis meses atrás</td></tr>
-          <tr><td><strong>Resumo por dia</strong></td><td class="num">para sempre</td><td>Uma linha por ponto por dia, alimenta o histórico</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="body">
-      <p>O apagamento é automático, feito pelo próprio banco. Estimativa: <strong>menos de 50 MB por ano</strong> numa loja com quatro pontos.</p>
+    <div class="rows">
+      <div class="row">
+        <span class="n">Telas</span>
+        <span class="t">HTML, CSS e JavaScript puros</span>
+        <span class="d">Sem framework, sem etapa de build, sem biblioteca de gráfico — os gráficos são desenhados à mão em SVG. Roda em qualquer hospedagem, inclusive GitHub Pages, e não depende de nenhum servidor externo carregar.</span>
+      </div>
+      <div class="row">
+        <span class="n">Servidor</span>
+        <span class="t">Python com FastAPI</span>
+        <span class="d">Linguagem que o time já domina. Serve os dados, roda as previsões e conversa com o banco. Três dependências: <code>fastapi</code>, <code>uvicorn</code>, <code>pymongo</code>.</span>
+      </div>
+      <div class="row">
+        <span class="n">Previsão</span>
+        <span class="t">Python puro, sem biblioteca de aprendizado</span>
+        <span class="d">A curva da bateria é matemática direta e o movimento da loja começa como média por faixa de horário. Só entra biblioteca de aprendizado se houver dado real suficiente para justificar — e aí a interface do código não muda.</span>
+      </div>
+      <div class="row">
+        <span class="n">Banco</span>
+        <span class="t">MongoDB</span>
+        <span class="d">Documento casa bem com sessão de recarga, que tem formato irregular. Fica na nuvem porque o dono vai querer olhar do celular, em casa.</span>
+      </div>
+      <div class="row">
+        <span class="n">Texto</span>
+        <span class="t">Um modelo de linguagem barato, via OpenRouter</span>
+        <span class="d">Só para escrever o resumo do mês em português no painel. Ele lê números já calculados e os transforma em frase — <strong>nunca decide nem calcula nada</strong>. Se errar, o pior que acontece é um texto ruim.</span>
+      </div>
+      <div class="row">
+        <span class="n">Onde roda</span>
+        <span class="t">As telas no GitHub Pages, o servidor à parte</span>
+        <span class="d">O GitHub Pages só publica arquivo estático — ele não executa Python. As telas funcionam ali sozinhas, com dado de demonstração. Quando o servidor entrar, ele precisa de outra hospedagem, e é uma troca de endereço só.</span>
+      </div>
     </div>
   </section>
 
