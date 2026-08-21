@@ -198,6 +198,7 @@
           <li>Quem volta, quem gasta mais, em que horário</li>
           <li>Aviso antes de estourar o contrato de energia</li>
           <li>Qual ponto está com defeito ou com fila</li>
+          <li>Ligar cada carregador em cortesia ou em cobrança por kWh</li>
         </ul>
       </div>
       <div class="screen">
@@ -234,7 +235,9 @@
     <div class="body">
       <p>É muito mais fácil um dono de loja aprovar isso do que virar vendedor de energia — o que exigiria maquininha, nota fiscal e competir com Shell e EZVolt, que já têm rede montada.</p>
       <p><strong>Mas repare no terceiro número.</strong> Ele é o que decide se essa história funciona, e a maior parte das apresentações sobre recarga em comércio simplesmente não olha para ele. A gente olhou, e o resultado muda o projeto — está logo abaixo.</p>
-      <p><strong>Uma regra para a vaga não virar estacionamento:</strong> a recarga é livre e nunca é interrompida, mas passado o tempo de cortesia — ou depois que o carro enche — começa a contar uma taxa por minuto de vaga ocupada. É a lógica do estacionamento com tempo livre. O que a loja cobra é a vaga, nunca a energia.</p>
+      <p><strong>A cortesia tem um teto de energia, não de tempo.</strong> Seis quilowatt-hora — uns 62 km — por conta da casa, custando R$ 4,73 à loja. Quem quiser mais, estende comprando: <strong>cada real gasto libera mais energia, na proporção da margem daquela loja.</strong></p>
+      <p>Por construção, a energia liberada nunca custa mais que o lucro da compra que a liberou. <strong>É impossível dar prejuízo.</strong></p>
+      <p>Teto por tempo, que era o desenho anterior, não funcionava: quanto mais a pessoa fica, mais energia entra — e o lucro da compra é fixo. Num restaurante com duas horas de permanência, a conta virava negativa.</p>
     </div>
 
     <h3 style="margin-top:34px">Mas isso carrega o carro de verdade?</h3>
@@ -260,15 +263,28 @@
       <p>E a tela fala em quilômetros, não em kWh. <em>"Em meia hora são uns 32 km"</em> diz alguma coisa. <em>"3,04 kWh"</em> não diz nada.</p>
     </div>
 
-    <h3 style="margin-top:34px">A conta fecha? Nem sempre — e isso muda o projeto</h3>
+    <h3 style="margin-top:34px">De onde sai o teto de 6 kWh</h3>
     <div class="body">
-      <p>Um supermercado brasileiro fica com <strong>2,9% da venda</strong> como lucro líquido, em média. Uma compra de R$ 60 deixa <strong>R$ 1,74</strong> no bolso do dono — e a energia que ele deu custou R$ 3,59.</p>
+      <p>Não foi escolhido no chute. Ele sai do <strong>lucro que a sessão gera</strong> — não do que o cliente gasta, mas do que sobra disso para o dono.</p>
+      <p>Os números vêm de fora: <strong>cerca de 90% dos motoristas compram algo enquanto carregam</strong> e quem carrega durante a compra <strong>gasta 12% a mais</strong>. Um estudo publicado na <em>Nature Communications</em> mede o efeito no faturamento anual do estabelecimento entre <strong>0,8% e 3,2%</strong>.</p>
+      <p>Cruzando isso com a margem de cada segmento, é este o teto que cabe:</p>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Segmento</th><th>Margem</th><th>Lucro da sessão</th><th>Teto que cabe</th><th>Em km</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Pet shop e clínica</strong></td><td class="num">20%</td><td class="num">R$ 7,99</td><td class="num">10,1 kWh</td><td class="num">105 km</td></tr>
+          <tr><td><strong>Restaurante</strong></td><td class="num">10%</td><td class="num">R$ 3,20</td><td class="num">4,1 kWh</td><td class="num">42 km</td></tr>
+          <tr><td>Supermercado</td><td class="num">2,9%</td><td class="num">R$ 0,46</td><td class="num">0,6 kWh</td><td class="num">6 km</td></tr>
+        </tbody>
+      </table>
     </div>
     <div class="pull">
-      <p><strong>No supermercado, do jeito que estava desenhado, cada recarga dá prejuízo de R$ 1,85.</strong> Para empatar, o cliente teria de gastar R$ 124 — ou a cortesia teria de cair para 22 minutos.</p>
+      <p><strong>Supermercado não fecha em cenário nenhum.</strong> Com 2,9% de margem, a sessão inteira gera menos lucro do que custa um quilowatt-hora. Não é questão de calibrar melhor — é segmento errado.</p>
     </div>
     <div class="body">
-      <p>Fizemos a conta para os segmentos onde esse produto faz sentido:</p>
+      <p>Some a isso o equipamento: um carregador de 7,4 kW instalado custa <strong>R$ 4.500 a R$ 7.000</strong>, e a maioria dos pontos no Brasil opera com <strong>menos de 15% de utilização diária</strong>. Diluído em cinco anos a três sessões por dia, dá R$ 1,11 por sessão — que sai do mesmo bolo.</p>
+      <p>Com tudo somado:</p>
     </div>
     <div class="tbl">
       <table>
@@ -393,16 +409,42 @@
   </section>
 
   <section>
+    <h3>Cada carregador tem seu modelo</h3>
+    <div class="body">
+      <p>O modelo de cortesia é o nosso foco, mas ele não serve para todo mundo — e não faz sentido obrigar a loja a escolher um só para o estabelecimento inteiro.</p>
+      <p><strong>No painel, o dono liga cada carregador em um dos dois modos</strong>, e muda quando quiser:</p>
+    </div>
+    <div class="screens">
+      <div class="screen">
+        <span class="tag">Modo cortesia</span>
+        <h3 style="margin:0">Isca comercial</h3>
+        <p style="font-size:.92rem;color:var(--ink-2)">Teto gratuito em kWh, estendido pela compra. Para a vaga da frente, que atrai cliente.</p>
+      </div>
+      <div class="screen">
+        <span class="tag">Modo por kWh</span>
+        <h3 style="margin:0">Cobrança padrão</h3>
+        <p style="font-size:.92rem;color:var(--ink-2)">Preço por quilowatt-hora, definido pelo dono. Para a vaga dos fundos, para quem não é cliente, ou para o estacionamento pago.</p>
+      </div>
+    </div>
+    <div class="body" style="margin-top:20px">
+      <p>Uma padaria pode ter a vaga da calçada em cortesia e a de trás cobrando. Um posto de estrada usa só o modo pago. Um pet shop usa só cortesia.</p>
+      <p><strong>Isso abre o produto para qualquer tipo de negócio</strong> sem abrir mão do foco: quem tem margem alta compra pela cortesia, quem não tem compra pela cobrança. E a telinha muda sozinha conforme o modo do ponto.</p>
+    </div>
+  </section>
+
+  <section>
     <h3>A telinha da vaga</h3>
     <div class="body">
-      <p>Já está pronta e funcionando. Mostra a carga atual, a que horas chega a 80% e a que horas enche, e se é cortesia ou quanto vai custar — recalculando a cada instante.</p>
+      <p>Já está pronta e funcionando, nos dois modos. Mostra a carga atual, a que horas chega a 80% e a que horas enche, e — conforme o modo do ponto — quantos quilômetros de cortesia ainda restam ou quanto já custou.</p>
       <p>A conta roda <strong>dentro da própria telinha</strong>, não no servidor. É de propósito: quando a internet da loja cai, a tela continua certa. Tela apagada ao lado da vaga é pior que nenhuma tela.</p>
       <p>A mesma página serve os três lugares: o monitor na parede, o celular do motorista pelo QR, e a demonstração emoldurada. Muda só o enquadramento, não o código.</p>
     </div>
     <div class="pull">
-      <p><a href="vaga/">Abrir a telinha →</a> &nbsp; <a href="vaga/?full=1">em tela cheia →</a><br>
-      <span style="font-size:.86rem;color:var(--ink-3)">O cenário muda pela barra de endereço:<br>
-      <code>vaga/?soc=0.55&amp;modo=pago&amp;ponto=22</code> — carro em 55%, cobrança por kWh, ponto de 22 kW.</span></p>
+      <p><a href="vaga/">Telinha em modo cortesia →</a><br>
+      <a href="vaga/?modo=pago">Telinha em modo por kWh →</a><br>
+      <a href="vaga/?full=1">Em tela cheia, como fica na parede →</a><br>
+      <span style="font-size:.86rem;color:var(--ink-3);display:inline-block;margin-top:10px">O cenário muda pela barra de endereço:<br>
+      <code>vaga/?soc=0.55&amp;compra=80&amp;ponto=22</code> — carro em 55%, R$ 80 de compra já registrada, ponto de 22 kW.</span></p>
     </div>
   </section>
 
@@ -516,7 +558,7 @@
 
   <footer>
     <span class="tag">Fontes</span>
-    <span>Mercado: ABVE, 2026 · Tarifa: Resolução ANEEL nº 3.596/2026, Enel São Paulo, classe B1 · Recarga: REN ANEEL 819/2018 · Vendas e fichas técnicas dos veículos: CNN Brasil e fabricantes, 1º semestre de 2026 · Tempo de permanência em supermercado: estudos Popai Brasil e Hubert · Margem líquida do varejo alimentar: ABRAS, 1,5% a 3% · Medições de campo: laboratório Eco Smart Home da FIAP, plataforma SEMS+ da GoodWe.</span>
+    <span>Mercado: ABVE, 2026 · Tarifa: Resolução ANEEL nº 3.596/2026, Enel São Paulo, classe B1 · Recarga: REN ANEEL 819/2018 · Vendas e fichas técnicas dos veículos: CNN Brasil e fabricantes, 1º semestre de 2026 · Tempo de permanência em supermercado: estudos Popai Brasil e Hubert · Margem líquida do varejo alimentar: ABRAS, 1,5% a 3% · Margens de restaurante e pet shop: faixas correntes de mercado · Efeito da recarga sobre o comércio: Nature Communications, 2024 · Utilização real dos pontos no Brasil: Gauss Mob · Preço de wallbox e instalação: mercado brasileiro, 2026 · Medições de campo: laboratório Eco Smart Home da FIAP, plataforma SEMS+ da GoodWe.</span>
     <span style="margin-top:10px">Repositório <a href="https://github.com/Vitormk1/challange">Vitormk1/challange</a></span>
   </footer>
 

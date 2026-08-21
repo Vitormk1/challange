@@ -186,7 +186,9 @@
 </div>
 
 <p class="caption">
-  Telinha da vaga · demonstração ·
+  Telinha da vaga ·
+  <a href="?">cortesia</a> ·
+  <a href="?modo=pago">por kWh</a> ·
   <a href="?full=1">tela cheia</a>
 </p>
 
@@ -224,15 +226,18 @@ const cfg = {
      ficar 3h22 na loja, e a visita media a um supermercado brasileiro dura
      30 a 45 minutos. Tempo, alem de ser o limite real, e o que o cliente
      entende sem precisar de explicacao. */
-  /* A recarga NUNCA pausa e NUNCA e condicionada a uma compra. Exigir cupom
-     para liberar energia destroi a experiencia justamente no momento em que
-     ela se define, e quem foi cortado uma vez nao volta. A cortesia e como
-     estacionamento gratuito: aberta.
+  /* A recarga NUNCA pausa. O teto e de ENERGIA, nao de tempo: quanto mais a
+     pessoa fica, mais energia entra, e o lucro da compra e fixo — um teto por
+     tempo deixava a loja no prejuizo em permanencias longas.
 
-     O que a loja controla e a VAGA, nao a energia — passado o tempo de
-     cortesia, ou depois de o carro encher, comeca a valer uma taxa por minuto
-     de vaga ocupada. E a mesma logica de um estacionamento com tempo livre. */
-  freeMin:   +(P.get('gratis')   || 120),      // minutos de recarga por cortesia
+     O teto sai da conta do lucro incremental da sessao (ai/break_even.py):
+     6 kWh custam R$ 4,73 a loja e valem ~62 km para o cliente.
+
+     Passado o teto, a recarga continua e passa a ser cobrada — ou o cliente
+     estende a cortesia comprando: cada real gasto libera (margem / tarifa)
+     kWh, entao a energia liberada nunca custa mais que o lucro que a gerou. */
+  freeKwh:   +(P.get('gratis')   || 6),        // teto de cortesia, em kWh
+  kwhPerBrl: +(P.get('porreal')  || 0.127),    // kWh liberados por R$ 1 de compra
   idleFee:   +(P.get('ocioso')   || 0.20),     // R$ por minuto de vaga ocupada
   graceMin:  +(P.get('carencia') || 15),
   kmPerKwh:  +(P.get('kmkwh')    || 10.4),
@@ -276,19 +281,12 @@ function relative(hours){
 
 const start = cfg.soc;
 let soc = cfg.soc;
-let chargingMinutes = 0;   // quanto tempo de cortesia ja foi usado
-let idleMinutes = 0;       // quanto tempo a vaga ficou ocupada depois de cheia
+let idleMinutes = 0;       // vaga ocupada depois de o carro encher
+let purchaseBrl = +(P.get('compra') || 0);   // compra ja registrada no caixa
 let last = performance.now();
 
-/* Minutos que ja contam como vaga ocupada: depois de o carro encher (passada a
-   carencia) ou depois de esgotado o tempo de cortesia. A recarga em si segue
-   acontecendo — o que passa a ser cobrado e a vaga. */
-function billableMinutes(){
-  if (cfg.mode !== 'cortesia') return 0;
-  const overFull = Math.max(0, idleMinutes - cfg.graceMin);
-  const overFree = Math.max(0, chargingMinutes - cfg.freeMin);
-  return Math.max(overFull, overFree);
-}
+/* Cortesia total: o teto base mais o que a compra do cliente liberou. */
+const freeAllowanceKwh = () => cfg.freeKwh + purchaseBrl * cfg.kwhPerBrl;
 
 const $ = id => document.getElementById(id);
 $('spot').textContent  = cfg.spot;
@@ -306,32 +304,39 @@ function renderCost(deliveredKwh, isFull){
   const label = $('costLabel'), value = $('cost'), note = $('costNote');
 
   if (cfg.mode === 'pago'){
-    const totalKwh = deliveredKwh + Math.max(0, (1 - soc) * cfg.batteryKwh);
-    label.textContent = 'Você vai pagar';
-    value.textContent = brl(totalKwh * cfg.priceKwh);
+    label.textContent = 'Custo até agora';
+    value.textContent = brl(deliveredKwh * cfg.priceKwh);
     value.className = 'v amber';
-    note.textContent = `${brl(cfg.priceKwh)} por kWh`;
+    const previsto = deliveredKwh + Math.max(0, (1 - soc) * cfg.batteryKwh);
+    note.textContent = isFull
+      ? `${brl(cfg.priceKwh)} por kWh`
+      : `${brl(cfg.priceKwh)} por kWh · cheio dá ${brl(previsto * cfg.priceKwh)}`;
     return;
   }
 
-  const billable = billableMinutes();
-  if (billable > 0){
-    label.textContent = 'Vaga ocupada';
-    value.textContent = brl(billable * cfg.idleFee);
+  // --- cortesia com teto de energia ---
+  const teto = freeAllowanceKwh();
+  const excedente = Math.max(0, deliveredKwh - teto);
+  const cobravel = Math.max(0, idleMinutes - cfg.graceMin) * cfg.idleFee
+                 + excedente * cfg.priceKwh;
+
+  if (cobravel > 0){
+    label.textContent = 'A pagar';
+    value.textContent = brl(cobravel);
     value.className = 'v amber';
-    note.textContent = `${brl(cfg.idleFee)} por minuto — a recarga segue, é a vaga que conta`;
-  } else if (isFull){
-    label.textContent = 'Custo';
-    value.textContent = 'Nada a pagar';
-    value.className = 'v free';
-    note.textContent = `vaga livre por mais ${Math.max(0, Math.ceil(cfg.graceMin - idleMinutes))} min`;
-  } else {
-    const left = Math.max(0, cfg.freeMin - chargingMinutes);
-    label.textContent = 'Custo';
-    value.textContent = 'Cortesia da casa';
-    value.className = 'v free';
-    note.textContent = `grátis por mais ${relative(left/60).replace('em ','')}`;
+    note.textContent = excedente > 0
+      ? `cortesia de ${teto.toFixed(1).replace('.',',')} kWh usada · compre mais para estender`
+      : `${brl(cfg.idleFee)} por minuto de vaga ocupada`;
+    return;
   }
+
+  const restam = teto - deliveredKwh;
+  label.textContent = 'Custo';
+  value.textContent = 'Cortesia da casa';
+  value.className = 'v free';
+  note.textContent = purchaseBrl > 0
+    ? `sua compra de ${brl(purchaseBrl)} estendeu · faltam ${Math.round(restam * cfg.kmPerKwh)} km`
+    : `grátis até ${teto.toFixed(0)} kWh · faltam ${Math.round(restam * cfg.kmPerKwh)} km`;
 }
 
 function render(){
@@ -366,9 +371,13 @@ function render(){
      Dolphin Mini leva cerca de 47 km — um dia inteiro de rodagem urbana. */
   if (isFull){
     $('hint').textContent = 'Carro cheio. Pode liberar a vaga para o próximo.';
+  } else if (cfg.mode === 'pago'){
+    $('hint').textContent = 'Pode ir às compras. A gente avisa quando encher.';
   } else {
-    const km30 = Math.round(powerAt(soc) * 0.5 * cfg.kmPerKwh);
-    $('hint').textContent = `Pode ir às compras — em meia hora são uns ${km30} km. A gente avisa quando encher.`;
+    const restam = Math.max(0, freeAllowanceKwh() - delivered);
+    $('hint').textContent = restam > 0.2
+      ? `Cortesia da casa: ${Math.round(restam * cfg.kmPerKwh)} km por nossa conta. A gente avisa quando encher.`
+      : 'Cada R$ 50 de compra libera mais 6 km de cortesia. É só mostrar o código no caixa.';
   }
 }
 
@@ -379,7 +388,6 @@ function tick(t){
   if (soc >= 0.995){
     idleMinutes += simMinutes;
   } else {
-    chargingMinutes += simMinutes;
     soc = Math.min(0.999, soc + (powerAt(soc) * (simMinutes / 60)) / cfg.batteryKwh);
   }
   render();
