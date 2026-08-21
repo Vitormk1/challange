@@ -187,19 +187,8 @@
 
 <p class="caption">
   Telinha da vaga · demonstração ·
-  <a href="?full=1">tela cheia</a> ·
-  <button type="button" id="scan">simular leitura do cupom</button>
+  <a href="?full=1">tela cheia</a>
 </p>
-<style>
-  .caption button{
-    font:inherit;font-family:"JetBrains Mono",monospace;font-size:.66rem;
-    letter-spacing:.2em;text-transform:uppercase;color:var(--page-ink);
-    background:none;border:0;border-bottom:1px solid currentColor;
-    padding:0;cursor:pointer;
-  }
-  .caption button:hover{color:var(--amber)}
-  .caption button:disabled{opacity:.4;cursor:default;border-bottom-color:transparent}
-</style>
 
 <script>
 /* ------------------------------------------------------------------
@@ -235,13 +224,15 @@ const cfg = {
      ficar 3h22 na loja, e a visita media a um supermercado brasileiro dura
      30 a 45 minutos. Tempo, alem de ser o limite real, e o que o cliente
      entende sem precisar de explicacao. */
+  /* A recarga NUNCA pausa e NUNCA e condicionada a uma compra. Exigir cupom
+     para liberar energia destroi a experiencia justamente no momento em que
+     ela se define, e quem foi cortado uma vez nao volta. A cortesia e como
+     estacionamento gratuito: aberta.
+
+     O que a loja controla e a VAGA, nao a energia — passado o tempo de
+     cortesia, ou depois de o carro encher, comeca a valer uma taxa por minuto
+     de vaga ocupada. E a mesma logica de um estacionamento com tempo livre. */
   freeMin:   +(P.get('gratis')   || 120),      // minutos de recarga por cortesia
-  /* A recarga comeca na hora, antes de qualquer compra: atrito na chegada e o
-     que estraga a experiencia. Estes sao os minutos de cortesia provisoria ate
-     o cliente escanear o cupom. Se ele nao escanear, a recarga pausa e a loja
-     gastou no maximo ~R$ 1,60 — um custo de aquisicao baixo. */
-  provisionalMin: +(P.get('provisorio') || 20),
-  minPurchase:    +(P.get('minimo')     || 30),   // R$ de compra minima
   idleFee:   +(P.get('ocioso')   || 0.20),     // R$ por minuto de vaga ocupada
   graceMin:  +(P.get('carencia') || 15),
   kmPerKwh:  +(P.get('kmkwh')    || 10.4),
@@ -287,13 +278,17 @@ const start = cfg.soc;
 let soc = cfg.soc;
 let chargingMinutes = 0;   // quanto tempo de cortesia ja foi usado
 let idleMinutes = 0;       // quanto tempo a vaga ficou ocupada depois de cheia
-let receipt = P.get('cupom') === '1' ? {value: 84.30} : null;  // cupom validado
 let last = performance.now();
 
-/* Quanto tempo de cortesia esta liberado agora: 20 min ate escanear o cupom,
-   2 h depois de escanear. */
-const allowedMin = () => receipt ? cfg.freeMin : cfg.provisionalMin;
-const freeOver   = () => cfg.mode === 'cortesia' && chargingMinutes >= allowedMin();
+/* Minutos que ja contam como vaga ocupada: depois de o carro encher (passada a
+   carencia) ou depois de esgotado o tempo de cortesia. A recarga em si segue
+   acontecendo — o que passa a ser cobrado e a vaga. */
+function billableMinutes(){
+  if (cfg.mode !== 'cortesia') return 0;
+  const overFull = Math.max(0, idleMinutes - cfg.graceMin);
+  const overFree = Math.max(0, chargingMinutes - cfg.freeMin);
+  return Math.max(overFull, overFree);
+}
 
 const $ = id => document.getElementById(id);
 $('spot').textContent  = cfg.spot;
@@ -319,36 +314,23 @@ function renderCost(deliveredKwh, isFull){
     return;
   }
 
-  const billable = Math.max(0, idleMinutes - cfg.graceMin);
+  const billable = billableMinutes();
   if (billable > 0){
     label.textContent = 'Vaga ocupada';
     value.textContent = brl(billable * cfg.idleFee);
     value.className = 'v amber';
-    note.textContent = `${brl(cfg.idleFee)} por minuto após ${cfg.graceMin} min cheio`;
+    note.textContent = `${brl(cfg.idleFee)} por minuto — a recarga segue, é a vaga que conta`;
   } else if (isFull){
     label.textContent = 'Custo';
     value.textContent = 'Nada a pagar';
     value.className = 'v free';
     note.textContent = `vaga livre por mais ${Math.max(0, Math.ceil(cfg.graceMin - idleMinutes))} min`;
-  } else if (freeOver()){
-    label.textContent = receipt ? 'Cortesia encerrada' : 'Aguardando sua compra';
-    value.textContent = 'Recarga pausada';
-    value.className = 'v amber';
-    note.textContent = receipt
-      ? 'fale no caixa para liberar mais tempo'
-      : `escaneie o QR do seu cupom aqui para liberar ${Math.round(cfg.freeMin/60)}h`;
-  } else if (receipt){
+  } else {
     const left = Math.max(0, cfg.freeMin - chargingMinutes);
     label.textContent = 'Custo';
     value.textContent = 'Cortesia da casa';
     value.className = 'v free';
-    note.textContent = `compra de ${brl(receipt.value)} confirmada · grátis por mais ${relative(left/60).replace('em ','')}`;
-  } else {
-    const left = Math.max(0, cfg.provisionalMin - chargingMinutes);
-    label.textContent = 'Custo';
-    value.textContent = 'Cortesia da casa';
-    value.className = 'v free';
-    note.textContent = `já liberada · escaneie o cupom em ${Math.ceil(left)} min para ganhar ${Math.round(cfg.freeMin/60)}h`;
+    note.textContent = `grátis por mais ${relative(left/60).replace('em ','')}`;
   }
 }
 
@@ -377,18 +359,13 @@ function render(){
 
   renderCost(delivered, isFull);
 
-  const paused = freeOver() && !isFull;
-  $('stateText').textContent = isFull ? 'Completo' : paused ? 'Pausado' : 'Carregando';
+  $('stateText').textContent = isFull ? 'Completo' : 'Carregando';
 
   /* A mensagem fala em quilometros, nao em kWh: e o que a pessoa entende e
      e o que faz a oferta parecer o que ela e. Numa visita de 45 minutos um
      Dolphin Mini leva cerca de 47 km — um dia inteiro de rodagem urbana. */
   if (isFull){
     $('hint').textContent = 'Carro cheio. Pode liberar a vaga para o próximo.';
-  } else if (paused && !receipt){
-    $('hint').textContent = `Faça uma compra de ${brl(cfg.minPurchase)} ou mais e escaneie o cupom para continuar.`;
-  } else if (paused){
-    $('hint').textContent = 'Tempo de cortesia encerrado. Passe no caixa para continuar.';
   } else {
     const km30 = Math.round(powerAt(soc) * 0.5 * cfg.kmPerKwh);
     $('hint').textContent = `Pode ir às compras — em meia hora são uns ${km30} km. A gente avisa quando encher.`;
@@ -401,32 +378,12 @@ function tick(t){
   const simMinutes = dt * cfg.speed / 60;
   if (soc >= 0.995){
     idleMinutes += simMinutes;
-  } else if (freeOver()){
-    // cortesia acabou: a recarga pausa. Ninguem precisa pagar nada por isso.
   } else {
     chargingMinutes += simMinutes;
     soc = Math.min(0.999, soc + (powerAt(soc) * (simMinutes / 60)) / cfg.batteryKwh);
   }
   render();
   requestAnimationFrame(tick);
-}
-
-/* Controle só da demonstração — fica FORA da tela, porque na parede da loja
-   quem faz isso é a câmera lendo o QR do cupom fiscal. */
-const scanBtn = document.getElementById('scan');
-if (scanBtn){
-  const sync = () => {
-    scanBtn.disabled = !!receipt;
-    scanBtn.textContent = receipt ? 'cupom validado' : 'simular leitura do cupom';
-  };
-  scanBtn.addEventListener('click', () => {
-    /* Na vida real, aqui entra a chave de acesso de 44 dígitos do QR da NFC-e.
-       Ela já traz o CNPJ da loja e a data de emissão, então dá para validar
-       loja e data offline, e o valor vem no próprio QR. */
-    receipt = {value: 84.30};
-    sync();
-  });
-  sync();
 }
 
 render();

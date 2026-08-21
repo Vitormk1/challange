@@ -227,12 +227,14 @@
       <p>O motorista <strong>não paga pela recarga</strong>. A loja banca a energia como quem banca um estacionamento grátis ou um cafezinho: é gasto de marketing para atrair gente que compra dentro.</p>
     </div>
     <div class="readout">
-      <div><span class="v">R$ 3,59</span><span class="k">energia de uma visita típica de 45 min</span></div>
-      <div><span class="v hi">R$ 60</span><span class="k">o que um cliente costuma gastar na visita</span></div>
+      <div><span class="v">R$ 3,59</span><span class="k">energia de uma visita de 45 min</span></div>
+      <div><span class="v hi">R$ 60</span><span class="k">o que o cliente gasta na visita</span></div>
+      <div><span class="v" style="color:var(--ink-3)">R$ 1,74</span><span class="k">quanto disso vira lucro num supermercado</span></div>
     </div>
     <div class="body">
       <p>É muito mais fácil um dono de loja aprovar isso do que virar vendedor de energia — o que exigiria maquininha, nota fiscal e competir com Shell e EZVolt, que já têm rede montada.</p>
-      <p><strong>Com uma regra para a vaga não virar estacionamento:</strong> a cortesia vale por tempo, só para quem comprou algo, e depois que o carro enche começa a contar uma taxa por ficar parado.</p>
+      <p><strong>Mas repare no terceiro número.</strong> Ele é o que decide se essa história funciona, e a maior parte das apresentações sobre recarga em comércio simplesmente não olha para ele. A gente olhou, e o resultado muda o projeto — está logo abaixo.</p>
+      <p><strong>Uma regra para a vaga não virar estacionamento:</strong> a recarga é livre e nunca é interrompida, mas passado o tempo de cortesia — ou depois que o carro enche — começa a contar uma taxa por minuto de vaga ocupada. É a lógica do estacionamento com tempo livre. O que a loja cobra é a vaga, nunca a energia.</p>
     </div>
 
     <h3 style="margin-top:34px">Mas isso carrega o carro de verdade?</h3>
@@ -258,39 +260,63 @@
       <p>E a tela fala em quilômetros, não em kWh. <em>"Em meia hora são uns 32 km"</em> diz alguma coisa. <em>"3,04 kWh"</em> não diz nada.</p>
     </div>
 
-    <h3 style="margin-top:34px">E se a pessoa só carregar e for embora?</h3>
+    <h3 style="margin-top:34px">A conta fecha? Nem sempre — e isso muda o projeto</h3>
     <div class="body">
-      <p>Esse é o risco do modelo, e ele se resolve com o <strong>cupom fiscal</strong> — que toda loja do Brasil já emite.</p>
-      <p>Funciona assim, sem atrito nenhum na chegada:</p>
+      <p>Um supermercado brasileiro fica com <strong>2,9% da venda</strong> como lucro líquido, em média. Uma compra de R$ 60 deixa <strong>R$ 1,74</strong> no bolso do dono — e a energia que ele deu custou R$ 3,59.</p>
+    </div>
+    <div class="pull">
+      <p><strong>No supermercado, do jeito que estava desenhado, cada recarga dá prejuízo de R$ 1,85.</strong> Para empatar, o cliente teria de gastar R$ 124 — ou a cortesia teria de cair para 22 minutos.</p>
+    </div>
+    <div class="body">
+      <p>Fizemos a conta para os segmentos onde esse produto faz sentido:</p>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Segmento</th><th>Margem</th><th>Ticket</th><th>Lucro</th><th>Energia</th><th>Saldo</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Academia</strong></td><td class="num">15%</td><td class="num">R$ 130</td><td class="num">R$ 19,50</td><td class="num">R$ 5,99</td><td class="num" style="color:var(--accent)">+ R$ 13,51</td></tr>
+          <tr><td><strong>Pet shop e serviços</strong></td><td class="num">12%</td><td class="num">R$ 150</td><td class="num">R$ 18,00</td><td class="num">R$ 7,19</td><td class="num" style="color:var(--accent)">+ R$ 10,81</td></tr>
+          <tr><td><strong>Restaurante</strong></td><td class="num">8%</td><td class="num">R$ 120</td><td class="num">R$ 9,60</td><td class="num">R$ 7,19</td><td class="num" style="color:var(--accent)">+ R$ 2,41</td></tr>
+          <tr><td><strong>Farmácia</strong></td><td class="num">5,5%</td><td class="num">R$ 45</td><td class="num">R$ 2,48</td><td class="num">R$ 1,20</td><td class="num" style="color:var(--accent)">+ R$ 1,28</td></tr>
+          <tr><td>Café e padaria</td><td class="num">9%</td><td class="num">R$ 35</td><td class="num">R$ 3,15</td><td class="num">R$ 3,19</td><td class="num">− R$ 0,04</td></tr>
+          <tr><td>Supermercado</td><td class="num">2,9%</td><td class="num">R$ 60</td><td class="num">R$ 1,74</td><td class="num">R$ 3,59</td><td class="num">− R$ 1,85</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="body">
+      <p><strong>O supermercado é o pior caso, não o melhor.</strong> Quem ganha com isso é quem tem margem boa e visita longa: academia, pet shop, restaurante, clínica, hotel. Foi o exemplo que a gente vinha usando e estava errado.</p>
+      <p>Nada disso invalida o modelo — <strong>invalida usar o mesmo desenho para todo mundo.</strong> E aponta para a função mais valiosa do produto.</p>
+    </div>
+    <div class="pull">
+      <p>O painel calcula, com o ticket e a margem daquela loja, <strong>quantos minutos de cortesia ela pode dar sem perder dinheiro</strong> — e configura o ponto sozinho.</p>
+      <p>Nenhum concorrente faz isso, porque nenhum deles sabe quanto a loja fatura. Nós sabemos.</p>
+    </div>
+
+    <h3 style="margin-top:34px">Como saber quanto esse cliente gastou</h3>
+    <div class="body">
+      <p>Sem isso, a venda dele se mistura com as outras e o dono nunca descobre se o carregador se pagou.</p>
+      <p>A ideia de pedir para a pessoa escanear o cupom de papel não funciona: <strong>quase ninguém pega mais o cupom.</strong> Mas a nota existe do mesmo jeito — <strong>a loja é obrigada a emitir</strong>, o cliente levando o papel ou não. O dado está no sistema da própria loja.</p>
+      <p>Então o caminho é o contrário do que parecia:</p>
     </div>
     <div class="rows">
       <div class="row">
-        <span class="n">Passo 1</span>
-        <span class="t">A pessoa pluga e a recarga começa na hora</span>
-        <span class="d">Sem cadastro, sem senha, sem passar no caixa antes. Nesse momento ela ganha 20 minutos de cortesia provisória.</span>
+        <span class="n">Uma vez só</span>
+        <span class="t">O cliente informa o CPF ao se cadastrar</span>
+        <span class="d">No celular, pelo QR da vaga, na primeira visita. Leva quinze segundos e nunca mais se repete.</span>
       </div>
       <div class="row">
-        <span class="n">Passo 2</span>
-        <span class="t">Ela compra e escaneia o cupom na telinha</span>
-        <span class="d">O cupom fiscal já vem com QR Code impresso. Ela aponta para a telinha e pronto — a cortesia sobe para 2 horas.</span>
+        <span class="n">Toda visita</span>
+        <span class="t">Ele diz o CPF no caixa, como já faz hoje</span>
+        <span class="d">O hábito já existe — é o mesmo "CPF na nota" de sempre. <strong>Zero passo novo</strong> para o cliente, e nada a fazer no carregador.</span>
       </div>
       <div class="row">
-        <span class="n">Passo 3</span>
-        <span class="t">Se não comprar, a recarga pausa</span>
-        <span class="d">Passados os 20 minutos sem cupom, a recarga para. A pessoa levou uns 21 km e a loja gastou <strong>R$ 1,60</strong>. É um custo de aquisição barato, e ninguém sai irritado.</span>
+        <span class="n">Automático</span>
+        <span class="t">O sistema cruza a venda com a recarga</span>
+        <span class="d">A loja nos dá acesso às próprias notas emitidas, e o encontro é feito pelo CPF e pelo horário. Sem ninguém escanear nada.</span>
       </div>
     </div>
     <div class="body" style="margin-top:18px">
-      <p>Tem também um <strong>valor mínimo de compra</strong>, definido pela loja — senão um chiclete liberaria duas horas de recarga.</p>
-    </div>
-
-    <h3 style="margin-top:34px">Como separar o faturamento desse cliente</h3>
-    <div class="body">
-      <p>Essa é a pergunta que decide se o produto tem valor. Se a venda dele se mistura com as outras, o dono nunca vai saber se o carregador se pagou.</p>
-      <p><strong>O mesmo cupom resolve.</strong> Quando a pessoa escaneia o QR para liberar a cortesia, ela está — sem perceber — dizendo ao sistema exatamente quanto gastou. O vínculo entre a recarga e a venda fica registrado, com valor e horário.</p>
-    </div>
-    <div class="pull">
-      <p>Não é estimativa nem palpite: <strong>é a nota fiscal daquela compra, amarrada àquela sessão de recarga.</strong> O painel soma isso e mostra ao dono, no fim do mês, quanto entrou em caixa vindo de quem carregou.</p>
+      <p>Quando não há CPF na nota, o painel cai para a medição por comparação: o movimento da loja em períodos parecidos, com e sem recarga acontecendo. Menos preciso, mas não fica cego.</p>
     </div>
     <div class="pull">
       <p>E é aqui que o nosso software vira obrigatório: <strong>sem provar que dá retorno, nenhum dono aprova o investimento.</strong> É isso que faz a GoodWe vender software junto com o equipamento, em vez de só o equipamento.</p>
@@ -374,24 +400,29 @@
     <h3>Por dentro do cupom fiscal</h3>
     <div class="body">
       <p>É a peça que faz o modelo de negócio funcionar, então vale detalhar.</p>
-      <p>Todo cupom de consumidor no Brasil é uma <strong>NFC-e</strong>, e o QR Code nela é <strong>obrigatório</strong> por norma nacional. Dentro dele vêm duas coisas que resolvem o nosso problema: a <strong>chave de acesso de 44 dígitos</strong>, que identifica aquela venda de forma única, e o <strong>valor total da operação</strong>.</p>
-      <p>E a chave é estruturada — ela carrega dentro de si o <strong>CNPJ do emissor</strong> e o <strong>mês e ano de emissão</strong>. Dá para conferir se o cupom é daquela loja e daquele dia <strong>sem consultar nada</strong>, só lendo os dígitos.</p>
+      <p>Todo cupom de consumidor no Brasil é uma <strong>NFC-e</strong>, emitida obrigatoriamente pela loja a cada venda — o cliente levando o papel ou não. Ela traz a <strong>chave de acesso de 44 dígitos</strong>, que identifica a venda de forma única, o <strong>valor total</strong> e, quando informado, o <strong>CPF do consumidor</strong>.</p>
+      <p>É um <strong>formato nacional único</strong>. Todo sistema de caixa do Brasil exporta NFC-e em XML, porque é obrigado por lei. Então o que precisamos da loja não é uma integração sob medida com o PDV dela — é acesso ao arquivo padronizado que ela já gera.</p>
     </div>
     <div class="rows">
       <div class="row">
         <span class="n">Consequência 1</span>
-        <span class="t">Zero integração com o caixa da loja</span>
-        <span class="d">Não precisamos conversar com o sistema de PDV — que muda de loja para loja e transformaria cada instalação num projeto. O produto funciona no primeiro dia, em qualquer comércio.</span>
+        <span class="t">Uma integração só, não uma por loja</span>
+        <span class="d">Se dependêssemos da interface de cada PDV, cada instalação viraria um projeto de semanas. Lendo o padrão nacional, o mesmo código serve qualquer comércio.</span>
       </div>
       <div class="row">
         <span class="n">Consequência 2</span>
-        <span class="t">Fraude fica difícil</span>
-        <span class="d">A chave é única, então o mesmo cupom não vale duas vezes. O CNPJ tem de ser o da loja. E a nota precisa ter sido emitida durante a sessão — cupom achado no chão não passa.</span>
+        <span class="t">O cliente não faz nada de novo</span>
+        <span class="d">Dizer o CPF no caixa já é hábito no Brasil. Não inventamos nenhum passo — aproveitamos um que já existe.</span>
       </div>
       <div class="row">
         <span class="n">Consequência 3</span>
         <span class="t">A atribuição é direta, não estatística</span>
         <span class="d">Cada real contado no painel tem uma nota fiscal por trás. É a diferença entre "achamos que trouxe clientes" e "trouxe estes clientes, nestas compras".</span>
+      </div>
+      <div class="row">
+        <span class="n">Cuidado</span>
+        <span class="t">CPF é dado pessoal</span>
+        <span class="d">Guardamos apenas uma versão embaralhada dele, que serve para casar os registros e não permite voltar ao número original. Com consentimento explícito e finalidade declarada, como manda a LGPD.</span>
       </div>
     </div>
     <div class="body" style="margin-top:18px">
@@ -493,6 +524,7 @@
     <h3>O que ainda está em aberto</h3>
     <div class="body">
       <p>Problemas que a gente já enxergou e ainda não resolveu. Estão aqui de propósito — projeto sem lista de pendências é projeto que não foi olhado de perto.</p>
+      <p><em>Carro a combustão ocupando a vaga saiu desta lista:</em> resolve-se com placa de vaga exclusiva para elétricos e fiscalização da loja, do mesmo jeito que vaga de idoso. Não é problema de software.</p>
     </div>
     <div class="rows">
       <div class="row">
@@ -502,8 +534,13 @@
       </div>
       <div class="row">
         <span class="n">Em aberto</span>
-        <span class="t">Carro a combustão na vaga</span>
-        <span class="d">Clássico e sem solução por software: se ninguém pluga, o sistema não vê nada. O painel consegue mostrar "vaga sem sessão há tanto tempo", mas resolver de verdade é sinalização e fiscalização da loja.</span>
+        <span class="t">Quanto custa além da energia</span>
+        <span class="d">A conta de equilíbrio considera só a energia. Falta somar a amortização do carregador e da obra elétrica, a manutenção, o risco de furto de cabo e o impacto na demanda contratada. Todos empurram o ponto de equilíbrio para cima.</span>
+      </div>
+      <div class="row">
+        <span class="n">Em aberto</span>
+        <span class="t">Confirmar as margens fora do supermercado</span>
+        <span class="d">A margem de supermercado tem fonte firme (ABRAS). As dos outros segmentos são faixas correntes de mercado e precisam ser confirmadas com o lojista antes de virar proposta comercial.</span>
       </div>
       <div class="row">
         <span class="n">Em aberto</span>
@@ -530,7 +567,7 @@
 
   <footer>
     <span class="tag">Fontes</span>
-    <span>Mercado: ABVE, 2026 · Tarifa: Resolução ANEEL nº 3.596/2026, Enel São Paulo, classe B1 · Recarga: REN ANEEL 819/2018 · Vendas e fichas técnicas dos veículos: CNN Brasil e fabricantes, 1º semestre de 2026 · Tempo de permanência em supermercado: estudos Popai Brasil e Hubert · Medições de campo: laboratório Eco Smart Home da FIAP, plataforma SEMS+ da GoodWe.</span>
+    <span>Mercado: ABVE, 2026 · Tarifa: Resolução ANEEL nº 3.596/2026, Enel São Paulo, classe B1 · Recarga: REN ANEEL 819/2018 · Vendas e fichas técnicas dos veículos: CNN Brasil e fabricantes, 1º semestre de 2026 · Tempo de permanência em supermercado: estudos Popai Brasil e Hubert · Margem líquida do varejo alimentar: ABRAS, 1,5% a 3% · Medições de campo: laboratório Eco Smart Home da FIAP, plataforma SEMS+ da GoodWe.</span>
     <span style="margin-top:10px">Repositório <a href="https://github.com/Vitormk1/challange">Vitormk1/challange</a></span>
   </footer>
 
