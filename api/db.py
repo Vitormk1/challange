@@ -61,11 +61,12 @@ def setup_indexes(db) -> list[str]:
     db.sessions.create_index([("customer_ref", ASCENDING)], sparse=True)
     created.append("sessions: id, store+data, point+data, cliente")
 
-    # chave de acesso unica: o mesmo cupom nao vale duas vezes
-    db.sales.create_index([("access_key", ASCENDING)], unique=True)
+    db.sales.create_index([("sale_id", ASCENDING)], unique=True)
+    # codigo de desconto: um cupom vale uma venda so
+    db.sales.create_index([("coupon_code", ASCENDING)], unique=True, sparse=True)
     db.sales.create_index([("store_id", ASCENDING), ("at", DESCENDING)])
     db.sales.create_index([("customer_ref", ASCENDING)], sparse=True)
-    created.append("sales: chave de acesso (unica), store+data, cliente")
+    created.append("sales: id, cupom (unico), store+data, cliente")
 
     # O indice que segura o tamanho do banco: o Mongo apaga sozinho.
     db.telemetry.create_index(

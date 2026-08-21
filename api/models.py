@@ -88,27 +88,28 @@ class Session:
 
 @dataclass
 class Sale:
-    """Uma venda, lida do cupom fiscal que o cliente escaneou.
+    """Uma venda da loja.
 
-    Nao vem de integracao com PDV — vem do QR Code da NFC-e, que toda loja do
-    Brasil ja imprime por obrigacao. Dentro dele estao a chave de acesso de 44
-    digitos (unica) e o valor total da operacao.
+    A ligacao com a recarga vem do `coupon_code`: a telinha oferece desconto,
+    o cliente escaneia o QR e recebe um codigo, o operador digita no caixa. O
+    codigo fica registrado na venda, e o vinculo aparece sozinho na exportacao.
 
-    A chave e estruturada, entao CNPJ e mes/ano de emissao sao verificaveis sem
-    consultar nada:
+    Funciona porque o cliente ganha algo em troca — desconto e aviso de quando
+    o carro enche. Pedir cupom de papel ou CPF sem contrapartida nao funciona.
 
-        posicoes  1-2    UF        3-6    AAMM (ano e mes)
-        posicoes  7-20   CNPJ     21-22   modelo
-        ...                       44      digito verificador
-
-    E o que torna a atribuicao direta em vez de estatistica: cada real contado
-    no painel tem uma nota fiscal por tras.
+    Para quem nao usa o desconto, o painel mede por comparacao de periodos.
     """
 
-    access_key: str            # 44 digitos, chave primaria natural
+    sale_id: str
     store_id: str
     at: datetime
     total_brl: float
+
+    # O vinculo com a recarga: o codigo de desconto que a telinha entregou ao
+    # cliente e o operador digitou no caixa. E o unico jeito que funciona sem
+    # pedir nada de graca ao cliente — cupom de papel quase ninguem pega, e CPF
+    # na nota a maioria nao informa.
+    coupon_code: str | None = None
     linked_session_id: str | None = None
     customer_ref: str | None = None
 

@@ -207,7 +207,7 @@
           <li>Quanto falta para 80% e para encher</li>
           <li>Se é cortesia da casa ou quanto vai custar</li>
           <li>Quantos quilômetros já entraram</li>
-          <li>QR para levar a mesma tela no celular</li>
+          <li>QR que leva a tela para o celular e dá desconto na loja</li>
         </ul>
       </div>
     </div>
@@ -295,28 +295,38 @@
     <h3 style="margin-top:34px">Como saber quanto esse cliente gastou</h3>
     <div class="body">
       <p>Sem isso, a venda dele se mistura com as outras e o dono nunca descobre se o carregador se pagou.</p>
-      <p>A ideia de pedir para a pessoa escanear o cupom de papel não funciona: <strong>quase ninguém pega mais o cupom.</strong> Mas a nota existe do mesmo jeito — <strong>a loja é obrigada a emitir</strong>, o cliente levando o papel ou não. O dado está no sistema da própria loja.</p>
-      <p>Então o caminho é o contrário do que parecia:</p>
+      <p>Duas ideias óbvias não funcionam, e vale dizer por quê antes de apresentar a que funciona. <strong>Pedir para escanear o cupom de papel:</strong> quase ninguém pega mais o cupom. <strong>Cruzar pelo CPF na nota:</strong> a maioria não informa CPF, e prefere não informar na hora de pagar.</p>
+      <p>As duas partem do mesmo erro — <strong>pedir que o cliente faça algo sem oferecer nada em troca.</strong> Ninguém faz.</p>
+    </div>
+    <div class="pull">
+      <p>Então não pedimos. <strong>A gente dá um desconto — e o desconto é que carrega a identificação.</strong> É assim que o varejo resolve isso há décadas: cupom.</p>
     </div>
     <div class="rows">
       <div class="row">
-        <span class="n">Uma vez só</span>
-        <span class="t">O cliente informa o CPF ao se cadastrar</span>
-        <span class="d">No celular, pelo QR da vaga, na primeira visita. Leva quinze segundos e nunca mais se repete.</span>
+        <span class="n">Passo 1</span>
+        <span class="t">A telinha oferece algo que a pessoa quer</span>
+        <span class="d">"Aponte a câmera: acompanhe a recarga no celular e ganhe desconto aqui na loja." Ela escaneia porque <strong>ganha duas coisas</strong> — o aviso de quando o carro enche e um desconto.</span>
       </div>
       <div class="row">
-        <span class="n">Toda visita</span>
-        <span class="t">Ele diz o CPF no caixa, como já faz hoje</span>
-        <span class="d">O hábito já existe — é o mesmo "CPF na nota" de sempre. <strong>Zero passo novo</strong> para o cliente, e nada a fazer no carregador.</span>
+        <span class="n">Passo 2</span>
+        <span class="t">O celular mostra a recarga ao vivo e um código</span>
+        <span class="d">Mesma página da telinha, agora na mão dela. Embaixo, um código curto de desconto ligado àquela sessão de recarga.</span>
       </div>
       <div class="row">
-        <span class="n">Automático</span>
-        <span class="t">O sistema cruza a venda com a recarga</span>
-        <span class="d">A loja nos dá acesso às próprias notas emitidas, e o encontro é feito pelo CPF e pelo horário. Sem ninguém escanear nada.</span>
+        <span class="n">Passo 3</span>
+        <span class="t">O código entra no caixa como qualquer cupom</span>
+        <span class="d">O operador digita, o desconto é aplicado, e o código fica registrado na venda. <strong>Todo sistema de caixa já faz isso</strong> — é função padrão de varejo, não integração nova.</span>
+      </div>
+      <div class="row">
+        <span class="n">Passo 4</span>
+        <span class="t">O vínculo aparece sozinho</span>
+        <span class="d">Nas vendas exportadas pela loja, aquele código aparece naquela compra. Recarga e venda amarradas, com valor e horário. Sem CPF, sem papel, sem passo extra.</span>
       </div>
     </div>
     <div class="body" style="margin-top:18px">
-      <p>Quando não há CPF na nota, o painel cai para a medição por comparação: o movimento da loja em períodos parecidos, com e sem recarga acontecendo. Menos preciso, mas não fica cego.</p>
+      <p>O desconto não é custo perdido: <strong>ele também aumenta a chance de a pessoa comprar</strong>, que é o objetivo do carregador em primeiro lugar. E o valor é a loja quem define — pode ser R$ 5, pode ser um café.</p>
+      <p>Se a loja já tem cartão de fidelidade, melhor ainda: o código vira o próprio cadastro dela, e o cliente é reconhecido nas próximas visitas.</p>
+      <p><strong>E quem não pegar o desconto?</strong> Aí o painel mede por comparação — quanto a loja fatura em períodos parecidos, com e sem recarga acontecendo. É menos preciso, mas responde a pergunta que interessa de verdade, que é se o movimento aumentou.</p>
     </div>
     <div class="pull">
       <p>E é aqui que o nosso software vira obrigatório: <strong>sem provar que dá retorno, nenhum dono aprova o investimento.</strong> É isso que faz a GoodWe vender software junto com o equipamento, em vez de só o equipamento.</p>
@@ -393,41 +403,6 @@
       <p><a href="vaga/">Abrir a telinha →</a> &nbsp; <a href="vaga/?full=1">em tela cheia →</a><br>
       <span style="font-size:.86rem;color:var(--ink-3)">O cenário muda pela barra de endereço:<br>
       <code>vaga/?soc=0.55&amp;modo=pago&amp;ponto=22</code> — carro em 55%, cobrança por kWh, ponto de 22 kW.</span></p>
-    </div>
-  </section>
-
-  <section>
-    <h3>Por dentro do cupom fiscal</h3>
-    <div class="body">
-      <p>É a peça que faz o modelo de negócio funcionar, então vale detalhar.</p>
-      <p>Todo cupom de consumidor no Brasil é uma <strong>NFC-e</strong>, emitida obrigatoriamente pela loja a cada venda — o cliente levando o papel ou não. Ela traz a <strong>chave de acesso de 44 dígitos</strong>, que identifica a venda de forma única, o <strong>valor total</strong> e, quando informado, o <strong>CPF do consumidor</strong>.</p>
-      <p>É um <strong>formato nacional único</strong>. Todo sistema de caixa do Brasil exporta NFC-e em XML, porque é obrigado por lei. Então o que precisamos da loja não é uma integração sob medida com o PDV dela — é acesso ao arquivo padronizado que ela já gera.</p>
-    </div>
-    <div class="rows">
-      <div class="row">
-        <span class="n">Consequência 1</span>
-        <span class="t">Uma integração só, não uma por loja</span>
-        <span class="d">Se dependêssemos da interface de cada PDV, cada instalação viraria um projeto de semanas. Lendo o padrão nacional, o mesmo código serve qualquer comércio.</span>
-      </div>
-      <div class="row">
-        <span class="n">Consequência 2</span>
-        <span class="t">O cliente não faz nada de novo</span>
-        <span class="d">Dizer o CPF no caixa já é hábito no Brasil. Não inventamos nenhum passo — aproveitamos um que já existe.</span>
-      </div>
-      <div class="row">
-        <span class="n">Consequência 3</span>
-        <span class="t">A atribuição é direta, não estatística</span>
-        <span class="d">Cada real contado no painel tem uma nota fiscal por trás. É a diferença entre "achamos que trouxe clientes" e "trouxe estes clientes, nestas compras".</span>
-      </div>
-      <div class="row">
-        <span class="n">Cuidado</span>
-        <span class="t">CPF é dado pessoal</span>
-        <span class="d">Guardamos apenas uma versão embaralhada dele, que serve para casar os registros e não permite voltar ao número original. Com consentimento explícito e finalidade declarada, como manda a LGPD.</span>
-      </div>
-    </div>
-    <div class="body" style="margin-top:18px">
-      <p><strong>O que isso ainda não responde:</strong> quem carregou e comprou pode ser alguém que já ia comprar de qualquer jeito. O vínculo prova a <em>associação</em>, não que a venda foi <em>causada</em> pelo carregador.</p>
-      <p>Para chegar mais perto disso, o painel compara também o movimento da loja em períodos parecidos com e sem recarga acontecendo. Não é prova definitiva — mas dizer isso em vez de esconder é o que separa um número honesto de um número de propaganda.</p>
     </div>
   </section>
 
@@ -523,35 +498,9 @@
   <section>
     <h3>O que ainda está em aberto</h3>
     <div class="body">
-      <p>Problemas que a gente já enxergou e ainda não resolveu. Estão aqui de propósito — projeto sem lista de pendências é projeto que não foi olhado de perto.</p>
-      <p><em>Carro a combustão ocupando a vaga saiu desta lista:</em> resolve-se com placa de vaga exclusiva para elétricos e fiscalização da loja, do mesmo jeito que vaga de idoso. Não é problema de software.</p>
-    </div>
-    <div class="rows">
-      <div class="row">
-        <span class="n">Em aberto</span>
-        <span class="t">Saber se o cliente voltou</span>
-        <span class="d">O cupom identifica a compra, não a pessoa. Para medir quem volta é preciso um identificador estável — placa ou telefone, informado uma vez. Isso é dado pessoal e exige consentimento claro e finalidade declarada.</span>
-      </div>
-      <div class="row">
-        <span class="n">Em aberto</span>
-        <span class="t">Quanto custa além da energia</span>
-        <span class="d">A conta de equilíbrio considera só a energia. Falta somar a amortização do carregador e da obra elétrica, a manutenção, o risco de furto de cabo e o impacto na demanda contratada. Todos empurram o ponto de equilíbrio para cima.</span>
-      </div>
-      <div class="row">
-        <span class="n">Em aberto</span>
-        <span class="t">Confirmar as margens fora do supermercado</span>
-        <span class="d">A margem de supermercado tem fonte firme (ABRAS). As dos outros segmentos são faixas correntes de mercado e precisam ser confirmadas com o lojista antes de virar proposta comercial.</span>
-      </div>
-      <div class="row">
-        <span class="n">Em aberto</span>
-        <span class="t">Provar que a venda foi causada pelo carregador</span>
-        <span class="d">O vínculo com o cupom prova associação. Separar quem veio por causa do carregador de quem já viria exige comparar períodos parecidos com e sem recarga — e mesmo assim é aproximação.</span>
-      </div>
-      <div class="row">
-        <span class="n">Em aberto</span>
-        <span class="t">Confirmar o carregador de bordo de cada carro</span>
-        <span class="d">Usamos 6,6 kW, que é o padrão da categoria de entrada. Cada fabricante publica o seu, e a previsão de tempo depende disso.</span>
-      </div>
+      <p>Só uma pendência de verdade, e ela é de conta, não de software.</p>
+      <p><strong>A conta de equilíbrio considera apenas a energia.</strong> Falta somar a amortização do carregador e da obra elétrica, que é o gasto de entrada do lojista e o que ele mais vai perguntar. Some isso e os saldos positivos da tabela encolhem — em alguns segmentos, some.</p>
+      <p>É a próxima coisa a levantar: preço do equipamento, custo típico de instalação, e em quantos meses aquilo se paga com o ganho por sessão.</p>
     </div>
   </section>
 
