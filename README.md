@@ -26,7 +26,7 @@ acesse em `vitormk1.github.io/challange/`.
 ```
 docs/
   index.html   o dossiê do projeto
-  vaga/        a telinha ao lado do carregador  (pronta)
+  vaga/        a telinha da vaga · serve tambem o celular pelo QR  (pronta)
   painel/      o painel do lojista              (a fazer)
 api/
   models.py    o contrato de dados — sessão, ponto, loja, venda, agregado

@@ -4,16 +4,28 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Praça de Recarga — Vaga</title>
-<meta name="description" content="Telinha ao lado do carregador: tempo e custo previstos em tempo real.">
+<meta name="description" content="A telinha ao lado do carregador: tempo e custo previstos em tempo real.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@300;400;600;700&display=swap">
 <style>
-  /* A telinha fica numa parede, ao lado da vaga. Escura sempre: e um
-     equipamento, nao um documento. Tudo dimensionado para leitura a 3 metros. */
+  /* ------------------------------------------------------------------
+     Duas apresentacoes do mesmo conteudo:
+
+       padrao      a tela aparece emoldurada no meio da pagina, com folga
+                   em volta — para demonstracao e para o dossie
+       ?full=1     ocupa o monitor inteiro — e assim que roda na parede
+                   ao lado da vaga, e como abre no celular pelo QR
+
+     O dimensionamento interno usa unidades relativas ao CONTEINER
+     (cqw/cqh), nao a janela. Por isso a mesma tela funciona a 880px na
+     moldura e em tela cheia sem duplicar uma linha de estilo.
+  ------------------------------------------------------------------ */
   :root{
+    --page:#F2F3F5;
+    --page-2:#DDE1E5;
+    --page-ink:#5A6067;
     --ground:#08090B;
-    --panel:#0F1114;
     --ink:#F2F3F5;
     --ink-2:#A2A8AE;
     --ink-3:#666D74;
@@ -21,164 +33,197 @@
     --amber:#FFB020;
     --done:#5BD08A;
   }
+  @media (prefers-color-scheme: dark){
+    :root{--page:#0A0B0D;--page-2:#181B1F;--page-ink:#6E757C}
+  }
   *{box-sizing:border-box}
   html,body{height:100%}
   body{
-    margin:0;background:var(--ground);color:var(--ink);
+    margin:0;background:var(--page);
     font-family:"Sora",system-ui,sans-serif;font-weight:300;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:24px;padding:8vh 6vw;-webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- moldura ---------- */
+  .device{
+    width:min(880px,100%);border:10px solid var(--page-2);border-radius:14px;
+    box-shadow:0 30px 70px -40px rgba(0,0,0,.6);overflow:hidden;flex-shrink:0;
+  }
+  .caption{
+    font-family:"JetBrains Mono",monospace;font-size:.66rem;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--page-ink);text-align:center;margin:0;
+  }
+  .caption a{color:var(--page-ink)}
+  .caption a:hover{color:var(--amber)}
+
+  /* ---------- a tela ---------- */
+  .screen{
+    container-type:size;aspect-ratio:16/10;width:100%;
+    background:var(--ground);color:var(--ink);
     display:flex;flex-direction:column;overflow:hidden;
-    -webkit-font-smoothing:antialiased;
   }
-  .mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  html.full body{padding:0;gap:0;background:var(--ground)}
+  html.full .device{width:100%;height:100%;border:0;border-radius:0;box-shadow:none}
+  html.full .screen{aspect-ratio:auto;height:100%}
+  html.full .caption{display:none}
 
-  /* ---------- topo ---------- */
-  header{
-    display:flex;justify-content:space-between;align-items:center;
-    padding:2.2vh 3vw;border-bottom:1px solid var(--rule);flex-shrink:0;
+  .screen > header{
+    display:flex;justify-content:space-between;align-items:center;gap:2cqw;
+    padding:3.4cqh 3.4cqw;border-bottom:1px solid var(--rule);flex-shrink:0;
   }
-  .who{display:flex;align-items:baseline;gap:1.4vw}
-  .who .spot{font-size:clamp(1rem,2.2vw,1.6rem);font-weight:600;letter-spacing:-.02em}
-  .who .store{font-size:clamp(.65rem,1.1vw,.85rem);color:var(--ink-3);letter-spacing:.16em;text-transform:uppercase;font-family:"JetBrains Mono",monospace}
-  .state{display:flex;align-items:center;gap:.8vw}
-  .dot{width:.9vw;height:.9vw;min-width:9px;min-height:9px;border-radius:50%;background:var(--amber)}
+  .who{display:flex;align-items:baseline;gap:1.6cqw;min-width:0}
+  .who .spot{font-size:clamp(13px,3.1cqh,30px);font-weight:600;letter-spacing:-.02em;white-space:nowrap}
+  .who .store{font-family:"JetBrains Mono",monospace;font-size:clamp(8px,1.7cqh,14px);color:var(--ink-3);letter-spacing:.14em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .state{display:flex;align-items:center;gap:1cqw;flex-shrink:0}
+  .dot{width:clamp(7px,1.5cqh,13px);aspect-ratio:1;border-radius:50%;background:var(--amber)}
   .dot.pulse{animation:pulse 1.9s ease-in-out infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.22}}
   .state span{
-    font-family:"JetBrains Mono",monospace;font-size:clamp(.68rem,1.2vw,.95rem);
-    font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--amber);
+    font-family:"JetBrains Mono",monospace;font-size:clamp(9px,1.9cqh,16px);
+    font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--amber);white-space:nowrap;
   }
-  .done .dot{background:var(--done);animation:none}
-  .done span{color:var(--done)}
+  .screen.done .dot{background:var(--done);animation:none}
+  .screen.done .state span{color:var(--done)}
 
-  /* ---------- centro ---------- */
-  main{flex:1;display:flex;flex-direction:column;justify-content:center;gap:3vh;padding:2vh 3vw;min-height:0}
-  .charge{display:flex;align-items:baseline;gap:1.5vw;line-height:.85}
-  .charge .pct{
-    font-family:"JetBrains Mono",monospace;font-weight:700;
-    font-size:clamp(5rem,26vw,18rem);letter-spacing:-.06em;
-  }
-  .charge .sign{font-family:"JetBrains Mono",monospace;font-weight:400;font-size:clamp(2rem,8vw,6rem);color:var(--ink-3)}
-  .charge .now{margin-left:auto;text-align:right;display:flex;flex-direction:column;gap:.6vh}
-  .charge .now b{font-family:"JetBrains Mono",monospace;font-size:clamp(1.1rem,3.4vw,2.4rem);font-weight:500;letter-spacing:-.02em}
-  .charge .now i{font-style:normal;font-size:clamp(.6rem,1.1vw,.82rem);color:var(--ink-3);letter-spacing:.16em;text-transform:uppercase;font-family:"JetBrains Mono",monospace}
+  .screen > main{flex:1;display:flex;flex-direction:column;justify-content:center;gap:4cqh;padding:2cqh 3.4cqw;min-height:0}
+  .charge{display:flex;align-items:baseline;gap:1.6cqw;line-height:.82}
+  .charge .pct{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:clamp(56px,30cqh,190px);letter-spacing:-.06em}
+  .charge .sign{font-family:"JetBrains Mono",monospace;font-weight:400;font-size:clamp(20px,11cqh,66px);color:var(--ink-3)}
+  .charge .now{margin-left:auto;text-align:right;display:flex;flex-direction:column;gap:.9cqh}
+  .charge .now b{font-family:"JetBrains Mono",monospace;font-size:clamp(13px,4.4cqh,34px);font-weight:500;letter-spacing:-.02em}
+  .charge .now i{font-style:normal;font-family:"JetBrains Mono",monospace;font-size:clamp(8px,1.7cqh,13px);color:var(--ink-3);letter-spacing:.14em;text-transform:uppercase}
 
-  .bar{height:.9vh;min-height:6px;background:var(--rule);position:relative;overflow:hidden}
+  .bar{height:clamp(5px,1.4cqh,12px);background:var(--rule);position:relative;overflow:hidden;flex-shrink:0}
   .bar i{position:absolute;inset:0 auto 0 0;background:var(--amber);width:0;transition:width .6s ease}
-  .bar u{position:absolute;top:0;bottom:0;width:1px;background:var(--ink-3);opacity:.7}
+  .screen.done .bar i{background:var(--done)}
+  .bar u{position:absolute;top:0;bottom:0;left:80%;width:1px;background:var(--ink-3);opacity:.75}
 
-  /* ---------- as três respostas ---------- */
   .answers{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule);border-top:1px solid var(--rule);flex-shrink:0}
-  .answers div{background:var(--ground);padding:2.6vh 3vw;display:flex;flex-direction:column;gap:1vh}
-  .answers .k{font-family:"JetBrains Mono",monospace;font-size:clamp(.6rem,1.1vw,.82rem);letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3)}
-  .answers .v{font-family:"JetBrains Mono",monospace;font-size:clamp(1.3rem,4.2vw,3rem);font-weight:700;letter-spacing:-.04em;line-height:1}
+  .answers > div{background:var(--ground);padding:3.2cqh 3.4cqw;display:flex;flex-direction:column;gap:1.3cqh;min-width:0}
+  .answers .k{font-family:"JetBrains Mono",monospace;font-size:clamp(8px,1.7cqh,13px);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+  .answers .v{font-family:"JetBrains Mono",monospace;font-size:clamp(15px,5.4cqh,42px);font-weight:700;letter-spacing:-.04em;line-height:1;white-space:nowrap}
   .answers .v.amber{color:var(--amber)}
-  .answers .v.free{color:var(--done);font-size:clamp(1rem,3vw,2.1rem)}
-  .answers .s{font-size:clamp(.62rem,1.1vw,.85rem);color:var(--ink-2)}
-  @media (max-width:640px){.answers{grid-template-columns:1fr;}.answers div{padding:1.8vh 5vw}}
+  .answers .v.free{color:var(--done);font-family:"Sora",sans-serif;font-weight:600;font-size:clamp(12px,3.9cqh,29px);letter-spacing:-.02em}
+  .answers .s{font-size:clamp(8px,1.8cqh,14px);color:var(--ink-2);line-height:1.35}
 
-  footer{
-    display:flex;justify-content:space-between;align-items:center;gap:2vw;
-    padding:1.8vh 3vw;border-top:1px solid var(--rule);flex-shrink:0;
-    font-size:clamp(.62rem,1.1vw,.8rem);color:var(--ink-3);
+  .screen > footer{
+    display:flex;justify-content:space-between;align-items:center;gap:2cqw;
+    padding:2.6cqh 3.4cqw;border-top:1px solid var(--rule);flex-shrink:0;
+    font-size:clamp(8px,1.8cqh,14px);color:var(--ink-3);
   }
-  footer .qr{display:flex;align-items:center;gap:1vw}
-  footer .qr svg{width:clamp(30px,4vw,46px);height:auto}
+  .qr{display:flex;align-items:center;gap:1.4cqw;flex-shrink:0}
+  .qr svg{width:clamp(24px,7cqh,52px);height:auto}
   @media (prefers-reduced-motion:reduce){.dot.pulse{animation:none}.bar i{transition:none}}
 </style>
 </head>
 <body>
 
-<header>
-  <div class="who">
-    <span class="spot" id="spot">Vaga 1</span>
-    <span class="store" id="store">Mercado Bom Preço</span>
-  </div>
-  <div class="state" id="state">
-    <span class="dot pulse"></span><span id="stateText">Carregando</span>
-  </div>
-</header>
+<div class="device">
+  <div class="screen" id="screen">
+    <header>
+      <div class="who">
+        <span class="spot" id="spot">Vaga 1</span>
+        <span class="store" id="store">Mercado Bom Preço</span>
+      </div>
+      <div class="state">
+        <span class="dot pulse"></span><span id="stateText">Carregando</span>
+      </div>
+    </header>
 
-<main>
-  <div class="charge">
-    <span class="pct mono" id="pct">--</span><span class="sign">%</span>
-    <div class="now">
-      <b class="mono" id="kwh">0,0 kWh</b><i>entregue</i>
-      <b class="mono" id="km">0 km</b><i>de autonomia</i>
+    <main>
+      <div class="charge">
+        <span class="pct" id="pct">--</span><span class="sign">%</span>
+        <div class="now">
+          <b id="kwh">0,0 kWh</b><i>entregue</i>
+          <b id="km">0 km</b><i>de autonomia</i>
+        </div>
+      </div>
+      <div class="bar"><i id="fill"></i><u></u></div>
+    </main>
+
+    <div class="answers">
+      <div>
+        <span class="k">80% às</span>
+        <span class="v amber" id="t80">--:--</span>
+        <span class="s" id="t80rel">calculando</span>
+      </div>
+      <div>
+        <span class="k">Cheio às</span>
+        <span class="v" id="t100">--:--</span>
+        <span class="s" id="t100rel">calculando</span>
+      </div>
+      <div>
+        <span class="k" id="costLabel">Custo</span>
+        <span class="v free" id="cost">—</span>
+        <span class="s" id="costNote"></span>
+      </div>
     </div>
-  </div>
-  <div class="bar"><i id="fill"></i><u id="mark80"></u></div>
-</main>
 
-<div class="answers">
-  <div>
-    <span class="k">80% às</span>
-    <span class="v amber" id="t80">--:--</span>
-    <span class="s" id="t80rel">calculando</span>
-  </div>
-  <div>
-    <span class="k">Cheio às</span>
-    <span class="v" id="t100">--:--</span>
-    <span class="s" id="t100rel">calculando</span>
-  </div>
-  <div>
-    <span class="k" id="costLabel">Você vai pagar</span>
-    <span class="v" id="cost">--</span>
-    <span class="s" id="costNote"></span>
+    <footer>
+      <span id="hint">Pode ir às compras. A gente avisa quando encher.</span>
+      <span class="qr">
+        <svg viewBox="0 0 21 21" shape-rendering="crispEdges" aria-hidden="true">
+          <rect width="21" height="21" fill="#08090B"/>
+          <g fill="#666D74">
+            <rect x="1" y="1" width="5" height="5"/><rect x="2" y="2" width="3" height="3" fill="#08090B"/>
+            <rect x="15" y="1" width="5" height="5"/><rect x="16" y="2" width="3" height="3" fill="#08090B"/>
+            <rect x="1" y="15" width="5" height="5"/><rect x="2" y="16" width="3" height="3" fill="#08090B"/>
+            <rect x="8" y="1" width="1" height="1"/><rect x="10" y="2" width="1" height="1"/>
+            <rect x="9" y="4" width="1" height="1"/><rect x="11" y="5" width="1" height="1"/>
+            <rect x="1" y="8" width="1" height="1"/><rect x="3" y="9" width="1" height="1"/>
+            <rect x="5" y="11" width="1" height="1"/><rect x="8" y="8" width="2" height="2"/>
+            <rect x="12" y="9" width="1" height="1"/><rect x="14" y="11" width="1" height="1"/>
+            <rect x="9" y="13" width="1" height="1"/><rect x="11" y="15" width="1" height="1"/>
+            <rect x="16" y="8" width="1" height="1"/><rect x="18" y="10" width="1" height="1"/>
+            <rect x="13" y="17" width="1" height="1"/><rect x="16" y="14" width="2" height="2"/>
+          </g>
+        </svg>
+        <span>Aponte a câmera para acompanhar no celular</span>
+      </span>
+    </footer>
   </div>
 </div>
 
-<footer>
-  <span id="hint">Pode ir às compras. A gente avisa quando encher.</span>
-  <span class="qr">
-    <svg viewBox="0 0 21 21" shape-rendering="crispEdges" aria-hidden="true">
-      <rect width="21" height="21" fill="#08090B"/>
-      <g fill="#666D74">
-        <rect x="1" y="1" width="5" height="5"/><rect x="2" y="2" width="3" height="3" fill="#08090B"/>
-        <rect x="15" y="1" width="5" height="5"/><rect x="16" y="2" width="3" height="3" fill="#08090B"/>
-        <rect x="1" y="15" width="5" height="5"/><rect x="2" y="16" width="3" height="3" fill="#08090B"/>
-        <rect x="8" y="1" width="1" height="1"/><rect x="10" y="2" width="1" height="1"/>
-        <rect x="9" y="4" width="1" height="1"/><rect x="11" y="5" width="1" height="1"/>
-        <rect x="1" y="8" width="1" height="1"/><rect x="3" y="9" width="1" height="1"/>
-        <rect x="5" y="11" width="1" height="1"/><rect x="8" y="8" width="2" height="2"/>
-        <rect x="12" y="9" width="1" height="1"/><rect x="14" y="11" width="1" height="1"/>
-        <rect x="9" y="13" width="1" height="1"/><rect x="11" y="15" width="1" height="1"/>
-        <rect x="16" y="8" width="1" height="1"/><rect x="18" y="10" width="1" height="1"/>
-        <rect x="13" y="17" width="1" height="1"/><rect x="16" y="14" width="2" height="2"/>
-      </g>
-    </svg>
-    <span>Acompanhe no celular</span>
-  </span>
-</footer>
+<p class="caption">
+  Telinha da vaga · demonstração ·
+  <a href="?full=1">abrir em tela cheia</a>
+</p>
 
 <script>
 /* ------------------------------------------------------------------
    Curva de recarga — espelha ai/charge_curve.py.
 
-   A conta roda AQUI, no navegador da telinha, de propósito: quando a
-   internet cai, a tela continua funcionando. Tela apagada ao lado da
-   vaga é pior que nenhuma tela.
+   A conta roda AQUI, no navegador da telinha, de proposito: quando a
+   internet da loja cai, a tela continua funcionando. Tela apagada ao
+   lado da vaga e pior que nenhuma tela. E a mesma pagina serve o
+   celular do motorista pelo QR — nao existe aplicativo para instalar.
 ------------------------------------------------------------------ */
 const P = new URLSearchParams(location.search);
+if (P.get('full') === '1') document.documentElement.classList.add('full');
+
 const cfg = {
-  spot:      P.get('vaga')   || 'Vaga 1',
-  store:     P.get('loja')   || 'Mercado Bom Preço',
-  batteryKwh:+(P.get('bateria') || 50),
-  onboardKw: +(P.get('carro')   || 7),
-  maxKw:     +(P.get('ponto')   || 7.4),
+  spot:      P.get('vaga')  || 'Vaga 1',
+  store:     P.get('loja')  || 'Mercado Bom Preço',
+  batteryKwh:+(P.get('bateria')  || 50),
+  onboardKw: +(P.get('carro')    || 7),
+  maxKw:     +(P.get('ponto')    || 7.4),
   eff:        0.92,
   tailRatio:  0.15,
-  soc:       +(P.get('soc')     || 0.22),
-  mode:       P.get('modo')  || 'cortesia',   // cortesia | pago
-  priceKwh:  +(P.get('preco')   || 0.95),
-  freeKwh:   +(P.get('gratis')  || 12),
-  kmPerKwh:  +(P.get('kmkwh')   || 5.6),
-  speed:     +(P.get('speed')   || 180),      // 1 = tempo real
+  soc:       +(P.get('soc')      || 0.22),
+  mode:       P.get('modo')  || 'cortesia',    // cortesia | pago
+  priceKwh:  +(P.get('preco')    || 0.95),
+  freeKwh:   +(P.get('gratis')   || 25),       // teto da cortesia
+  idleFee:   +(P.get('ocioso')   || 0.20),     // R$ por minuto de vaga ocupada
+  graceMin:  +(P.get('carencia') || 15),
+  kmPerKwh:  +(P.get('kmkwh')    || 5.6),
+  speed:     +(P.get('speed')    || 180),      // 1 = tempo real
 };
 
 const ceilingKw = () => Math.min(cfg.onboardKw, cfg.maxKw) * cfg.eff;
 
-/* Onde a bateria começa a desacelerar. Depende da velocidade da recarga:
-   num ponto lento ela segura quase até o fim; num rápido corta bem antes. */
+/* Onde a bateria comeca a desacelerar. Depende da velocidade da recarga:
+   num ponto lento ela segura quase ate o fim; num rapido corta bem antes. */
 function knee(){
   const cRate = ceilingKw() / Math.max(1e-6, cfg.batteryKwh);
   return Math.max(0.55, Math.min(0.95, 0.95 - 0.20 * cRate));
@@ -200,8 +245,7 @@ function hoursTo(from, to){
   return h;
 }
 
-/* ---------- formatação ---------- */
-const brl = v => v.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+const brl   = v => v.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 const clock = d => d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
 function relative(hours){
   if (hours <= 0) return 'agora';
@@ -211,28 +255,66 @@ function relative(hours){
   return r ? `em ${h}h${String(r).padStart(2,'0')}` : `em ${h}h`;
 }
 
-/* ---------- estado ---------- */
 const start = cfg.soc;
 let soc = cfg.soc;
+let idleMinutes = 0;
 let last = performance.now();
 
 const $ = id => document.getElementById(id);
 $('spot').textContent  = cfg.spot;
 $('store').textContent = cfg.store;
-$('mark80').style.left = '80%';
+
+/* ------------------------------------------------------------------
+   O painel de custo.
+
+   No modelo padrao a recarga e cortesia da loja — entao a tela NAO diz
+   "voce vai pagar". A unica coisa que o motorista pode pagar e a vaga
+   ocupada depois de cheio, e so passada a carencia. Cobrar pela energia
+   so acontece no modo pago, que e configuracao de cada ponto.
+------------------------------------------------------------------ */
+function renderCost(deliveredKwh, isFull){
+  const label = $('costLabel'), value = $('cost'), note = $('costNote');
+
+  if (cfg.mode === 'pago'){
+    const totalKwh = deliveredKwh + Math.max(0, (1 - soc) * cfg.batteryKwh);
+    label.textContent = 'Você vai pagar';
+    value.textContent = brl(totalKwh * cfg.priceKwh);
+    value.className = 'v amber';
+    note.textContent = `${brl(cfg.priceKwh)} por kWh`;
+    return;
+  }
+
+  const billable = Math.max(0, idleMinutes - cfg.graceMin);
+  if (billable > 0){
+    label.textContent = 'Vaga ocupada';
+    value.textContent = brl(billable * cfg.idleFee);
+    value.className = 'v amber';
+    note.textContent = `${brl(cfg.idleFee)} por minuto após ${cfg.graceMin} min cheio`;
+  } else if (isFull){
+    label.textContent = 'Custo';
+    value.textContent = 'Nada a pagar';
+    value.className = 'v free';
+    note.textContent = `vaga livre por mais ${Math.max(0, Math.ceil(cfg.graceMin - idleMinutes))} min`;
+  } else {
+    label.textContent = 'Custo';
+    value.textContent = 'Cortesia da casa';
+    value.className = 'v free';
+    note.textContent = `grátis até ${cfg.freeKwh} kWh com sua compra`;
+  }
+}
 
 function render(){
-  const full = soc >= 0.995;
+  const isFull = soc >= 0.995;
   const delivered = Math.max(0, (soc - start) * cfg.batteryKwh);
 
+  $('screen').classList.toggle('done', isFull);
   $('pct').textContent = Math.floor(soc * 100);
   $('fill').style.width = (soc * 100) + '%';
   $('kwh').textContent = delivered.toFixed(1).replace('.', ',') + ' kWh';
   $('km').textContent  = Math.round(delivered * cfg.kmPerKwh) + ' km';
 
   const now = new Date();
-  const h80  = hoursTo(soc, 0.80);
-  const h100 = hoursTo(soc, 1.00);
+  const h80 = hoursTo(soc, 0.80), h100 = hoursTo(soc, 1.00);
 
   if (soc >= 0.80){
     $('t80').textContent = 'ok';
@@ -241,47 +323,25 @@ function render(){
     $('t80').textContent = clock(new Date(now.getTime() + h80 * 3600e3));
     $('t80rel').textContent = relative(h80);
   }
-  $('t100').textContent = full ? 'ok' : clock(new Date(now.getTime() + h100 * 3600e3));
-  $('t100rel').textContent = full ? 'completo' : relative(h100);
+  $('t100').textContent = isFull ? 'ok' : clock(new Date(now.getTime() + h100 * 3600e3));
+  $('t100rel').textContent = isFull ? 'completo' : relative(h100);
 
-  /* custo previsto ao terminar, não o custo até agora — é o que a pessoa
-     precisa saber para decidir se espera */
-  const totalKwh = delivered + Math.max(0, (1 - soc) * cfg.batteryKwh);
-  if (cfg.mode === 'cortesia'){
-    const excess = Math.max(0, totalKwh - cfg.freeKwh);
-    $('costLabel').textContent = 'Você vai pagar';
-    if (excess <= 0){
-      $('cost').textContent = 'Cortesia';
-      $('cost').className = 'v free';
-      $('costNote').textContent = `grátis até ${cfg.freeKwh} kWh na compra`;
-    } else {
-      $('cost').textContent = brl(excess * cfg.priceKwh);
-      $('cost').className = 'v amber';
-      $('costNote').textContent = `${cfg.freeKwh} kWh de cortesia já usados`;
-    }
-  } else {
-    $('costLabel').textContent = 'Você vai pagar';
-    $('cost').textContent = brl(totalKwh * cfg.priceKwh);
-    $('cost').className = 'v amber';
-    $('costNote').textContent = `${brl(cfg.priceKwh)} por kWh`;
-  }
+  renderCost(delivered, isFull);
 
-  const state = $('state');
-  if (full){
-    state.classList.add('done');
-    $('stateText').textContent = 'Completo';
-    $('hint').textContent = 'Carro cheio. Pode liberar a vaga para o próximo.';
-  } else {
-    $('stateText').textContent = 'Carregando';
-  }
+  $('stateText').textContent = isFull ? 'Completo' : 'Carregando';
+  $('hint').textContent = isFull
+    ? 'Carro cheio. Pode liberar a vaga para o próximo.'
+    : 'Pode ir às compras. A gente avisa quando encher.';
 }
 
 function tick(t){
-  const dt = (t - last) / 1000;          // segundos reais
+  const dt = (t - last) / 1000;
   last = t;
-  if (soc < 0.999){
-    const hours = (dt * cfg.speed) / 3600;
-    soc = Math.min(0.999, soc + (powerAt(soc) * hours) / cfg.batteryKwh);
+  const simMinutes = dt * cfg.speed / 60;
+  if (soc < 0.995){
+    soc = Math.min(0.999, soc + (powerAt(soc) * (simMinutes / 60)) / cfg.batteryKwh);
+  } else {
+    idleMinutes += simMinutes;
   }
   render();
   requestAnimationFrame(tick);
