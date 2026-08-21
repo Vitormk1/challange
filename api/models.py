@@ -88,19 +88,29 @@ class Session:
 
 @dataclass
 class Sale:
-    """Uma venda no PDV da loja.
+    """Uma venda, lida do cupom fiscal que o cliente escaneou.
 
-    `customer_ref` e o que permite cruzar com a sessao — e o unico jeito de
-    responder a pergunta que decide a compra do produto: o carregador trouxe
-    faturamento?
+    Nao vem de integracao com PDV — vem do QR Code da NFC-e, que toda loja do
+    Brasil ja imprime por obrigacao. Dentro dele estao a chave de acesso de 44
+    digitos (unica) e o valor total da operacao.
+
+    A chave e estruturada, entao CNPJ e mes/ano de emissao sao verificaveis sem
+    consultar nada:
+
+        posicoes  1-2    UF        3-6    AAMM (ano e mes)
+        posicoes  7-20   CNPJ     21-22   modelo
+        ...                       44      digito verificador
+
+    E o que torna a atribuicao direta em vez de estatistica: cada real contado
+    no painel tem uma nota fiscal por tras.
     """
 
-    sale_id: str
+    access_key: str            # 44 digitos, chave primaria natural
     store_id: str
     at: datetime
     total_brl: float
-    customer_ref: str | None = None
     linked_session_id: str | None = None
+    customer_ref: str | None = None
 
 
 @dataclass

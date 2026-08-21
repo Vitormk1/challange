@@ -228,7 +228,7 @@
     </div>
     <div class="readout">
       <div><span class="v">R$ 3,59</span><span class="k">energia de uma visita típica de 45 min</span></div>
-      <div><span class="v hi">R$ 120</span><span class="k">o que um cliente costuma gastar na visita</span></div>
+      <div><span class="v hi">R$ 60</span><span class="k">o que um cliente costuma gastar na visita</span></div>
     </div>
     <div class="body">
       <p>É muito mais fácil um dono de loja aprovar isso do que virar vendedor de energia — o que exigiria maquininha, nota fiscal e competir com Shell e EZVolt, que já têm rede montada.</p>
@@ -256,6 +256,41 @@
     <div class="body" style="margin-top:16px">
       <p>Por isso a cortesia é medida <strong>em tempo, não em energia</strong>. Um teto em kWh nunca seria atingido: para levar 25 kWh a pessoa teria de ficar mais de três horas parada na loja. "Grátis enquanto você faz compras, até 2 horas" é o limite real — e é o que qualquer um entende sem explicação.</p>
       <p>E a tela fala em quilômetros, não em kWh. <em>"Em meia hora são uns 32 km"</em> diz alguma coisa. <em>"3,04 kWh"</em> não diz nada.</p>
+    </div>
+
+    <h3 style="margin-top:34px">E se a pessoa só carregar e for embora?</h3>
+    <div class="body">
+      <p>Esse é o risco do modelo, e ele se resolve com o <strong>cupom fiscal</strong> — que toda loja do Brasil já emite.</p>
+      <p>Funciona assim, sem atrito nenhum na chegada:</p>
+    </div>
+    <div class="rows">
+      <div class="row">
+        <span class="n">Passo 1</span>
+        <span class="t">A pessoa pluga e a recarga começa na hora</span>
+        <span class="d">Sem cadastro, sem senha, sem passar no caixa antes. Nesse momento ela ganha 20 minutos de cortesia provisória.</span>
+      </div>
+      <div class="row">
+        <span class="n">Passo 2</span>
+        <span class="t">Ela compra e escaneia o cupom na telinha</span>
+        <span class="d">O cupom fiscal já vem com QR Code impresso. Ela aponta para a telinha e pronto — a cortesia sobe para 2 horas.</span>
+      </div>
+      <div class="row">
+        <span class="n">Passo 3</span>
+        <span class="t">Se não comprar, a recarga pausa</span>
+        <span class="d">Passados os 20 minutos sem cupom, a recarga para. A pessoa levou uns 21 km e a loja gastou <strong>R$ 1,60</strong>. É um custo de aquisição barato, e ninguém sai irritado.</span>
+      </div>
+    </div>
+    <div class="body" style="margin-top:18px">
+      <p>Tem também um <strong>valor mínimo de compra</strong>, definido pela loja — senão um chiclete liberaria duas horas de recarga.</p>
+    </div>
+
+    <h3 style="margin-top:34px">Como separar o faturamento desse cliente</h3>
+    <div class="body">
+      <p>Essa é a pergunta que decide se o produto tem valor. Se a venda dele se mistura com as outras, o dono nunca vai saber se o carregador se pagou.</p>
+      <p><strong>O mesmo cupom resolve.</strong> Quando a pessoa escaneia o QR para liberar a cortesia, ela está — sem perceber — dizendo ao sistema exatamente quanto gastou. O vínculo entre a recarga e a venda fica registrado, com valor e horário.</p>
+    </div>
+    <div class="pull">
+      <p>Não é estimativa nem palpite: <strong>é a nota fiscal daquela compra, amarrada àquela sessão de recarga.</strong> O painel soma isso e mostra ao dono, no fim do mês, quanto entrou em caixa vindo de quem carregou.</p>
     </div>
     <div class="pull">
       <p>E é aqui que o nosso software vira obrigatório: <strong>sem provar que dá retorno, nenhum dono aprova o investimento.</strong> É isso que faz a GoodWe vender software junto com o equipamento, em vez de só o equipamento.</p>
@@ -332,6 +367,36 @@
       <p><a href="vaga/">Abrir a telinha →</a> &nbsp; <a href="vaga/?full=1">em tela cheia →</a><br>
       <span style="font-size:.86rem;color:var(--ink-3)">O cenário muda pela barra de endereço:<br>
       <code>vaga/?soc=0.55&amp;modo=pago&amp;ponto=22</code> — carro em 55%, cobrança por kWh, ponto de 22 kW.</span></p>
+    </div>
+  </section>
+
+  <section>
+    <h3>Por dentro do cupom fiscal</h3>
+    <div class="body">
+      <p>É a peça que faz o modelo de negócio funcionar, então vale detalhar.</p>
+      <p>Todo cupom de consumidor no Brasil é uma <strong>NFC-e</strong>, e o QR Code nela é <strong>obrigatório</strong> por norma nacional. Dentro dele vêm duas coisas que resolvem o nosso problema: a <strong>chave de acesso de 44 dígitos</strong>, que identifica aquela venda de forma única, e o <strong>valor total da operação</strong>.</p>
+      <p>E a chave é estruturada — ela carrega dentro de si o <strong>CNPJ do emissor</strong> e o <strong>mês e ano de emissão</strong>. Dá para conferir se o cupom é daquela loja e daquele dia <strong>sem consultar nada</strong>, só lendo os dígitos.</p>
+    </div>
+    <div class="rows">
+      <div class="row">
+        <span class="n">Consequência 1</span>
+        <span class="t">Zero integração com o caixa da loja</span>
+        <span class="d">Não precisamos conversar com o sistema de PDV — que muda de loja para loja e transformaria cada instalação num projeto. O produto funciona no primeiro dia, em qualquer comércio.</span>
+      </div>
+      <div class="row">
+        <span class="n">Consequência 2</span>
+        <span class="t">Fraude fica difícil</span>
+        <span class="d">A chave é única, então o mesmo cupom não vale duas vezes. O CNPJ tem de ser o da loja. E a nota precisa ter sido emitida durante a sessão — cupom achado no chão não passa.</span>
+      </div>
+      <div class="row">
+        <span class="n">Consequência 3</span>
+        <span class="t">A atribuição é direta, não estatística</span>
+        <span class="d">Cada real contado no painel tem uma nota fiscal por trás. É a diferença entre "achamos que trouxe clientes" e "trouxe estes clientes, nestas compras".</span>
+      </div>
+    </div>
+    <div class="body" style="margin-top:18px">
+      <p><strong>O que isso ainda não responde:</strong> quem carregou e comprou pode ser alguém que já ia comprar de qualquer jeito. O vínculo prova a <em>associação</em>, não que a venda foi <em>causada</em> pelo carregador.</p>
+      <p>Para chegar mais perto disso, o painel compara também o movimento da loja em períodos parecidos com e sem recarga acontecendo. Não é prova definitiva — mas dizer isso em vez de esconder é o que separa um número honesto de um número de propaganda.</p>
     </div>
   </section>
 
@@ -421,6 +486,35 @@
     </ol>
     <div class="body" style="margin-top:16px">
       <p>Cada etapa entrega algo que se apresenta sozinho. Se o tempo acabar na terceira, ainda existe produto.</p>
+    </div>
+  </section>
+
+  <section>
+    <h3>O que ainda está em aberto</h3>
+    <div class="body">
+      <p>Problemas que a gente já enxergou e ainda não resolveu. Estão aqui de propósito — projeto sem lista de pendências é projeto que não foi olhado de perto.</p>
+    </div>
+    <div class="rows">
+      <div class="row">
+        <span class="n">Em aberto</span>
+        <span class="t">Saber se o cliente voltou</span>
+        <span class="d">O cupom identifica a compra, não a pessoa. Para medir quem volta é preciso um identificador estável — placa ou telefone, informado uma vez. Isso é dado pessoal e exige consentimento claro e finalidade declarada.</span>
+      </div>
+      <div class="row">
+        <span class="n">Em aberto</span>
+        <span class="t">Carro a combustão na vaga</span>
+        <span class="d">Clássico e sem solução por software: se ninguém pluga, o sistema não vê nada. O painel consegue mostrar "vaga sem sessão há tanto tempo", mas resolver de verdade é sinalização e fiscalização da loja.</span>
+      </div>
+      <div class="row">
+        <span class="n">Em aberto</span>
+        <span class="t">Provar que a venda foi causada pelo carregador</span>
+        <span class="d">O vínculo com o cupom prova associação. Separar quem veio por causa do carregador de quem já viria exige comparar períodos parecidos com e sem recarga — e mesmo assim é aproximação.</span>
+      </div>
+      <div class="row">
+        <span class="n">Em aberto</span>
+        <span class="t">Confirmar o carregador de bordo de cada carro</span>
+        <span class="d">Usamos 6,6 kW, que é o padrão da categoria de entrada. Cada fabricante publica o seu, e a previsão de tempo depende disso.</span>
+      </div>
     </div>
   </section>
 
