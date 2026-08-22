@@ -29,8 +29,10 @@ docs/
   vaga/        a telinha da vaga · serve tambem o celular pelo QR  (pronta)
   painel/      o painel do lojista              (pronto)
 api/
-  models.py    o contrato de dados — sessão, ponto, loja, venda, agregado
-  db.py        conexão com MongoDB, índices e relatório de armazenamento
+  schema.sql   as dez tabelas e as duas visões — o contrato de dados
+  db.py        conexão com o PostgreSQL e aplicação do esquema
+  seed.py      trinta dias de operação de três lojas, para demonstração
+  exportar.py  despeja o banco em docs/painel/dados.json
 ai/
   charge_curve.py   previsão de tempo de recarga (o núcleo do produto)
 ```
@@ -42,28 +44,47 @@ ai/
 ```bash
 pip install -r requirements.txt
 cp .env.example .env      # e preencha
-python api/db.py          # cria os índices e mostra o uso do banco
+python api/db.py          # cria tabelas, índices e visões
+python api/seed.py        # popula com dados de demonstração
+python api/exportar.py    # gera docs/painel/dados.json para o painel
 ```
 
 **Nenhuma credencial vai para o repositório.** Tudo vem de variável de ambiente;
 o `.gitignore` bloqueia o `.env`. Uma senha commitada em repositório público é
 vazamento permanente, mesmo depois de removida.
 
-### MongoDB
+### PostgreSQL
 
-A `MONGODB_URI` sai de **Atlas → Database → Connect → Drivers** e tem esta cara:
+A `DATABASE_URL` sai do painel do Aiven e tem esta cara:
 
 ```
-mongodb+srv://usuario:senha@cluster0.xxxxx.mongodb.net/
+postgres://usuario:senha@host:porta/banco?sslmode=require
 ```
 
-Um endereço IP **não** funciona: o Atlas responde por nome. O IP que aparece no
-painel é o *seu*, o que está liberado em Network Access.
+O `sslmode=require` não é opcional: o Aiven recusa conexão em texto puro.
 
-**Plano gratuito são 512 MB**, e a modelagem respeita isso por decisão de projeto:
+**As dez tabelas**, e a seção do painel que corresponde a cada uma:
 
-| Coleção | Retenção | Por quê |
+| Tabela | Seção | O que guarda |
 |---|---|---|
+| `estabelecimentos` | Estabelecimentos | margem, ticket e tarifa — é daqui que sai o teto de cortesia |
+| `carregadores` | Carregadores | um modelo comercial por ponto: cortesia ou por kWh |
+| `sessoes` | Sessões | cada recarga, com a previsão que foi mostrada ao motorista |
+| `leituras` | Leituras | potência e carga de 5 em 5 minutos |
+| `clientes` | Clientes | apelido e veículo; a identidade fica só como hash |
+| `cupons` | Cupons | o código que liga a recarga à venda |
+| `vendas` | Vendas atribuídas | o que a pessoa gastou na loja depois de carregar |
+| `paineis` | Painéis salvos | a disposição dos cards, privada ou compartilhada |
+| `usuarios`, `usuarios_estabelecimentos` | — | contas e acesso; o lojista não vê nem edita |
+
+Mais as visões `vw_sessoes_detalhe` e `vw_resumo_diario`, que o painel consome
+direto sem precisar de junção no cliente.
+
+`sessoes` guarda `previsao_fim` e `previsao_custo_brl` ao lado do resultado
+real. É de propósito: sem isso o painel não teria como mostrar o próprio erro,
+e uma previsão que ninguém audita não vale nada.
+
+---|---|---|
 | `sessions`, `sales` | para sempre | poucos documentos, e são o produto |
 | `telemetry` | **30 dias**, por índice TTL | ninguém precisa da potência instantânea de seis meses atrás |
 | `rollups` | para sempre | uma linha por ponto por dia, alimenta o histórico |

@@ -1,0 +1,331 @@
+/* ============================================================
+   Tour guiado do dashboard — overlay de spotlight (4 bandas com
+   blur), anel de destaque, balão de fala com seta, e o botão "?"
+   que abre o tour. Todo o DOM do overlay/balão é injetado em
+   runtime por static/js/tour.js (ensureDom()) — este arquivo só
+   estiliza os elementos que o módulo cria.
+   Regra do projeto: só variáveis de tema, nunca hex fixo — senão
+   quebra legibilidade no dark mode.
+   ============================================================ */
+
+/* -------- botão "?" no topbar --------
+   position:fixed (não acompanha o fluxo normal do .topbar-side) porque
+   #dashboardManagerToggle ("Ver dashboards") também é fixo em
+   top:24px;right:24px, mas só aparece na seção Dashboard (style.css
+   `shouldShowToggle = state.section === "dashboard"`). Nas demais seções
+   ele fica `hidden`, e por padrão este botão já fica no canto certo
+   (right:24px, mesmo alinhamento do pill). Quando o pill está visível,
+   static/js/tour.js (syncLaunchButtonPosition) empurra este botão pra
+   esquerda dele via style.right inline, recalculado com um
+   MutationObserver no atributo `hidden` do pill — nada aqui depende de
+   qual seção está ativa, só do estado real do elemento no DOM. */
+.tour-launch-button {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 60;
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1;
+  transition: right 0.2s ease;
+}
+
+/* Por ser position:fixed, o "?" não reserva espaço nenhum dentro do
+   .topbar-side (é removido do fluxo, ignorado pelo cálculo do flexbox) —
+   então o botão de criar registro de cada seção (#topbarActions, ex.
+   "Adicionar Classe"), que é flex-end e não sabe que o "?" existe, cresce
+   até a borda direita real do container e fica por baixo do "?" (que tem
+   z-index maior). Reserva um respiro fixo do tamanho do botão + gap, pra
+   nenhum create-button de nenhuma seção nascer embaixo dele. Só vale
+   enquanto .topbar-side estiver no layout flex-end (style.css muda pra
+   width:100%/flex-start em max-width:840px, onde o botão de criar já nasce
+   colado à esquerda, não à direita — reserva vira desnecessária ali). */
+.topbar-side {
+  padding-right: 54px;
+}
+@media (max-width: 840px) {
+  .topbar-side {
+    padding-right: 0;
+  }
+}
+
+/* .filter-modal base tem z-index:135 (style.css) — abaixo de
+   #globalAiLauncher (145, canto inferior direito fixo). Quando o
+   assistente flutuante está visível, ele cobre visualmente e
+   bloqueia clique nos botões de qualquer .filter-modal cujo conteúdo
+   caia perto daquele canto (mais visível em mobile, onde o modal
+   ocupa a largura toda e a ação fica perto do rodapé). É um conflito
+   pré-existente entre dois componentes que não me cabe corrigir de
+   forma geral aqui — mas escopo este modal novo acima dos dois pra
+   garantir que "Iniciar tour"/"Cancelar" fiquem sempre clicáveis. */
+.tour-confirm-modal {
+  z-index: 9001;
+}
+/* Bug pré-existente e compartilhado (afeta também o #logoutConfirmModal
+   real, não só este novo): no dark mode, style.css dá um `background:
+   var(--bg-surface)` pro `.filter-modal-card` que é MAIS escuro que o
+   `--bg-elevated` do `.filter-modal-dialog` em que ele fica dentro,
+   criando uma caixa visivelmente mais escura colada nas bordas do texto.
+   Não mexo na regra compartilhada (afetaria outros modais sem pedido) —
+   só neutralizo aqui, escopado a este modal. */
+.tour-confirm-modal .filter-modal-card {
+  background: transparent;
+  border-color: transparent;
+}
+@media (max-width: 768px) {
+  .tour-launch-button {
+    top: 16px;
+    right: 16px;
+    width: 38px;
+    height: 38px;
+  }
+}
+
+/* -------- overlay -------- */
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: none;
+}
+.tour-overlay.is-open {
+  display: block;
+}
+
+/* -------- 4 bandas (scrim + blur) ao redor do alvo -------- */
+.tour-scrim {
+  position: fixed;
+  background: rgba(5, 16, 28, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: auto;
+  opacity: 0;
+  transition:
+    top 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    left 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    right 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    bottom 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease;
+}
+.tour-overlay.is-open .tour-scrim {
+  opacity: 1;
+}
+.tour-scrim-top { top: 0; left: 0; right: 0; height: 0; }
+.tour-scrim-bottom { left: 0; right: 0; bottom: 0; height: 0; }
+.tour-scrim-left { top: 0; height: 0; left: 0; width: 0; }
+.tour-scrim-right { top: 0; height: 0; right: 0; width: 0; }
+
+/* -------- anel de destaque em volta do alvo -------- */
+.tour-spot-ring {
+  position: fixed;
+  top: 0; left: 0; width: 0; height: 0;
+  border-radius: 16px;
+  box-shadow: 0 0 0 3px var(--primary), 0 0 0 9px rgba(36, 141, 209, 0.22), 0 18px 40px rgba(5, 16, 28, 0.28);
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    top 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    left 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease;
+}
+.tour-spot-ring.is-visible {
+  opacity: 1;
+}
+
+/* -------- indicador de carregamento durante troca de seção --------
+   Reaproveita o @keyframes spin já existente em style.css (mesma animação
+   usada em .ghost-button.is-loading etc.) — sem duplicar keyframe. */
+.tour-loading-spinner {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border-radius: 999px;
+  border: 3px solid rgba(255, 255, 255, 0.28);
+  border-top-color: #fff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+.tour-loading-spinner.is-visible {
+  opacity: 1;
+  animation: spin 0.8s linear infinite;
+}
+
+/* -------- balão de fala -------- */
+.tour-balloon {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.96);
+  width: min(320px, calc(100vw - 32px));
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: 0 24px 48px var(--shadow-color), 0 8px 20px var(--shadow-color-soft);
+  padding: 18px 20px;
+  pointer-events: auto;
+  opacity: 0;
+  transition:
+    top 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    left 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.2s ease;
+}
+.tour-balloon.is-visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+/* passos com alvo (top/bottom/left/right) usam transform-origin próprio
+   por posição, setado em JS via style.transform quando a posição não é
+   "center" — ver tour.js applyBalloonPlacement() */
+.tour-balloon[data-placement="top"],
+.tour-balloon[data-placement="bottom"],
+.tour-balloon[data-placement="left"],
+.tour-balloon[data-placement="right"] {
+  transform: translate(0, 0) scale(0.96);
+}
+.tour-balloon[data-placement="top"].is-visible,
+.tour-balloon[data-placement="bottom"].is-visible,
+.tour-balloon[data-placement="left"].is-visible,
+.tour-balloon[data-placement="right"].is-visible {
+  transform: translate(0, 0) scale(1);
+}
+
+/* Orb da IA (mesmo <bms-ai-entity> do lançador flutuante) só de enfeite no
+   canto do balão, pedido puramente estético do dono do produto - amarra
+   visualmente o tour ao BMS Advisor. decorative + pointer-events:none pra
+   não interferir em foco/clique/leitor de tela. Totalmente dentro do card
+   (offset positivo, não mais saindo pela quina) - o halo/blur do orb
+   (--ai-orb-blur em style.css) ainda respira livre porque .tour-balloon
+   não tem overflow:hidden. */
+.tour-balloon-entity {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  pointer-events: none;
+}
+
+.tour-balloon-step {
+  font-family: var(--font-heading, inherit);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--primary);
+  margin: 0 0 6px;
+}
+.tour-balloon h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: var(--text-primary);
+}
+.tour-balloon p {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--text-secondary, var(--text-primary));
+  margin: 0 0 16px;
+}
+
+.tour-balloon-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tour-balloon-nav {
+  display: flex;
+  gap: 8px;
+}
+.tour-balloon-actions .ghost-button,
+.tour-balloon-actions .primary-button {
+  padding: 9px 14px;
+  font-size: 0.86rem;
+  border-radius: 12px;
+}
+.tour-balloon-actions .ghost-button[disabled],
+.tour-balloon-actions .primary-button[disabled] {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* seta do balão — quadrado 12px rotacionado 45deg, mesma técnica das
+   outras setas de tooltip já existentes no projeto (::before rotate) */
+.tour-balloon::before {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: var(--bg-elevated);
+  border-left: 1px solid var(--border-default);
+  border-top: 1px solid var(--border-default);
+  transform: rotate(45deg);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.tour-balloon.is-visible[data-placement="top"]::before,
+.tour-balloon.is-visible[data-placement="bottom"]::before,
+.tour-balloon.is-visible[data-placement="left"]::before,
+.tour-balloon.is-visible[data-placement="right"]::before {
+  opacity: 1;
+}
+/* Posição da seta ao longo da borda do balão: variável, não fixa.
+   Perto de um canto de tela (ex.: o pill "Ver dashboards" no topo direito,
+   ou o launcher de IA no canto inferior direito), o balão é empurrado
+   pra caber na tela e deixa de estar centralizado sob/ao lado do alvo -
+   um offset fixo (ex.: sempre left:28px) faz a seta apontar pra um lugar
+   qualquer, não pro alvo real. --tour-arrow-offset é calculado em JS
+   (positionBalloon, tour.js) a partir do centro real do alvo relativo à
+   posição final do balão, com fallback pro valor fixo de antes caso a
+   variável não esteja setada (passo "center", sem alvo). */
+.tour-balloon[data-placement="bottom"]::before {
+  top: -7px;
+  left: var(--tour-arrow-offset, 28px);
+}
+/* balão ACIMA do alvo → seta embaixo do balão, apontando pra baixo */
+.tour-balloon[data-placement="top"]::before {
+  bottom: -7px;
+  left: var(--tour-arrow-offset, 28px);
+  transform: rotate(225deg);
+}
+/* balão à DIREITA do alvo → seta na esquerda do balão, apontando pra ele */
+.tour-balloon[data-placement="right"]::before {
+  left: -7px;
+  top: var(--tour-arrow-offset, 24px);
+  transform: rotate(-45deg);
+}
+/* balão à ESQUERDA do alvo → seta na direita do balão, apontando pra ele */
+.tour-balloon[data-placement="left"]::before {
+  right: -7px;
+  top: var(--tour-arrow-offset, 24px);
+  transform: rotate(135deg);
+}
+
+/* -------- mobile -------- */
+@media (max-width: 640px) {
+  .tour-balloon {
+    width: calc(100vw - 24px);
+    padding: 16px;
+  }
+  .tour-scrim {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+}
+
+/* Removida de propósito a regra de @media (prefers-reduced-motion: reduce)
+   que zerava a duração da transição (0.01ms) — a animação de "viagem" do
+   spotlight entre paradas é o elemento central pedido pelo usuário, e essa
+   regra (boa prática geral, mas nunca pedida aqui) deixava o tour inteiro
+   sem nenhuma animação perceptível sempre que o SO/navegador de quem
+   testa tem a preferência de "reduzir movimento" ativada — foi o que
+   causou o "trava e aparece direto, sem animação nenhuma" relatado. */

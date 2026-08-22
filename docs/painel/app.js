@@ -1,971 +1,1229 @@
 /* ==========================================================================
    Praça de Recarga — painel do lojista
 
-   Portado do painel BMS de referência. Mantém a arquitetura de lá:
-   `createXModule(deps)` recebendo estado por referência, estado de interface
-   em localStorage, e o tour como módulo isolado que só conhece `setSection`,
-   `canAccessSection` e o colapso da barra lateral.
+   O CSS, o tour e a esfera de IA vêm do painel de referência sem alteração.
+   O que muda é o conteúdo: cada seção espelha uma tabela do banco, e o
+   cadastro/edição/exclusão acontece na mesma gaveta lateral da referência.
 
-   Dados de demonstração com semente fixa — o Pages serve arquivo estático e
-   não executa servidor. Quando a API entrar, só `carregarDados()` muda.
+   Os dados vêm de dados.json (api/exportar.py despeja o Postgres nele). O
+   GitHub Pages só serve arquivo estático; quando a API subir, só `carregar()`
+   troca de endereço.
    ========================================================================== */
 
+import "./static/js/aiEntity.js";
+import { createTourModule } from "./static/js/tour.js";
+
+/* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const brl = v => v.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
-const num = (v, d = 0) => v.toLocaleString('pt-BR', {minimumFractionDigits:d, maximumFractionDigits:d});
-const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const clamp = (v, min, max) => Math.max(min, Math.min(v, Math.max(min, max)));
-const delay = ms => new Promise(r => setTimeout(r, ms));
-/* Espera dois quadros — mas com prazo. Em aba em segundo plano o
-   requestAnimationFrame nao dispara, e sem esse limite o tour trava no passo
-   em que estiver, com o balao escondido e o botao "Proximo" travado. */
-const waitForNextPaint = () => new Promise(resolve => {
-  let pronto = false;
-  const encerrar = () => { if (!pronto) { pronto = true; resolve(); } };
-  requestAnimationFrame(() => requestAnimationFrame(encerrar));
-  setTimeout(encerrar, 120);
+const brl = v => Number(v || 0).toLocaleString("pt-BR", {style:"currency", currency:"BRL"});
+const num = (v, d = 0) => Number(v || 0).toLocaleString("pt-BR", {minimumFractionDigits:d, maximumFractionDigits:d});
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const isCompactViewport = () => matchMedia("(max-width: 1180px)").matches;
+const waitForNextPaint = () => new Promise(res => {
+  let feito = false;
+  const fim = () => { if (!feito) { feito = true; res(); } };
+  requestAnimationFrame(() => requestAnimationFrame(fim));
+  setTimeout(fim, 120);   // aba em segundo plano não dispara rAF
 });
-const isCompactViewport = () => window.matchMedia('(max-width: 1180px)').matches;
+const dataHora = v => v ? new Date(v).toLocaleString("pt-BR", {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "—";
 
-const LS = {
-  tema:      'pr.tema',
-  colapso:   'pr.sidebarColapsada',
-  grupos:    'pr.gruposFechados',
-  cards:     'pr.cardsDoPainel',
-  perfil:    'pr.perfil',
-};
-const ler    = (k, fb) => { try { return JSON.parse(localStorage.getItem(k)) ?? fb; } catch { return fb; } };
-const gravar = (k, v)  => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const LS = { tema:"pr.tema", colapso:"pr.colapso", grupos:"pr.grupos", paineis:"pr.paineis", edicoes:"pr.edicoes" };
+const ler    = (k, fb) => { try { const v = localStorage.getItem(k); return v == null ? fb : JSON.parse(v); } catch { return fb; } };
+const gravar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
-/* ==========================================================================
-   regras de negócio — as mesmas de ai/break_even.py
-   ========================================================================== */
-const SEGMENTOS = {
-  pet:         {nome:'Pet shop e clínica veterinária', margem:20,  ticket:150},
-  restaurante: {nome:'Restaurante',                    margem:10,  ticket:120},
-  academia:    {nome:'Academia',                       margem:15,  ticket:130},
-  farmacia:    {nome:'Farmácia',                       margem:5.5, ticket:45},
-  mercado:     {nome:'Supermercado',                   margem:2.9, ticket:60},
-};
+/* regras de negócio — as mesmas de ai/break_even.py */
 const COMPRAM = 0.90, UPLIFT = 0.12, NOVOS = 0.20, KM_KWH = 10.4, AMORT = 1.11;
-
 function tetoCortesia(margemPct, ticket, tarifa){
-  const receita = COMPRAM * (NOVOS * ticket + (1 - NOVOS) * UPLIFT * ticket);
-  const lucro   = receita * (margemPct / 100);
-  const sobra   = lucro - AMORT;
-  return {lucro, sobra, kwh: Math.max(0, sobra / tarifa)};
+  const lucro = COMPRAM * (NOVOS * ticket + (1 - NOVOS) * UPLIFT * ticket) * (margemPct / 100);
+  const sobra = lucro - AMORT;
+  return { lucro, sobra, kwh: Math.max(0, sobra / (tarifa || 0.789)) };
 }
 
 /* ==========================================================================
    estado
    ========================================================================== */
 const state = {
-  section: 'painel',
-  loja: 'Pet & Cia — Vila Mariana',
-  segmento: 'pet',
-  tarifa: 0.789,
-  usuario: 'Vitor Nascimento',
-  pontos: [], sessoes: [], dias: [],
+  section: "painel",
+  estabelecimentoId: null,
+  dados: { estabelecimentos:[], carregadores:[], clientes:[], sessoes:[], vendas:[], cupons:[], leituras:[], paineis:[] },
+  paineis: { ativo:null, editando:false, menuAberto:false, criando:false, bibliotecaAberta:false },
+  tabela: {},   // por seção: { busca, selecionados:Set }
 };
 
-const LOJAS = [
-  {nome:'Pet & Cia — Vila Mariana',    segmento:'pet'},
-  {nome:'Cantina do Léo — Pinheiros',  segmento:'restaurante'},
-  {nome:'Farmácia Bem Estar — Moema',  segmento:'farmacia'},
-];
-
-let seed = 20260821;
-const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
-
-function carregarDados(){
-  const seg = SEGMENTOS[state.segmento];
-  seed = 20260821;
-
-  state.pontos = [
-    {id:'vaga-1', nome:'Vaga 1 — entrada',   kw:7.4,  modo:'cortesia', estado:'carregando', soc:0.62, cliente:'Fiat 500e'},
-    {id:'vaga-2', nome:'Vaga 2 — entrada',   kw:7.4,  modo:'cortesia', estado:'livre'},
-    {id:'vaga-3', nome:'Vaga 3 — estacion.', kw:22.0, modo:'pago',     estado:'carregando', soc:0.34, cliente:'Volvo EX30'},
-    {id:'vaga-4', nome:'Vaga 4 — fundos',    kw:7.4,  modo:'pago',     estado:'falha'},
-  ];
-
-  state.dias = [];
-  for (let d = 0; d < 30; d++){
-    const fds = d % 7 === 5 || d % 7 === 6;
-    const sessoes = Math.round((fds ? 5.5 : 3.2) * (0.65 + rnd() * 0.8));
-    const kwh = sessoes * (3.5 + rnd() * 3);
-    state.dias.push({
-      dia: d + 1, sessoes, kwh,
-      custo: kwh * state.tarifa + sessoes * AMORT,
-      lucro: sessoes * tetoCortesia(seg.margem, seg.ticket, state.tarifa).lucro * (0.8 + rnd() * 0.5),
-    });
-  }
-
-  const horas = [9,10,11,11,12,13,14,15,16,17,17,18,18,19,19,20];
-  state.sessoes = [];
-  for (let i = 0; i < 24; i++){
-    const p = state.pontos[Math.floor(rnd() * 4)];
-    const kwh = 2 + rnd() * 9;
-    state.sessoes.push({
-      dia: 30 - Math.floor(i / 3), hora: horas[Math.floor(rnd() * horas.length)],
-      minuto: Math.floor(rnd() * 60), ponto: p.nome, modo: p.modo, kwh,
-      compra: rnd() < 0.62 ? 40 + rnd() * 180 : 0,
-      cobrado: p.modo === 'pago' ? kwh * 0.95 : 0,
-    });
-  }
-  state.sessoes.sort((a,b) => b.dia - a.dia || b.hora - a.hora);
-}
-
-const totais = () => state.dias.reduce(
-  (a,d) => ({l:a.l+d.lucro, c:a.c+d.custo, k:a.k+d.kwh, s:a.s+d.sessoes}), {l:0,c:0,k:0,s:0});
-
-/* ==========================================================================
-   toast, modal, drawer
-   ========================================================================== */
-function toast(msg){
-  const el = document.createElement('div');
-  el.className = 'toast'; el.textContent = msg;
-  $('#toasts').append(el);
-  setTimeout(() => el.remove(), 3200);
-}
-const abrirModal  = id => { $(id).hidden = false; };
-const fecharModal = id => { $(id).hidden = true; };
-
-function abrirDrawer(ponto){
-  const teto = tetoCortesia(+$('#inMargem').value, +$('#inTicket').value, state.tarifa);
-  $('#drawerTitle').textContent = ponto.nome;
-  $('#drawerBody').innerHTML = `
-    <div class="field"><label>Modelo de cobrança</label>
-      <div class="mode-toggle" data-ponto="${ponto.id}">
-        <button data-mode="cortesia" aria-pressed="${ponto.modo==='cortesia'}">Cortesia</button>
-        <button data-mode="pago" aria-pressed="${ponto.modo==='pago'}">Por kWh</button>
-      </div>
-      <small>${ponto.modo === 'cortesia'
-        ? `Teto sugerido para esta loja: <b>${num(teto.kwh,1)} kWh</b> — cerca de ${Math.round(teto.kwh*KM_KWH)} km.`
-        : 'O cliente paga por quilowatt-hora entregue.'}</small>
-    </div>
-    <div class="field"><label>Potência</label><input type="text" value="${num(ponto.kw,1)} kW" readonly></div>
-    <div class="field"><label>Situação</label>
-      <p class="kpi-meta">${{carregando:'Carregando agora', livre:'Livre', falha:'Sem comunicação há 2 h'}[ponto.estado]}
-      ${ponto.cliente ? ` · ${ponto.cliente} em ${Math.round(ponto.soc*100)}%` : ''}</p></div>
-    <a class="primary-button" style="text-align:center" target="_blank" rel="noopener"
-       href="../vaga/?vaga=${encodeURIComponent(ponto.nome)}&loja=${encodeURIComponent(state.loja)}&modo=${ponto.modo}&full=1">
-      Abrir a telinha desta vaga
-    </a>`;
-  $('#drawerBackdrop').hidden = false;
-  $('#pointDrawer').hidden = false;
-}
-function fecharDrawer(){ $('#drawerBackdrop').hidden = true; $('#pointDrawer').hidden = true; }
-
-/* ==========================================================================
-   barra lateral: colapso, tooltip e grupos
-   ========================================================================== */
-function createSidebarModule(){
-  let tooltip = null;
-
-  function ensureTooltip(){
-    if (tooltip) return tooltip;
-    tooltip = document.createElement('div');
-    tooltip.className = 'collapsed-sidebar-tooltip';
-    tooltip.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(tooltip);
-    return tooltip;
-  }
-  function showTooltip(target){
-    const label = target.dataset.tooltip;
-    if (!label || !document.body.classList.contains('sidebar-collapsed') || isCompactViewport()) return;
-    const node = ensureTooltip();
-    node.textContent = label;
-    const r = target.getBoundingClientRect();
-    node.style.left = `${r.right + 12}px`;
-    node.style.top  = `${r.top + r.height / 2}px`;
-    node.classList.add('is-visible');
-  }
-  const hideTooltip = () => tooltip?.classList.remove('is-visible');
-
-  function setCollapsed(collapsed, persist = true){
-    document.body.classList.toggle('sidebar-collapsed', collapsed);
-    $('#sidebarToggleDesktop').setAttribute('aria-label', collapsed ? 'Expandir menu' : 'Recolher menu');
-    $('#cfgCollapsed').checked = collapsed;
-    if (!collapsed) hideTooltip();
-    if (persist) gravar(LS.colapso, collapsed);
-  }
-  const isCollapsed = () => document.body.classList.contains('sidebar-collapsed');
-
-  function syncGroupToggle(group){
-    const t = $('.nav-group-toggle', group);
-    t?.setAttribute('aria-expanded', String(!group.classList.contains('is-collapsed')));
-  }
-  function persistGroups(){
-    gravar(LS.grupos, $$('.nav-group.is-collapsed').map(g => g.dataset.navGroup));
-  }
-
-  function init(){
-    setCollapsed(ler(LS.colapso, false), false);
-    ler(LS.grupos, []).forEach(key => {
-      const g = $(`[data-nav-group="${key}"]`);
-      if (g) { g.classList.add('is-collapsed'); syncGroupToggle(g); }
-    });
-    $$('.nav-group').forEach(syncGroupToggle);
-
-    $('#sidebarToggleDesktop').onclick = () => setCollapsed(!isCollapsed());
-    $('#menuBtn').onclick = () => document.body.classList.toggle('sidebar-open');
-
-    $$('.nav-group-toggle').forEach(btn => btn.onclick = () => {
-      // Colapsada, os grupos ficam sempre abertos (só ícones) — recolher ali
-      // esconderia itens sem dar pista nenhuma de que existem.
-      if (isCollapsed() && !isCompactViewport()) return;
-      const g = btn.closest('.nav-group');
-      g.classList.toggle('is-collapsed');
-      syncGroupToggle(g); persistGroups();
-    });
-
-    $$('[data-tooltip]').forEach(el => {
-      el.addEventListener('mouseenter', () => showTooltip(el));
-      el.addEventListener('mouseleave', hideTooltip);
-      el.addEventListener('focus', () => showTooltip(el));
-      el.addEventListener('blur', hideTooltip);
-    });
-    window.addEventListener('scroll', hideTooltip, true);
-  }
-
-  return {init, setCollapsed, isCollapsed, syncGroupToggle};
-}
-
-/* ==========================================================================
-   navegação entre seções
-   ========================================================================== */
-const TITULOS = {
-  painel:       ['Painel', 'Agosto de 2026 · dados de demonstração'],
-  carregadores: ['Carregadores', 'Modelo de cobrança de cada ponto'],
-  sessoes:      ['Sessões', 'O que aconteceu em cada recarga'],
-  clientes:     ['Clientes', 'Quem carrega, quanto gasta e se volta'],
-  financeiro:   ['Financeiro', 'Se a cortesia se paga, e até onde'],
-  alertas:      ['Alertas', 'O que precisa de atenção'],
+const loja = () => state.dados.estabelecimentos.find(e => e.id === state.estabelecimentoId) || {};
+const daLoja = (lista, campo = "estabelecimento_id") => lista.filter(r => r[campo] === state.estabelecimentoId);
+const carregadoresDaLoja = () => daLoja(state.dados.carregadores);
+const sessoesDaLoja = () => {
+  const ids = new Set(carregadoresDaLoja().map(c => c.id));
+  return state.dados.sessoes.filter(s => ids.has(s.carregador_id));
 };
-const canAccessSection = s => Boolean(TITULOS[s]);
-
-function setSection(secao){
-  if (!canAccessSection(secao)) return;
-  state.section = secao;
-  $$('.page').forEach(p => p.classList.toggle('is-active', p.dataset.page === secao));
-  $$('.nav-item[data-section]').forEach(b => b.classList.toggle('active', b.dataset.section === secao));
-  $('#pageTitle').textContent = TITULOS[secao][0];
-  $('#pageSubtitle').textContent = TITULOS[secao][1];
-  $('#dashboardEditToggle').hidden = secao !== 'painel';
-  document.body.classList.remove('sidebar-open');
-}
+const ui = secao => (state.tabela[secao] ||= { busca:"", selecionados:new Set() });
 
 /* ==========================================================================
-   gerenciador de cards do painel
+   catálogo de seções — uma por tabela do banco
+   ========================================================================== */
+const SECOES = {
+  painel:      { eyebrow:"Visão do lojista", titulo:"Painel" },
+  carregadores:{ eyebrow:"Operação", titulo:"Carregadores", tabela:"carregadores" },
+  sessoes:     { eyebrow:"Operação", titulo:"Sessões", tabela:"sessoes" },
+  leituras:    { eyebrow:"Operação", titulo:"Leituras", tabela:"leituras" },
+  clientes:    { eyebrow:"Negócio", titulo:"Clientes", tabela:"clientes" },
+  vendas:      { eyebrow:"Negócio", titulo:"Vendas atribuídas", tabela:"vendas" },
+  cupons:      { eyebrow:"Negócio", titulo:"Cupons", tabela:"cupons" },
+  financeiro:  { eyebrow:"Negócio", titulo:"Financeiro" },
+  estabelecimentos:{ eyebrow:"Cadastros", titulo:"Estabelecimentos", tabela:"estabelecimentos" },
+  paineis:     { eyebrow:"Cadastros", titulo:"Painéis salvos", tabela:"paineis" },
+};
+
+const chip = (texto, tom) => `<span class="machine-monitor-badge is-${tom}">${esc(texto)}</span>`;
+const nomeCarregador = id => esc(state.dados.carregadores.find(c => c.id === id)?.nome || "—");
+
+/* colunas visíveis e campos editáveis de cada tabela */
+const TABELAS = {
+  carregadores: {
+    novo: "Adicionar carregador", vazio: "Nenhum carregador cadastrado nesta loja.",
+    linhas: () => carregadoresDaLoja(),
+    colunas: [
+      {r:"Nome", v:l => esc(l.nome)},
+      {r:"Potência", v:l => `${num(l.potencia_kw,1)} kW`},
+      {r:"Modelo", v:l => chip(l.modo === "cortesia" ? "Cortesia" : "Por kWh", l.modo === "cortesia" ? "warning" : "info")},
+      {r:"Teto", v:l => l.modo === "cortesia" ? `${num(l.teto_cortesia_kwh,1)} kWh · ${Math.round(l.teto_cortesia_kwh*KM_KWH)} km` : `<span class="table-cell-muted">—</span>`},
+      {r:"Preço", v:l => l.modo === "pago" ? `${brl(l.preco_kwh_brl)}/kWh` : `<span class="table-cell-muted">—</span>`},
+      {r:"Conector", v:l => esc(l.conector)},
+      {r:"Ativo", v:l => l.ativo ? "sim" : "não"},
+    ],
+    campos: [
+      {k:"nome", r:"Nome da vaga", t:"text", obrigatorio:true},
+      {k:"numero_serie", r:"Número de série", t:"text"},
+      {k:"potencia_kw", r:"Potência (kW)", t:"number", passo:"0.1"},
+      {k:"conector", r:"Conector", t:"select", opcoes:[["Tipo 2","Tipo 2"],["CCS2","CCS2"],["GB/T","GB/T"]]},
+      {k:"modo", r:"Modelo de cobrança", t:"select", opcoes:[["cortesia","Cortesia"],["pago","Por kWh"]],
+       ajuda:"Cortesia atrai cliente para a loja. Por kWh cobra de quem só quer a tomada."},
+      {k:"teto_cortesia_kwh", r:"Teto de cortesia (kWh)", t:"number", passo:"0.5",
+       ajuda:"Quanta energia sai de graça por visita. O Financeiro calcula o teto que se paga."},
+      {k:"kwh_por_real", r:"kWh por R$ 1 de compra", t:"number", passo:"0.001",
+       ajuda:"Quem gasta mais na loja leva mais energia, proporcionalmente."},
+      {k:"preco_kwh_brl", r:"Preço por kWh (modo pago)", t:"number", passo:"0.01"},
+      {k:"carencia_min", r:"Carência depois de cheio (min)", t:"number"},
+      {k:"taxa_ociosidade_min", r:"Taxa de vaga ocupada (R$/min)", t:"number", passo:"0.01",
+       ajuda:"Cobra a vaga, nunca a energia — a recarga não para."},
+      {k:"ativo", r:"Ativo", t:"select", opcoes:[[true,"Sim"],[false,"Não"]]},
+    ],
+  },
+  sessoes: {
+    vazio: "Nenhuma recarga registrada ainda.",
+    linhas: () => [...sessoesDaLoja()].sort((a,b) => new Date(b.inicio) - new Date(a.inicio)),
+    colunas: [
+      {r:"Início", v:l => dataHora(l.inicio)},
+      {r:"Carregador", v:l => nomeCarregador(l.carregador_id)},
+      {r:"Modelo", v:l => chip(l.modo === "cortesia" ? "Cortesia" : "Por kWh", l.modo === "cortesia" ? "warning" : "info")},
+      {r:"Energia", v:l => `${num(l.energia_kwh,1)} kWh`},
+      {r:"Autonomia", v:l => `${Math.round(l.energia_kwh*KM_KWH)} km`},
+      {r:"Custo", v:l => brl(l.custo_energia_brl)},
+      {r:"Cobrado", v:l => Number(l.valor_cobrado_brl) ? brl(l.valor_cobrado_brl) : `<span class="table-cell-muted">—</span>`},
+      {r:"Erro da previsão", v:l => l.previsao_fim && l.fim
+        ? `${Math.round(Math.abs(new Date(l.fim) - new Date(l.previsao_fim))/60000)} min`
+        : `<span class="table-cell-muted">—</span>`},
+      {r:"Situação", v:l => esc(l.situacao)},
+    ],
+  },
+  leituras: {
+    vazio: "Sem leituras do medidor no período.",
+    linhas: () => { const ids = new Set(carregadoresDaLoja().map(c => c.id));
+                    return state.dados.leituras.filter(l => ids.has(l.carregador_id)).slice(0, 500); },
+    colunas: [
+      {r:"Momento", v:l => dataHora(l.momento)},
+      {r:"Carregador", v:l => nomeCarregador(l.carregador_id)},
+      {r:"Potência", v:l => `${num(l.potencia_kw,2)} kW`},
+      {r:"Carga", v:l => l.soc == null ? `<span class="table-cell-muted">—</span>` : `${Math.round(l.soc*100)}%`},
+    ],
+  },
+  clientes: {
+    novo: "Cadastrar cliente", vazio: "Nenhum cliente identificado ainda.",
+    linhas: () => daLoja(state.dados.clientes),
+    colunas: [
+      {r:"Cliente", v:l => esc(l.apelido || "—")},
+      {r:"Veículo", v:l => esc(l.modelo_veiculo || "—")},
+      {r:"Bateria", v:l => l.bateria_kwh ? `${num(l.bateria_kwh,0)} kWh` : `<span class="table-cell-muted">—</span>`},
+      {r:"Visitas", v:l => num(l.visitas)},
+      {r:"Última visita", v:l => dataHora(l.ultima_visita)},
+      {r:"Consentimento", v:l => l.consentimento_lgpd ? chip("dado","ok") : chip("pendente","warning")},
+    ],
+    campos: [
+      {k:"apelido", r:"Como chamar", t:"text",
+       ajuda:"Sem nome completo nem CPF: o banco guarda só o apelido e um identificador embaralhado."},
+      {k:"modelo_veiculo", r:"Modelo do veículo", t:"text"},
+      {k:"bateria_kwh", r:"Bateria (kWh)", t:"number", passo:"0.5"},
+      {k:"consentimento_lgpd", r:"Consentimento LGPD", t:"select", opcoes:[[true,"Sim"],[false,"Não"]]},
+    ],
+  },
+  vendas: {
+    novo: "Lançar venda", vazio: "Nenhuma venda atribuída a uma recarga.",
+    linhas: () => [...daLoja(state.dados.vendas)].sort((a,b) => new Date(b.momento) - new Date(a.momento)),
+    colunas: [
+      {r:"Momento", v:l => dataHora(l.momento)},
+      {r:"Valor", v:l => brl(l.valor_brl)},
+      {r:"Cupom", v:l => { const c = state.dados.cupons.find(x => x.id === l.cupom_id);
+                           return c ? `<code>${esc(c.codigo)}</code>` : `<span class="table-cell-muted">sem cupom</span>`; }},
+      {r:"Lucro estimado", v:l => brl(Number(l.valor_brl||0) * Number(loja().margem_liquida_pct||0)/100)},
+      {r:"Sessão", v:l => l.sessao_id ? `#${l.sessao_id}` : `<span class="table-cell-muted">—</span>`},
+    ],
+    campos: [
+      {k:"valor_brl", r:"Valor da venda (R$)", t:"number", passo:"0.01", obrigatorio:true},
+      {k:"cupom_id", r:"Cupom apresentado", t:"select",
+       opcoes:() => [["", "sem cupom"], ...state.dados.cupons.map(c => [c.id, c.codigo])],
+       ajuda:"É o cupom digitado no caixa que liga esta venda a uma recarga."},
+    ],
+  },
+  cupons: {
+    vazio: "Nenhum cupom emitido.",
+    linhas: () => { const ids = new Set(sessoesDaLoja().map(s => s.id));
+                    return state.dados.cupons.filter(c => ids.has(c.sessao_id)); },
+    colunas: [
+      {r:"Código", v:l => `<code>${esc(l.codigo)}</code>`},
+      {r:"Desconto", v:l => brl(l.desconto_brl)},
+      {r:"Emitido", v:l => dataHora(l.emitido_em)},
+      {r:"Usado", v:l => l.usado_em ? dataHora(l.usado_em) : `<span class="table-cell-muted">não usado</span>`},
+      {r:"Sessão", v:l => `#${l.sessao_id}`},
+    ],
+  },
+  estabelecimentos: {
+    novo: "Novo estabelecimento", vazio: "Nenhum estabelecimento cadastrado.",
+    linhas: () => state.dados.estabelecimentos,
+    colunas: [
+      {r:"Nome", v:l => esc(l.nome)},
+      {r:"Segmento", v:l => esc(l.segmento)},
+      {r:"Margem", v:l => `${num(l.margem_liquida_pct,1)}%`},
+      {r:"Ticket médio", v:l => brl(l.ticket_medio_brl)},
+      {r:"Tarifa", v:l => `${brl(l.tarifa_kwh_brl)}/kWh`},
+      {r:"Demanda", v:l => l.demanda_contratada_kw ? `${num(l.demanda_contratada_kw,0)} kW` : `<span class="table-cell-muted">—</span>`},
+      {r:"Teto que se paga", v:l => { const r = tetoCortesia(l.margem_liquida_pct, l.ticket_medio_brl, l.tarifa_kwh_brl);
+        return r.kwh > 0.4 ? `${num(r.kwh,1)} kWh` : chip("não se paga","critical"); }},
+    ],
+    campos: [
+      {k:"nome", r:"Nome", t:"text", obrigatorio:true},
+      {k:"segmento", r:"Segmento", t:"select", opcoes:[["pet","Pet shop e clínica"],["restaurante","Restaurante"],["academia","Academia"],["farmacia","Farmácia"],["mercado","Supermercado"],["cafe","Cafeteria"],["outro","Outro"]]},
+      {k:"margem_liquida_pct", r:"Margem líquida (%)", t:"number", passo:"0.1",
+       ajuda:"É daqui que sai o teto de cortesia. Margem baixa não sustenta energia de graça."},
+      {k:"ticket_medio_brl", r:"Ticket médio (R$)", t:"number", passo:"1"},
+      {k:"tarifa_kwh_brl", r:"Tarifa de energia (R$/kWh)", t:"number", passo:"0.0001"},
+      {k:"demanda_contratada_kw", r:"Demanda contratada (kW)", t:"number", passo:"1",
+       ajuda:"O carregador não pode empurrar a loja acima disso — a multa de ultrapassagem come o ganho."},
+    ],
+  },
+  paineis: {
+    novo: "Novo painel", vazio: "Nenhum painel salvo.",
+    linhas: () => daLoja(state.dados.paineis),
+    colunas: [
+      {r:"Nome", v:l => esc(l.nome)},
+      {r:"Visibilidade", v:l => l.compartilhado ? chip("compartilhado","info") : chip("privado","offline")},
+      {r:"Padrão", v:l => l.padrao ? "sim" : `<span class="table-cell-muted">—</span>`},
+      {r:"Cards", v:l => `${(l.cards||[]).length} cards`},
+    ],
+    campos: [
+      {k:"nome", r:"Nome do painel", t:"text", obrigatorio:true},
+      {k:"compartilhado", r:"Visibilidade", t:"select", opcoes:[[true,"Compartilhado com a loja"],[false,"Privado"]]},
+      {k:"padrao", r:"Abrir por padrão", t:"select", opcoes:[[false,"Não"],[true,"Sim"]]},
+    ],
+  },
+};
+
+/* ==========================================================================
+   biblioteca de cards do painel
    ========================================================================== */
 const CARDS = {
-  lucro:      {nome:'Lucro atribuído',  desc:'Quanto o carregador devolveu em caixa', span:3},
-  sessoes:    {nome:'Sessões no mês',   desc:'Volume de recargas',                    span:3},
-  clientes:   {nome:'Clientes únicos',  desc:'Quantas pessoas diferentes',            span:3},
-  energia:    {nome:'Energia entregue', desc:'Consumo e custo',                       span:3},
-  retorno:    {nome:'Lucro × custo',    desc:'A linha verde precisa ficar acima',     span:8},
-  horas:      {nome:'Sessões por hora', desc:'Onde está o pico do dia',               span:4},
-  pontos:     {nome:'Carregadores ao vivo', desc:'Quem está usando agora',            span:12},
-  ocupacao:   {nome:'Ocupação da semana', desc:'Quais dias enchem',                   span:6},
-  ticket:     {nome:'Ticket comparado', desc:'Quem carrega gasta mais?',              span:6},
+  retorno:  {t:"Lucro atribuído × custo", g:"Retorno",  tam:"large", cols:11, rows:4},
+  teto:     {t:"Teto de cortesia",        g:"Retorno",  tam:"large", cols:9,  rows:4},
+  horas:    {t:"Sessões por hora",        g:"Operação", tam:"large", cols:11, rows:4},
+  pontos:   {t:"Carregadores",            g:"Operação", tam:"large", cols:9,  rows:4},
+  lucro:    {t:"Lucro atribuído",         g:"Retorno",  tam:"small", cols:5,  rows:2},
+  vendas:   {t:"Vendas atribuídas",       g:"Retorno",  tam:"small", cols:5,  rows:2},
+  sessoes:  {t:"Sessões no período",      g:"Operação", tam:"small", cols:5,  rows:2},
+  clientes: {t:"Clientes únicos",         g:"Público",  tam:"small", cols:5,  rows:2},
+  energia:  {t:"Energia entregue",        g:"Operação", tam:"small", cols:5,  rows:2},
+  ticket:   {t:"Ticket de quem carrega",  g:"Público",  tam:"small", cols:5,  rows:2},
 };
-const CARDS_PADRAO = ['lucro','sessoes','clientes','energia','retorno','horas','pontos'];
+const CARDS_PADRAO = ["retorno","teto","lucro","sessoes","clientes","energia"];
 
-function createDashboardManager(){
-  let editando = false;
-  let arrastando = null;
-
-  const ativos = () => ler(LS.cards, CARDS_PADRAO).filter(id => CARDS[id]);
-  const salvar = ids => gravar(LS.cards, ids);
-
-  function corpo(id){
-    const t = totais(), seg = SEGMENTOS[state.segmento];
-    switch (id){
-      case 'lucro': return kpi('Retorno','Lucro atribuído', brl(t.l), '<span class="delta up">+18%</span> vs mês anterior', 'good',
-        '<path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v5h-5"/>');
-      case 'sessoes': return kpi('Operação','Sessões no mês', num(t.s), `${num(t.s/30,1)} por dia, em média`, 'amber',
-        '<path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2Z"/>');
-      case 'clientes': return kpi('Público','Clientes únicos', num(Math.round(t.s*0.62)), '62% voltaram ao menos uma vez', '',
-        '<circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0"/>');
-      case 'energia': return kpi('Custo','Energia entregue', `${num(t.k)} kWh`, `${brl(t.k*state.tarifa)} de energia`, 'warn',
-        '<path d="M12 3v18"/><path d="M16.5 7.5A3.5 3.5 0 0 0 13 5h-2a3 3 0 0 0 0 6h2a3 3 0 0 1 0 6h-2a3.5 3.5 0 0 1-3.5-2.5"/>');
-      case 'retorno': return `<div class="section-head"><div><p class="eyebrow">Retorno</p><h2>Lucro atribuído × custo de energia</h2></div></div>
-        <div class="chart"><svg id="chartRetorno" viewBox="0 0 720 250" role="img" aria-label="Lucro atribuído contra custo de energia"></svg></div>
-        <div class="legend"><span><i style="background:var(--success)"></i>lucro atribuído</span><span><i style="background:var(--amber)"></i>custo de energia</span></div>`;
-      case 'horas': return `<div><p class="eyebrow">Movimento</p><h2>Sessões por hora</h2></div>
-        <div class="chart"><svg id="chartHoras" viewBox="0 0 340 250" role="img" aria-label="Sessões por hora do dia"></svg></div>
-        <p class="kpi-meta" id="horaPico"></p>`;
-      case 'pontos': return `<div class="section-head"><div><p class="eyebrow">Agora</p><h2>Situação dos carregadores</h2></div>
-        <span class="spacer"></span><button class="ghost-button" data-goto="carregadores">Configurar</button></div>
-        <div class="rows" id="pointsLive"></div>`;
-      case 'ocupacao': return `<div><p class="eyebrow">Semana</p><h2>Ocupação por dia</h2></div>
-        <div class="chart"><svg id="chartSemana" viewBox="0 0 360 200" role="img" aria-label="Sessões por dia da semana"></svg></div>`;
-      case 'ticket': return `<div><p class="eyebrow">Comparação</p><h2>Ticket de quem carrega</h2></div>
-        <div class="chart"><svg id="chartTicket" viewBox="0 0 360 200" role="img" aria-label="Ticket comparado"></svg></div>
-        <p class="kpi-meta">Base: ticket médio de ${brl(seg.ticket)} da loja.</p>`;
-      default: return '';
+/* ==========================================================================
+   dados
+   ========================================================================== */
+async function carregar(){
+  const r = await fetch(`./dados.json?t=${Date.now()}`);
+  if (!r.ok) throw new Error("dados.json não encontrado");
+  Object.assign(state.dados, await r.json());
+  aplicarEdicoesLocais();
+  const salvos = ler(LS.paineis, null);
+  if (Array.isArray(salvos) && salvos.length) state.dados.paineis = salvos;
+  if (!state.estabelecimentoId) state.estabelecimentoId = state.dados.estabelecimentos[0]?.id ?? null;
+}
+/* Enquanto a API de escrita não existe, o que o lojista edita fica no
+   navegador e é reaplicado por cima do dump. */
+function aplicarEdicoesLocais(){
+  const over = ler(LS.edicoes, {});
+  for (const [tabela, mudancas] of Object.entries(over)){
+    const lista = state.dados[tabela]; if (!lista) continue;
+    for (const [id, campos] of Object.entries(mudancas)){
+      const i = lista.findIndex(x => String(x.id) === id);
+      if (campos === null){ if (i >= 0) lista.splice(i,1); continue; }
+      if (i >= 0) Object.assign(lista[i], campos); else lista.push(campos);
     }
   }
-  const kpi = (eyebrow, titulo, valor, meta, tom, icone) => `
-    <div class="kpi-icon"><svg viewBox="0 0 24 24">${icone}</svg></div>
-    <p class="eyebrow">${eyebrow}</p><h3>${titulo}</h3>
-    <strong class="kpi-value">${valor}</strong><p class="kpi-meta">${meta}</p>`;
+}
+function persistir(tabela, id, campos){
+  const over = ler(LS.edicoes, {});
+  over[tabela] ||= {};
+  over[tabela][String(id)] = campos === null ? null : {...(over[tabela][String(id)] || {}), ...campos};
+  gravar(LS.edicoes, over);
+}
+const salvarPaineis = () => gravar(LS.paineis, state.dados.paineis);
 
-  function render(){
-    const grid = $('#dashboardGrid');
-    grid.innerHTML = ativos().map(id => `
-      <article class="card span-${CARDS[id].span}" data-card="${id}" data-tone="${
-        {lucro:'good', sessoes:'amber', energia:'warn'}[id] || ''}" draggable="false">
-        <div class="card-tools">
-          <button class="card-tool handle" type="button" aria-label="Mover ${CARDS[id].nome}" data-drag>
-            <svg viewBox="0 0 24 24"><path d="M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01"/></svg></button>
-          <button class="card-tool" type="button" aria-label="Remover ${CARDS[id].nome}" data-remove="${id}">
-            <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-        </div>
-        ${corpo(id)}
-      </article>`).join('');
-    aplicarEdicao();
-    desenharGraficos();
-    renderPontosAoVivo();
-  }
-
-  function renderBiblioteca(){
-    const usados = ativos();
-    $('#cardLibrary').innerHTML = Object.entries(CARDS).map(([id, c]) => `
-      <button type="button" data-add="${id}" ${usados.includes(id) ? 'disabled' : ''}>
-        <b>${c.nome}</b><small>${usados.includes(id) ? 'já está no painel' : c.desc}</small>
-      </button>`).join('');
-  }
-
-  function aplicarEdicao(){
-    document.body.classList.toggle('dashboard-editing', editando);
-    $('#cardLibraryWrap').hidden = !editando;
-    $('#dashboardEditToggle').textContent = editando ? 'Concluir edição' : 'Editar painel';
-    $$('#dashboardGrid .card').forEach(c => c.draggable = editando);
-  }
-
-  function toggleEdicao(){
-    editando = !editando;
-    if (editando) renderBiblioteca();
-    aplicarEdicao();
-    toast(editando ? 'Arraste os cards para reordenar, ou remova no X.' : 'Painel salvo.');
-  }
-
-  function init(){
-    render();
-    $('#dashboardEditToggle').onclick = toggleEdicao;
-    $('#dashboardReset').onclick = () => { salvar(CARDS_PADRAO); render(); renderBiblioteca(); toast('Painel restaurado.'); };
-
-    $('#dashboardGrid').addEventListener('click', e => {
-      const rm = e.target.closest('[data-remove]');
-      if (rm){ salvar(ativos().filter(id => id !== rm.dataset.remove)); render(); renderBiblioteca(); toast('Card removido.'); return; }
-      const goto = e.target.closest('[data-goto]');
-      if (goto) setSection(goto.dataset.goto);
-    });
-    $('#cardLibrary').addEventListener('click', e => {
-      const add = e.target.closest('[data-add]');
-      if (!add || add.disabled) return;
-      salvar([...ativos(), add.dataset.add]); render(); renderBiblioteca(); toast('Card adicionado.');
-    });
-
-    // arrastar para reordenar
-    const grid = $('#dashboardGrid');
-    grid.addEventListener('dragstart', e => {
-      const card = e.target.closest('.card[data-card]');
-      if (!editando || !card) return;
-      arrastando = card; card.classList.add('is-dragging');
-      e.dataTransfer.effectAllowed = 'move';
-    });
-    grid.addEventListener('dragend', () => {
-      arrastando?.classList.remove('is-dragging'); arrastando = null;
-      salvar($$('#dashboardGrid .card').map(c => c.dataset.card));
-      desenharGraficos(); renderPontosAoVivo();
-    });
-    grid.addEventListener('dragover', e => {
-      if (!arrastando) return;
-      e.preventDefault();
-      const alvo = e.target.closest('.card[data-card]');
-      if (!alvo || alvo === arrastando) return;
-      const r = alvo.getBoundingClientRect();
-      alvo.parentNode.insertBefore(arrastando, (e.clientY - r.top) / r.height > 0.5 ? alvo.nextSibling : alvo);
-    });
-  }
-
-  return {init, render, renderBiblioteca};
+/* ==========================================================================
+   toast
+   ========================================================================== */
+function toast(msg, tipo = "success"){
+  const el = document.createElement("div");
+  el.className = `toast is-${tipo}`;
+  el.innerHTML = `<span>${esc(msg)}</span>`;
+  $("#toastStack").append(el);
+  setTimeout(() => { el.classList.add("is-leaving"); setTimeout(() => el.remove(), 400); }, 3400);
 }
 
 /* ==========================================================================
-   gráficos — SVG desenhado à mão
+   barra lateral
    ========================================================================== */
-function desenharGraficos(){
-  const t = totais();
+function setSidebarCollapsed(colapsada, persistirEstado = true){
+  document.body.classList.toggle("sidebar-collapsed", Boolean(colapsada));
+  $("#sidebarToggleDesktop")?.setAttribute("aria-expanded", String(!colapsada));
+  if (persistirEstado) gravar(LS.colapso, Boolean(colapsada));
+}
+function syncSidebarGroupToggle(grupo){
+  if (!grupo) return;
+  const aberto = !grupo.classList.contains("is-collapsed");
+  $("[data-nav-group-toggle]", grupo)?.setAttribute("aria-expanded", String(aberto));
+}
+function initSidebar(){
+  setSidebarCollapsed(ler(LS.colapso, false), false);
+  const fechados = ler(LS.grupos, ["cadastros"]);
+  $$(".nav-group").forEach(g => {
+    g.classList.toggle("is-collapsed", fechados.includes(g.dataset.navGroup));
+    syncSidebarGroupToggle(g);
+  });
 
-  if ($('#chartRetorno')){
-    const W=720,H=250,L=48,R=14,T=16,B=30, d=state.dias;
-    const max = Math.max(...d.map(x => Math.max(x.lucro, x.custo))) * 1.15 || 1;
-    const x = i => L + i*(W-L-R)/(d.length-1), y = v => H-B - v*(H-T-B)/max;
-    let g = '';
-    for (let k=0;k<=4;k++){
-      const v = max*k/4;
-      g += `<line x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}" stroke="${css('--chart-grid')}"/>
-            <text x="${L-8}" y="${y(v)+4}" text-anchor="end" font-size="10" font-family="JetBrains Mono,monospace" fill="${css('--text-muted')}">${num(v)}</text>`;
+  $("#sidebarToggleDesktop").onclick = () =>
+    setSidebarCollapsed(!document.body.classList.contains("sidebar-collapsed"));
+
+  $$("[data-nav-group-toggle]").forEach(b => b.onclick = () => {
+    const g = b.closest(".nav-group");
+    g.classList.toggle("is-collapsed");
+    syncSidebarGroupToggle(g);
+    gravar(LS.grupos, $$(".nav-group.is-collapsed").map(x => x.dataset.navGroup));
+  });
+
+  $$(".nav-item[data-section]").forEach(b => b.onclick = () => setSection(b.dataset.section));
+  $("#brandReloadButton").onclick = () => location.reload();
+
+  const menu = $("#collapsedProfileMenu"), atalho = $("#profileShortcut");
+  const abrirMenu = ab => {
+    menu.classList.toggle("is-open", ab);
+    menu.setAttribute("aria-hidden", String(!ab));
+    atalho.setAttribute("aria-expanded", String(ab));
+  };
+  atalho.onclick = e => { e.stopPropagation(); abrirMenu(!menu.classList.contains("is-open")); };
+  $("#collapsedProfileMenuProfile").onclick = () => { abrirMenu(false); setSection("estabelecimentos"); };
+  document.addEventListener("click", e => { if (!menu.contains(e.target) && !atalho.contains(e.target)) abrirMenu(false); });
+
+  const trigger = $("#clientDropdownTrigger"), lista = $("#clientDropdownMenu");
+  trigger.onclick = e => {
+    e.stopPropagation();
+    const ab = lista.hidden;
+    lista.hidden = !ab;
+    lista.classList.toggle("is-open", ab);
+    trigger.setAttribute("aria-expanded", String(ab));
+  };
+  document.addEventListener("click", e => {
+    if (!lista.contains(e.target) && !trigger.contains(e.target)){
+      lista.hidden = true; lista.classList.remove("is-open"); trigger.setAttribute("aria-expanded","false");
     }
-    const path = key => d.map((p,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(' ');
-    g += `<path d="${path('lucro')} L${x(d.length-1)},${y(0)} L${L},${y(0)} Z" fill="${css('--success')}" opacity=".10"/>`;
-    g += `<path d="${path('lucro')}" fill="none" stroke="${css('--success')}" stroke-width="2.2" stroke-linejoin="round"/>`;
-    g += `<path d="${path('custo')}" fill="none" stroke="${css('--amber')}" stroke-width="1.8" stroke-linejoin="round"/>`;
-    for (let i=0;i<d.length;i+=6)
-      g += `<text x="${x(i)}" y="${H-B+15}" text-anchor="middle" font-size="10" font-family="JetBrains Mono,monospace" fill="${css('--text-muted')}">${d[i].dia}</text>`;
-    $('#chartRetorno').innerHTML = g;
-  }
-
-  if ($('#chartHoras')){
-    const W=340,H=250,L=30,R=10,T=12,B=28;
-    const b = new Array(24).fill(0); state.sessoes.forEach(s => b[s.hora]++);
-    const faixa = b.slice(7,22), max = Math.max(...faixa) || 1;
-    const slot=(W-L-R)/faixa.length, bw=slot*0.62;
-    let g='';
-    for (let k=0;k<=3;k++){
-      const v=max*k/3, yy=H-B-v*(H-T-B)/max;
-      g += `<line x1="${L}" y1="${yy}" x2="${W-R}" y2="${yy}" stroke="${css('--chart-grid')}"/>
-            <text x="${L-6}" y="${yy+4}" text-anchor="end" font-size="9" font-family="JetBrains Mono,monospace" fill="${css('--text-muted')}">${Math.round(v)}</text>`;
-    }
-    faixa.forEach((v,i)=>{
-      const h=v*(H-T-B)/max;
-      g += `<rect x="${L+slot*i+(slot-bw)/2}" y="${H-B-h}" width="${bw}" height="${h}" rx="2" fill="${css('--primary')}" opacity="${v===max?1:.6}"/>`;
-      if (i%3===0) g += `<text x="${L+slot*i+slot/2}" y="${H-B+14}" text-anchor="middle" font-size="9" font-family="JetBrains Mono,monospace" fill="${css('--text-muted')}">${i+7}h</text>`;
-    });
-    $('#chartHoras').innerHTML = g;
-    const pico = faixa.indexOf(Math.max(...faixa)) + 7;
-    if ($('#horaPico')) $('#horaPico').textContent = `Pico às ${pico}h. É onde vale abrir mais uma vaga.`;
-  }
-
-  if ($('#chartSemana')){
-    const W=360,H=200,L=30,R=10,T=12,B=28;
-    const dias=['dom','seg','ter','qua','qui','sex','sáb'], soma=new Array(7).fill(0);
-    state.dias.forEach((d,i) => soma[i%7] += d.sessoes);
-    const max=Math.max(...soma)||1, slot=(W-L-R)/7, bw=slot*0.55;
-    let g='';
-    soma.forEach((v,i)=>{
-      const h=v*(H-T-B)/max;
-      g += `<rect x="${L+slot*i+(slot-bw)/2}" y="${H-B-h}" width="${bw}" height="${h}" rx="3" fill="${css('--primary')}" opacity="${v===max?1:.55}"/>
-            <text x="${L+slot*i+slot/2}" y="${H-B+14}" text-anchor="middle" font-size="9.5" fill="${css('--text-muted')}">${dias[i]}</text>`;
-    });
-    $('#chartSemana').innerHTML = g;
-  }
-
-  if ($('#chartTicket')){
-    const seg=SEGMENTOS[state.segmento], W=360,H=200;
-    const vals=[{k:'não carregou',v:seg.ticket,c:css('--text-muted')},{k:'carregou',v:seg.ticket*1.12,c:css('--success')}];
-    const max=Math.max(...vals.map(v=>v.v))*1.2;
-    let g='';
-    vals.forEach((d,i)=>{
-      const h=d.v*(H-60)/max, x=70+i*140;
-      g += `<rect x="${x}" y="${H-34-h}" width="80" height="${h}" rx="4" fill="${d.c}" opacity=".9"/>
-            <text x="${x+40}" y="${H-40-h}" text-anchor="middle" font-size="12" font-weight="700" font-family="JetBrains Mono,monospace" fill="${css('--text-primary')}">${brl(d.v)}</text>
-            <text x="${x+40}" y="${H-14}" text-anchor="middle" font-size="10.5" fill="${css('--text-muted')}">${d.k}</text>`;
-    });
-    $('#chartTicket').innerHTML = g;
-  }
-
-  if ($('#chartRecorrencia')){
-    const W=720,H=200,L=42,R=14,T=14,B=30;
-    const dist=[{k:'1 visita',v:38},{k:'2',v:21},{k:'3',v:14},{k:'4 a 6',v:17},{k:'7+',v:10}];
-    const max=Math.max(...dist.map(d=>d.v)), slot=(W-L-R)/dist.length, bw=Math.min(84,slot*0.55);
-    let g='';
-    dist.forEach((d,i)=>{
-      const h=d.v*(H-T-B)/max, cx=L+slot*i+slot/2;
-      g += `<rect x="${cx-bw/2}" y="${H-B-h}" width="${bw}" height="${h}" rx="3" fill="${i?css('--primary'):css('--text-muted')}" opacity="${i?1:.5}"/>
-            <text x="${cx}" y="${H-B-h-7}" text-anchor="middle" font-size="11" font-weight="600" font-family="JetBrains Mono,monospace" fill="${css('--text-primary')}">${d.v}%</text>
-            <text x="${cx}" y="${H-B+16}" text-anchor="middle" font-size="10" fill="${css('--text-muted')}">${d.k}</text>`;
-    });
-    $('#chartRecorrencia').innerHTML = g;
-  }
-
-  if ($('#chartFinanceiro')){
-    const W=360,H=240,cx=W/2,cy=104,r=72, saldo=t.l-t.c;
-    const partes=[{rot:'lucro atribuído',v:t.l,cor:css('--success')},
-                  {rot:'energia',v:t.k*state.tarifa,cor:css('--amber')},
-                  {rot:'equipamento',v:Math.max(0,t.c-t.k*state.tarifa),cor:css('--text-muted')}];
-    const total=partes.reduce((a,p)=>a+p.v,0)||1;
-    let ang=-Math.PI/2, g='';
-    partes.forEach(p=>{
-      const a2=ang+2*Math.PI*p.v/total, big=a2-ang>Math.PI?1:0;
-      g += `<path d="M${cx},${cy} L${cx+r*Math.cos(ang)},${cy+r*Math.sin(ang)} A${r},${r} 0 ${big},1 ${cx+r*Math.cos(a2)},${cy+r*Math.sin(a2)} Z" fill="${p.cor}" opacity=".9"/>`;
-      ang=a2;
-    });
-    g += `<circle cx="${cx}" cy="${cy}" r="45" fill="${css('--bg-surface')}"/>
-          <text x="${cx}" y="${cy-1}" text-anchor="middle" font-size="16" font-weight="700" font-family="JetBrains Mono,monospace" fill="${saldo>0?css('--success'):css('--danger')}">${brl(saldo)}</text>
-          <text x="${cx}" y="${cy+16}" text-anchor="middle" font-size="10" fill="${css('--text-muted')}">saldo do mês</text>`;
-    partes.forEach((p,i)=>{
-      const yy=196+i*14;
-      g += `<rect x="30" y="${yy-8}" width="9" height="9" rx="2" fill="${p.cor}"/>
-            <text x="46" y="${yy}" font-size="10.5" fill="${css('--text-secondary')}">${p.rot}</text>
-            <text x="${W-22}" y="${yy}" text-anchor="end" font-size="10.5" font-family="JetBrains Mono,monospace" fill="${css('--text-primary')}">${brl(p.v)}</text>`;
-    });
-    $('#chartFinanceiro').innerHTML = g;
-  }
+  });
 }
-
-/* ==========================================================================
-   listas
-   ========================================================================== */
-const ROTULO = {carregando:'Carregando', livre:'Livre', falha:'Fora do ar'};
-
-function linhaPonto(p, comToggle){
-  const detalhe = p.estado === 'carregando' ? `${p.cliente} · ${Math.round(p.soc*100)}%`
-                : p.estado === 'falha' ? 'Sem comunicação há 2 h' : 'Pronta para uso';
-  const lado = comToggle
-    ? `<div class="mode-toggle" data-ponto="${p.id}">
-         <button data-mode="cortesia" aria-pressed="${p.modo==='cortesia'}">Cortesia</button>
-         <button data-mode="pago" aria-pressed="${p.modo==='pago'}">Por kWh</button>
-       </div>
-       <button class="ghost-button" data-drawer="${p.id}">Detalhes</button>`
-    : `<span class="pill ${p.modo}">${p.modo==='cortesia'?'Cortesia':'Por kWh'}</span>`;
-  return `<div class="row-item"><span class="dot ${p.estado}"></span>
-    <div class="row-copy"><b>${p.nome}</b><span>${num(p.kw,1)} kW · ${ROTULO[p.estado]} · ${detalhe}</span></div>
-    <div class="row-side">${lado}</div></div>`;
+function renderEstabelecimentos(){
+  const sel = $("#clientSelect"), menu = $("#clientDropdownMenu");
+  sel.innerHTML = state.dados.estabelecimentos
+    .map(e => `<option value="${e.id}" ${e.id===state.estabelecimentoId?"selected":""}>${esc(e.nome)}</option>`).join("");
+  menu.innerHTML = state.dados.estabelecimentos.map(e => `
+    <button class="client-dropdown-option ${e.id===state.estabelecimentoId?"is-active":""}" type="button" role="option"
+            aria-selected="${e.id===state.estabelecimentoId}" data-estab="${e.id}">
+      <span class="client-dropdown-option-name">${esc(e.nome)}</span>
+      <span class="client-dropdown-option-meta">${esc(e.segmento || "")}</span>
+    </button>`).join("");
+  $("#clientDropdownLabel").textContent = loja().nome || "Estabelecimento";
+  $$("[data-estab]", menu).forEach(b => b.onclick = () => {
+    trocarEstabelecimento(Number(b.dataset.estab));
+    menu.hidden = true; menu.classList.remove("is-open");
+  });
+  sel.onchange = () => trocarEstabelecimento(Number(sel.value));
 }
-function renderPontosAoVivo(){
-  if ($('#pointsLive')) $('#pointsLive').innerHTML = state.pontos.map(p => linhaPonto(p, false)).join('');
-}
-function renderConfigPontos(){
-  $('#pointsConfig').innerHTML = state.pontos.map(p => linhaPonto(p, true)).join('');
-}
-function renderSessoes(){
-  const f = $('#filtroModo').value;
-  const lista = state.sessoes.filter(s => f === 'todos' || s.modo === f);
-  const max = Math.max(...state.sessoes.map(s => s.kwh));
-  $('#sessionList').innerHTML = lista.map(s => `
-    <div class="session" data-mode="${s.modo}">
-      <span class="when">${String(s.dia).padStart(2,'0')}/08 ${String(s.hora).padStart(2,'0')}:${String(s.minuto).padStart(2,'0')}</span>
-      <div><div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:5px">
-        <span>${s.ponto}</span><span class="pill ${s.modo}">${s.modo==='cortesia'?'Cortesia':'Por kWh'}</span></div>
-        <div class="bar"><i style="width:${100*s.kwh/max}%"></i></div></div>
-      <span class="val">${num(s.kwh,1)} kWh · ${Math.round(s.kwh*KM_KWH)} km</span>
-      <span class="val">${s.compra ? brl(s.compra) : (s.cobrado ? brl(s.cobrado) : '—')}</span>
-    </div>`).join('') || '<p class="kpi-meta">Nenhuma sessão neste filtro.</p>';
-}
-function renderClientes(){
-  const seg = SEGMENTOS[state.segmento];
-  $('#kpiRecorrencia').textContent = '62%';
-  $('#kpiTicketEV').textContent = brl(seg.ticket * 1.12);
-  $('#kpiTicketDelta').innerHTML = '<span class="delta up">+12%</span> sobre o ticket da loja';
-  $('#kpiCupom').textContent = '58%';
-}
-function renderAlertas(){
-  $('#alertList').innerHTML = `
-    <div class="row-item"><span class="dot falha"></span>
-      <div class="row-copy"><b>Vaga 4 — fundos sem comunicação</b><span>Última leitura há 2 horas. Ninguém consegue usar.</span></div>
-      <div class="row-side"><span class="pill alert">aberto</span></div></div>
-    <div class="row-item"><span class="dot livre"></span>
-      <div class="row-copy"><b>Demanda contratada em 71%</b><span>Pico de 53 kW num limite de 75 kW. Sem risco por enquanto.</span></div>
-      <div class="row-side"><span class="pill ok">ok</span></div></div>`;
-}
-
-function calcular(){
-  const m=+$('#inMargem').value, tk=+$('#inTicket').value, tf=+$('#inTarifa').value;
-  $('#outMargem').textContent = `${num(m,1)}%`;
-  $('#outTicket').textContent = brl(tk);
-  $('#outTarifa').textContent = `${brl(tf)}/kWh`;
-  const r = tetoCortesia(m, tk, tf);
-  $('#tetoResultado').innerHTML = r.kwh > 0.4
-    ? `Cada sessão gera <b>${brl(r.lucro)}</b> de lucro. Descontado o equipamento, sobram <b>${brl(r.sobra)}</b>.<br>
-       <b style="font-size:1.15rem">Teto recomendado: ${num(r.kwh,1)} kWh</b> — cerca de <b>${Math.round(r.kwh*KM_KWH)} km</b> de cortesia.`
-    : `Cada sessão gera <b>${brl(r.lucro)}</b> de lucro, menos que o custo do equipamento por sessão.
-       <b>Neste cenário a cortesia não se paga</b> — o caminho é cobrar por kWh.`;
-}
-
-function renderTudo(){
-  $('#clientName').textContent = state.loja;
-  $('#profileName').textContent = state.usuario;
-  $('#profileInitials').textContent = state.usuario.split(' ').map(p=>p[0]).slice(0,2).join('').toUpperCase();
-  dashboard.render();
-  renderConfigPontos(); renderSessoes(); renderClientes(); renderAlertas();
-  desenharGraficos();
+function trocarEstabelecimento(id){
+  state.estabelecimentoId = id;
+  state.paineis.ativo = null;
+  state.paineis.editando = false;
+  Object.values(state.tabela).forEach(u => u.selecionados.clear());
+  fecharEditor();
+  renderEstabelecimentos();
+  renderTudo();
+  toast(`Agora vendo ${loja().nome}.`);
 }
 
 /* ==========================================================================
    tema
    ========================================================================== */
-function aplicarTema(t, persist = true){
-  document.documentElement.dataset.theme = t;
-  $('#cfgTheme').checked = t === 'dark';
-  $('#themeIcon').innerHTML = t === 'dark'
-    ? '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/>'
-    : '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>';
-  if (persist) gravar(LS.tema, t);
-  if (state.dias.length) desenharGraficos();
+function aplicarTema(escolha, persistirEscolha = true){
+  const efetivo = escolha === "system"
+    ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+    : escolha;
+  document.documentElement.dataset.theme = efetivo;
+  document.body.dataset.theme = efetivo;
+  $$("[data-theme-choice]").forEach(b => {
+    const ativo = b.dataset.themeChoice === escolha;
+    b.setAttribute("aria-checked", String(ativo));
+    b.classList.toggle("is-selected", ativo);
+  });
+  if (persistirEscolha) gravar(LS.tema, escolha);
+  if (state.dados.sessoes.length) desenharGraficos();
+}
+function initTema(){
+  aplicarTema(ler(LS.tema, "system"), false);
+  $$("[data-theme-choice]").forEach(b => b.onclick = () => aplicarTema(b.dataset.themeChoice));
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    if (ler(LS.tema, "system") === "system") aplicarTema("system", false);
+  });
 }
 
 /* ==========================================================================
-   tour guiado — spotlight de 4 bandas, anel e balão com seta
+   navegação
    ========================================================================== */
-const TOUR_STEPS = [
-  {id:'welcome', section:null, target:null, placement:'center',
-   title:'Bem-vindo ao painel', body:'Um tour rápido pelas áreas principais. São poucos passos, e você pode parar quando quiser.'},
-  {id:'client', section:null, target:'#clientSwitcher', placement:'right',
-   title:'Seu estabelecimento', body:'Tudo aqui é desta loja. Quem tem mais de uma troca por este seletor.'},
-  {id:'kpis', section:'painel', target:'[data-card="lucro"]', placement:'bottom',
-   title:'A resposta primeiro', body:'O número que interessa é o lucro atribuído a quem carregou — não quantos quilowatt-hora saíram.'},
-  {id:'grafico', section:'painel', target:'[data-card="retorno"]', placement:'top',
-   title:'Lucro contra custo', body:'A linha verde precisa ficar acima da âmbar. Quando encostam, a cortesia está grande demais.'},
-  {id:'editar', section:'painel', target:'#dashboardEditToggle', placement:'bottom',
-   title:'Monte o seu painel', body:'Em "Editar painel" você adiciona, remove e arrasta os cards. Fica salvo neste navegador.'},
-  {id:'carregadores', section:'carregadores', target:'#chargerHint', placement:'bottom',
-   forceExpandGroup:'operacao',
-   title:'Cortesia ou cobrança', body:'Cada carregador pode ter um modelo diferente. A vaga da frente atrai cliente; a dos fundos pode cobrar.'},
-  {id:'calculadora', section:'financeiro', target:'#calcHint', placement:'bottom',
-   forceExpandGroup:'negocio',
-   title:'Quanto você pode dar', body:'Com a sua margem e o seu ticket, o painel calcula o teto de cortesia que não dá prejuízo.'},
-  {id:'menu', section:null, target:'#sidebarToggleDesktop', placement:'right',
-   title:'Menu recolhido', body:'Esta setinha recolhe o menu para só os ícones, e passar o mouse mostra o nome de cada seção.',
-   skipIf: () => isCompactViewport()},
-  {id:'tema', section:null, target:'#themeBtn', placement:'bottom',
-   title:'Claro ou escuro', body:'A escolha fica salva neste navegador. Pronto — é só isso.'},
-];
+function setSection(secao){
+  if (!SECOES[secao]) return;
+  state.section = secao;
+  $$(".panel-section").forEach(s => s.classList.toggle("is-active", s.id === `section-${secao}`));
+  $$(".nav-item[data-section]").forEach(b => b.classList.toggle("active", b.dataset.section === secao));
+  $("#activeSectionEyebrow").textContent = SECOES[secao].eyebrow;
+  $("#activeSectionTitle").textContent = SECOES[secao].titulo;
+  $("#dashboardManagerToggle").hidden = secao !== "painel";
 
-function createTourModule({state, setSection, canAccessSection, isCompactViewport, setSidebarCollapsed, syncSidebarGroupToggle, waitForNextPaint}){
-  const el = {};
-  let steps = [], stepIndex = 0, transitioning = false, resizeTicking = false;
-  const restore = {sidebarWasCollapsed:false, forcedGroups:new Set()};
+  const novo = TABELAS[secao]?.novo;
+  $("#topbarActions").innerHTML = novo
+    ? `<button class="primary-button" type="button" data-criar="${secao}">${esc(novo)}</button>` : "";
+  const btn = $("[data-criar]");
+  if (btn) btn.onclick = () => abrirEditorNovo(secao);
 
-  function ensureDom(){
-    if (el.overlay) return;
-    const overlay = document.createElement('div');
-    overlay.className = 'tour-overlay';
-    overlay.id = 'tourOverlay';
-    overlay.innerHTML = `
-      <div class="tour-scrim tour-scrim-top"></div>
-      <div class="tour-scrim tour-scrim-bottom"></div>
-      <div class="tour-scrim tour-scrim-left"></div>
-      <div class="tour-scrim tour-scrim-right"></div>
-      <div class="tour-spot-ring" id="tourSpotRing"></div>
-      <div class="tour-loading-spinner" id="tourLoadingSpinner" aria-hidden="true"></div>
-      <div class="tour-balloon" id="tourBalloon" role="dialog" aria-modal="true" aria-live="polite" aria-labelledby="tourBalloonTitle">
-        <p class="tour-balloon-step" id="tourBalloonStep"></p>
-        <h3 id="tourBalloonTitle"></h3>
-        <p id="tourBalloonBody"></p>
-        <div class="tour-balloon-actions">
-          <button class="ghost-button" id="tourStop" type="button">Parar</button>
-          <div class="tour-balloon-nav">
-            <button class="ghost-button" id="tourPrev" type="button">Voltar</button>
-            <button class="primary-button" id="tourNext" type="button">Próximo</button>
+  if (secao !== "painel"){ fecharBiblioteca(); fecharMenuPaineis(); }
+  fecharEditor();
+  renderSecaoAtual();
+  document.body.classList.remove("sidebar-open");
+}
+const canAccessSection = s => Boolean(SECOES[s]);
+
+function renderSecaoAtual(){
+  const s = state.section;
+  if (s === "painel") renderPainel();
+  else if (s === "financeiro") renderFinanceiro();
+  else if (TABELAS[s]) renderTabela(s);
+}
+
+/* ==========================================================================
+   tabelas
+   ========================================================================== */
+function renderTabela(secao){
+  const cfg = TABELAS[secao], u = ui(secao);
+  const alvo = $(`#screen-${secao}`);
+  const todas = cfg.linhas();
+  const termo = u.busca.trim().toLowerCase();
+  const linhas = termo ? todas.filter(l => JSON.stringify(l).toLowerCase().includes(termo)) : todas;
+  const marcadas = linhas.filter(l => u.selecionados.has(l.id)).length;
+  const editavel = Boolean(cfg.campos);
+
+  const corpo = linhas.length ? linhas.map(l => `
+    <tr class="${u.selecionados.has(l.id) ? "is-selected" : ""}">
+      <td><input class="row-check" type="checkbox" data-linha="${l.id}" ${u.selecionados.has(l.id) ? "checked" : ""}
+                 aria-label="Selecionar registro" ${editavel ? "" : "disabled"}></td>
+      ${cfg.colunas.map(c => `<td>${c.v(l)}</td>`).join("")}
+    </tr>`).join("")
+    : `<tr><td colspan="${cfg.colunas.length + 1}">
+         <div class="empty-state">${esc(cfg.vazio)}</div></td></tr>`;
+
+  alvo.innerHTML = `
+    <article class="table-card">
+      <div class="table-toolbar">
+        <div class="toolbar-left">
+          <span class="table-filter-summary">${esc(loja().nome || "")}</span>
+          <label class="table-search">
+            <input type="search" placeholder="Buscar em ${esc(SECOES[secao].titulo.toLowerCase())}"
+                   value="${esc(u.busca)}" data-busca="${secao}">
+          </label>
+        </div>
+        <div class="toolbar-right">
+          <span class="table-meta">Exibindo ${linhas.length} de ${todas.length} registro(s)</span>
+          <button class="icon-button" type="button" data-recarregar aria-label="Atualizar ${esc(SECOES[secao].titulo)}" title="Atualizar"><span aria-hidden="true">⟳</span></button>
+        </div>
+      </div>
+      <div class="table-shell table-container">
+        <div class="table-wrapper">
+          <div class="table-scroll" tabindex="0">
+            <table>
+              <thead><tr>
+                <th><input class="head-check" type="checkbox" data-marcar-todas
+                           ${linhas.length && marcadas === linhas.length ? "checked" : ""}
+                           ${marcadas && marcadas < linhas.length ? 'data-indeterminate="true"' : ""}
+                           ${editavel ? "" : "disabled"} aria-label="Selecionar todos"></th>
+                ${cfg.colunas.map(c => `<th><span>${esc(c.r)}</span></th>`).join("")}
+              </tr></thead>
+              <tbody>${corpo}</tbody>
+            </table>
           </div>
         </div>
-      </div>`;
-    document.body.appendChild(overlay);
-    Object.assign(el, {
-      overlay,
-      scrimTop:    $('.tour-scrim-top', overlay),
-      scrimBottom: $('.tour-scrim-bottom', overlay),
-      scrimLeft:   $('.tour-scrim-left', overlay),
-      scrimRight:  $('.tour-scrim-right', overlay),
-      ring:        $('#tourSpotRing', overlay),
-      spinner:     $('#tourLoadingSpinner', overlay),
-      balloon:     $('#tourBalloon', overlay),
-      stepLabel:   $('#tourBalloonStep', overlay),
-      title:       $('#tourBalloonTitle', overlay),
-      body:        $('#tourBalloonBody', overlay),
-    });
-    $('#tourStop', overlay).onclick = close;
-    $('#tourPrev', overlay).onclick = prev;
-    $('#tourNext', overlay).onclick = next;
-  }
+      </div>
+    </article>`;
 
-  const isOpen = () => Boolean(el.overlay?.classList.contains('is-open'));
+  const meio = $("[data-indeterminate='true']", alvo);
+  if (meio) meio.indeterminate = true;
 
-  // Alvos que colapsam para quase 0x0 quando vazios não destacam nada útil:
-  // sobe até 3 ancestrais procurando um retângulo com tamanho real.
-  function effectiveRect(node, minSize = 24){
-    let cur = node, rect = cur.getBoundingClientRect(), guard = 0;
-    while ((rect.width < minSize || rect.height < minSize) && cur.parentElement && guard < 3){
-      cur = cur.parentElement; rect = cur.getBoundingClientRect(); guard++;
-    }
-    return rect;
-  }
-
-  function forceExpandGroup(key){
-    const g = $(`[data-nav-group="${key}"]`);
-    if (!g || !g.classList.contains('is-collapsed')) return;
-    g.classList.remove('is-collapsed');
-    syncSidebarGroupToggle?.(g);
-    restore.forcedGroups.add(key);
-  }
-
-  const targetLivesInSidebar = sel =>
-    sel.startsWith('[data-nav-group') || sel.startsWith('[data-section') ||
-    sel === '#clientSwitcher' || sel === '#profileShortcut' || sel === '#sidebarToggleDesktop';
-
-  async function resolveTarget(step){
-    if (!step.target) return null;
-    if (step.section && step.section !== state.section){ setSection(step.section); await waitForNextPaint(); }
-    if (step.forceExpandGroup) forceExpandGroup(step.forceExpandGroup);
-    if (isCompactViewport() && targetLivesInSidebar(step.target)) document.body.classList.add('sidebar-open');
-    await waitForNextPaint();
-    const node = $(step.target);
-    if (step.skipIf?.(node) || !node) return 'SKIP';
-    node.scrollIntoView({block:'nearest', behavior:'instant'});
-    await waitForNextPaint();
-    return node;
-  }
-
-  function positionSpotlight(rect, padding = 8){
-    const vw = innerWidth, vh = innerHeight;
-    const top = Math.max(rect.top - padding, 0), bottom = Math.min(rect.bottom + padding, vh);
-    const left = Math.max(rect.left - padding, 0), right = Math.min(rect.right + padding, vw);
-    el.scrimTop.style.height = `${top}px`;
-    el.scrimBottom.style.height = `${Math.max(vh - bottom, 0)}px`;
-    Object.assign(el.scrimLeft.style,  {top:`${top}px`, height:`${Math.max(bottom-top,0)}px`, width:`${left}px`});
-    Object.assign(el.scrimRight.style, {top:`${top}px`, height:`${Math.max(bottom-top,0)}px`, width:`${Math.max(vw-right,0)}px`});
-    Object.assign(el.ring.style, {top:`${top}px`, left:`${left}px`,
-      width:`${Math.max(right-left,0)}px`, height:`${Math.max(bottom-top,0)}px`});
-  }
-  function collapseSpotlightToCenter(){
-    el.scrimTop.style.height = `${innerHeight}px`;
-    el.scrimBottom.style.height = '0px';
-    el.scrimLeft.style.width = el.scrimLeft.style.height = '0px';
-    el.scrimRight.style.width = el.scrimRight.style.height = '0px';
-    el.ring.classList.remove('is-visible');
-  }
-
-  function positionBalloon(step, rect){
-    const b = el.balloon;
-    if (!rect){
-      b.dataset.placement = 'center';
-      b.style.top = b.style.left = '';
-      b.style.removeProperty('--tour-arrow-offset');
-      return;
-    }
-    const margin = 16, gap = 16;
-    const br = b.getBoundingClientRect(), bw = br.width || 330, bh = br.height || 150;
-    let placement = step.placement || 'bottom';
-    if (placement === 'bottom' && rect.bottom + gap + bh > innerHeight - margin) placement = 'top';
-    else if (placement === 'top' && rect.top - gap - bh < margin) placement = 'bottom';
-    else if (placement === 'right' && rect.right + gap + bw > innerWidth - margin) placement = 'left';
-    else if (placement === 'left' && rect.left - gap - bw < margin) placement = 'right';
-
-    let top, left;
-    if (placement === 'bottom'){ top = Math.min(rect.bottom + gap, innerHeight - bh - margin); left = clamp(rect.left, margin, innerWidth - bw - margin); }
-    else if (placement === 'top'){ top = Math.max(rect.top - bh - gap, margin); left = clamp(rect.left, margin, innerWidth - bw - margin); }
-    else if (placement === 'right'){ left = Math.min(rect.right + gap, innerWidth - bw - margin); top = clamp(rect.top, margin, innerHeight - bh - margin); }
-    else { left = Math.max(rect.left - bw - gap, margin); top = clamp(rect.top, margin, innerHeight - bh - margin); }
-
-    b.dataset.placement = placement;
-    b.style.top = `${top}px`;
-    b.style.left = `${left}px`;
-
-    // A seta aponta pro centro REAL do alvo, mesmo quando o balão foi
-    // empurrado pra caber na tela — offset fixo erraria perto das bordas.
-    const arrowSize = 14, arrowMargin = 18;
-    if (placement === 'bottom' || placement === 'top'){
-      const off = clamp(rect.left + rect.width/2 - left, arrowMargin, bw - arrowMargin - arrowSize);
-      b.style.setProperty('--tour-arrow-offset', `${Math.round(off)}px`);
-    } else {
-      const off = clamp(rect.top + rect.height/2 - top, arrowMargin, bh - arrowMargin - arrowSize);
-      b.style.setProperty('--tour-arrow-offset', `${Math.round(off)}px`);
-    }
-  }
-
-  const setBalloonVisible = v => el.balloon.classList.toggle('is-visible', v);
-  const showSpinner = () => el.spinner.classList.add('is-visible');
-  const hideSpinner = () => el.spinner.classList.remove('is-visible');
-
-  async function goToStep(index, direction = 1){
-    if (!isOpen() || index < 0) return;
-    if (index >= steps.length){ hideSpinner(); close(); return; }
-    const step = steps[index];
-    const crossSection = Boolean(step.section) && step.section !== state.section;
-    if (crossSection){
-      setBalloonVisible(false);
-      el.ring.classList.remove('is-visible');
-      showSpinner();
-      await delay(180);
-    }
-    const target = await resolveTarget(step);
-    if (target === 'SKIP'){
-      steps.splice(index, 1);
-      await goToStep(direction >= 0 ? index : Math.max(0, index - 1), direction);
-      return;
-    }
-    hideSpinner();
-    stepIndex = index;
-    el.stepLabel.textContent = `Passo ${index + 1} de ${steps.length}`;
-    el.title.textContent = step.title;
-    el.body.textContent = step.body;
-    $('#tourNext').textContent = index === steps.length - 1 ? 'Concluir' : 'Próximo';
-    if (target){
-      const rect = effectiveRect(target);
-      positionSpotlight(rect);
-      el.ring.classList.add('is-visible');
-      positionBalloon(step, rect);
-    } else {
-      collapseSpotlightToCenter();
-      positionBalloon(step, null);
-    }
-    setBalloonVisible(true);
-  }
-
-  // Trava contra clique duplo em "Próximo" durante a troca de seção — sem
-  // ela, duas transições se sobrepõem e o texto dessincroniza da tela.
-  async function runTransition(index, direction){
-    if (transitioning) return;
-    transitioning = true;
-    $('#tourNext').disabled = true;
-    $('#tourPrev').disabled = true;
-    try { await goToStep(index, direction); }
-    finally {
-      transitioning = false;
-      $('#tourNext').disabled = false;
-      $('#tourPrev').disabled = stepIndex <= 0;
-    }
-  }
-  function next(){ runTransition(stepIndex + 1, 1); }
-  function prev(){ runTransition(stepIndex - 1, -1); }
-
-  async function open(){
-    ensureDom();
-    steps = TOUR_STEPS.filter(s => !s.section || canAccessSection(s.section));
-    if (!steps.length) return;
-    restore.sidebarWasCollapsed = document.body.classList.contains('sidebar-collapsed');
-    restore.forcedGroups.clear();
-    stepIndex = -1;
-    el.overlay.classList.add('is-open');
-    await runTransition(0, 1);
-  }
-
-  function close(){
-    if (!el.overlay) return;
-    el.overlay.classList.remove('is-open');
-    setBalloonVisible(false);
-    el.ring.classList.remove('is-visible');
-    hideSpinner();
-    const activeGroup = $('.nav-item.active')?.closest('[data-nav-group]')?.dataset.navGroup || null;
-    restore.forcedGroups.forEach(key => {
-      if (key === activeGroup) return;
-      const g = $(`[data-nav-group="${key}"]`);
-      if (g){ g.classList.add('is-collapsed'); syncSidebarGroupToggle?.(g); }
-    });
-    restore.forcedGroups.clear();
-    if (restore.sidebarWasCollapsed) setSidebarCollapsed(true, false);
-  }
-
-  addEventListener('resize', () => {
-    if (!isOpen() || resizeTicking) return;
-    resizeTicking = true;
-    requestAnimationFrame(() => { resizeTicking = false; goToStep(stepIndex, 0); });
+  const busca = $(`[data-busca="${secao}"]`, alvo);
+  busca.oninput = () => {
+    u.busca = busca.value;
+    renderTabela(secao);
+    const campo = $(`[data-busca="${secao}"]`, $(`#screen-${secao}`));
+    campo.focus(); campo.setSelectionRange(campo.value.length, campo.value.length);
+  };
+  $("[data-recarregar]", alvo).onclick = () => { renderTabela(secao); toast("Tabela atualizada."); };
+  const todasCb = $("[data-marcar-todas]", alvo);
+  if (todasCb) todasCb.onchange = ev => {
+    linhas.forEach(l => ev.target.checked ? u.selecionados.add(l.id) : u.selecionados.delete(l.id));
+    renderTabela(secao); abrirEditorSelecao(secao);
+  };
+  $$("[data-linha]", alvo).forEach(cb => cb.onchange = () => {
+    const id = Number(cb.dataset.linha);
+    cb.checked ? u.selecionados.add(id) : u.selecionados.delete(id);
+    renderTabela(secao); abrirEditorSelecao(secao);
   });
-  addEventListener('keydown', e => {
-    if (!isOpen()) return;
-    if (e.key === 'Escape') close();
-    if (e.key === 'ArrowRight') next();
-    if (e.key === 'ArrowLeft') prev();
-  });
+}
 
-  return {open, close, isOpen};
+/* ==========================================================================
+   gaveta de edição — cadastro, alteração e exclusão
+   ========================================================================== */
+let editorCtx = null;   // { secao, ids:[] }  ids vazio = criando
+
+function campoHtml(c, valor){
+  const id = `ed_${c.k}`;
+  const ajuda = c.ajuda ? `<p class="editor-help">${esc(c.ajuda)}</p>` : "";
+  if (c.t === "select"){
+    const ops = typeof c.opcoes === "function" ? c.opcoes() : c.opcoes;
+    return `<div class="editor-field" data-field-wrapper="${c.k}">
+      <label for="${id}">${esc(c.r)}</label>
+      <select id="${id}" class="editor-input" data-campo="${c.k}" data-tipo="select">
+        ${ops.map(([v,r]) => `<option value="${esc(v)}" ${String(v)===String(valor??"")?"selected":""}>${esc(r)}</option>`).join("")}
+      </select>${ajuda}</div>`;
+  }
+  return `<div class="editor-field" data-field-wrapper="${c.k}">
+    <label for="${id}">${esc(c.r)}</label>
+    <input id="${id}" class="editor-input" type="${c.t}" ${c.passo?`step="${c.passo}"`:""}
+           value="${esc(valor ?? "")}" data-campo="${c.k}" data-tipo="${c.t}">${ajuda}</div>`;
+}
+function abrirEditor({secao, ids}){
+  const cfg = TABELAS[secao];
+  if (!cfg?.campos) return fecharEditor();
+  editorCtx = {secao, ids};
+  const criando = ids.length === 0;
+  const registros = cfg.linhas().filter(l => ids.includes(l.id));
+  const base = registros[0] || {};
+
+  $("#editorEyebrow").textContent = SECOES[secao].titulo;
+  $("#editorTitle").textContent = criando ? "Novo registro"
+                                : ids.length > 1 ? `${ids.length} registros selecionados`
+                                : (base.nome || base.apelido || base.codigo || `Registro #${base.id}`);
+  $("#editorBody").innerHTML = cfg.campos.map(c => {
+    const misto = registros.length > 1 && registros.some(r => r[c.k] !== base[c.k]);
+    return campoHtml(c, misto ? "" : base[c.k]);
+  }).join("");
+  $("#editorStatus").textContent = criando ? "Preencha e salve para criar."
+                                 : `${ids.length} registro(s) selecionado(s).`;
+  $("#editorDelete").hidden = criando;
+  $("#editorSave").textContent = criando ? "Criar registro" : "Salvar alterações";
+  $("#editorDrawer").classList.add("is-open");
+  $("#editorDrawer").setAttribute("aria-hidden","false");
+  document.body.classList.add("editor-open");
+}
+function abrirEditorSelecao(secao){
+  const ids = [...ui(secao).selecionados];
+  ids.length ? abrirEditor({secao, ids}) : fecharEditor();
+}
+function abrirEditorNovo(secao){
+  ui(secao).selecionados.clear();
+  renderTabela(secao);
+  abrirEditor({secao, ids: []});
+}
+function fecharEditor(){
+  editorCtx = null;
+  $("#editorDrawer")?.classList.remove("is-open");
+  $("#editorDrawer")?.setAttribute("aria-hidden","true");
+  document.body.classList.remove("editor-open");
+}
+function lerCampos(){
+  const dados = {};
+  $$("#editorBody [data-campo]").forEach(el => {
+    let v = el.value;
+    if (el.dataset.tipo === "number") v = v === "" ? null : Number(v);
+    if (v === "true") v = true; else if (v === "false") v = false;
+    dados[el.dataset.campo] = v;
+  });
+  return dados;
+}
+function salvarEditor(ev){
+  ev?.preventDefault();
+  if (!editorCtx) return;
+  const {secao, ids} = editorCtx, cfg = TABELAS[secao], tabela = SECOES[secao].tabela;
+  const dados = lerCampos();
+  const faltando = cfg.campos.find(c => c.obrigatorio && (dados[c.k] === "" || dados[c.k] == null));
+  if (faltando){ toast(`${faltando.r} é obrigatório.`, "error"); return; }
+
+  const lista = state.dados[tabela];
+  if (!ids.length){
+    const novo = {id: Date.now(), estabelecimento_id: state.estabelecimentoId, ...dados};
+    if (tabela === "paineis") novo.cards = [...CARDS_PADRAO];
+    if (tabela === "vendas") novo.momento = new Date().toISOString();
+    if (tabela === "clientes") novo.visitas = 0;
+    lista.push(novo);
+    persistir(tabela, novo.id, novo);
+    ui(secao).selecionados.add(novo.id);
+    editorCtx.ids = [novo.id];
+  } else {
+    ids.forEach(id => {
+      const alvo = lista.find(l => l.id === id);
+      if (alvo){ Object.assign(alvo, dados); persistir(tabela, id, dados); }
+    });
+  }
+  if (tabela === "paineis") salvarPaineis();
+  renderTudo();
+  abrirEditorSelecao(secao);
+  toast(ids.length ? "Alterações salvas." : "Registro criado.");
+}
+function excluirEditor(){
+  if (!editorCtx?.ids.length) return;
+  const {secao, ids} = editorCtx, tabela = SECOES[secao].tabela;
+  const lista = state.dados[tabela];
+  ids.forEach(id => {
+    const i = lista.findIndex(l => l.id === id);
+    if (i >= 0) lista.splice(i,1);
+    persistir(tabela, id, null);
+  });
+  ui(secao).selecionados.clear();
+  if (tabela === "paineis") salvarPaineis();
+  fecharEditor();
+  renderTudo();
+  toast(`${ids.length} registro(s) excluído(s).`);
+}
+
+/* ==========================================================================
+   painel: painéis salvos, edição e cards
+   ========================================================================== */
+function paineisDaLoja(){
+  let lista = daLoja(state.dados.paineis);
+  if (!lista.length && state.estabelecimentoId != null){
+    const p = {id: Date.now(), estabelecimento_id: state.estabelecimentoId, nome:"Painel padrão",
+               compartilhado:true, padrao:true, cards:[...CARDS_PADRAO]};
+    state.dados.paineis.push(p);
+    salvarPaineis();
+    lista = [p];
+  }
+  return lista;
+}
+function painelAtual(){
+  const lista = paineisDaLoja();
+  const p = lista.find(x => x.id === state.paineis.ativo) || lista.find(x => x.padrao) || lista[0];
+  if (p) state.paineis.ativo = p.id;
+  return p;
+}
+
+function renderPainel(){
+  const p = painelAtual();
+  if (!p) return;
+  const editando = state.paineis.editando;
+  $("#dashboardManagerShell").classList.toggle("is-editing", editando);
+  $("#dashboardLibraryFab").hidden = !editando;
+  if (document.activeElement !== $("#dashboardManagerEditbarTitleInput"))
+    $("#dashboardManagerEditbarTitleInput").value = p.nome;
+
+  const cards = (p.cards || []).filter(id => CARDS[id]);
+  const grade = tam => cards.filter(id => CARDS[id].tam === tam).map(id => `
+    <article class="dashboard-card ${CARDS[id].tam === "small" ? "dashboard-card-metric" : "dashboard-card-summary"}"
+             data-dashboard-card="${id}">
+      <div class="dashboard-card-editor-tools">
+        <button class="dashboard-card-tool" type="button" data-dashboard-card-remove="${id}" aria-label="Remover ${esc(CARDS[id].t)}">
+          <span aria-hidden="true">−</span>
+        </button>
+        <button class="dashboard-card-tool dashboard-card-tool-handle" type="button" draggable="true"
+                data-dashboard-card-handle="${id}" aria-label="Mover ${esc(CARDS[id].t)}">
+          <span aria-hidden="true">⋮⋮</span>
+        </button>
+      </div>
+      ${corpoCard(id)}
+    </article>`).join("");
+
+  $("#dashboardGridLarge").innerHTML = grade("large");
+  $("#dashboardGridSmall").innerHTML = grade("small");
+  $("#dashboardLargeCardsGroup").hidden = !cards.some(id => CARDS[id].tam === "large");
+  $("#dashboardSmallCardsGroup").hidden = !cards.some(id => CARDS[id].tam === "small");
+  $("#dashboardCanvasEmpty").hidden = cards.length > 0;
+
+  aplicarSpans();
+  ligarArrasto(p);
+  desenharGraficos();
+  renderWorkspaces();
+  renderBiblioteca();
+}
+function aplicarSpans(){
+  $$("#dashboardCanvas [data-dashboard-card]").forEach(no => {
+    const c = CARDS[no.dataset.dashboardCard]; if (!c) return;
+    no.style.gridColumn = `span ${c.cols}`;
+    no.style.gridRow = `span ${c.rows}`;
+    no.style.setProperty("--dashboard-card-col-span", String(c.cols));
+    no.style.setProperty("--dashboard-card-row-span", String(c.rows));
+    no.style.setProperty("--dashboard-mobile-col-span", "1");
+    no.style.setProperty("--dashboard-mobile-row-span", String(c.rows));
+  });
+}
+
+/* Arrastar pelo punho e soltar sobre outro card da mesma grade. */
+function ligarArrasto(p){
+  let origem = null;
+  const limparAlvos = () => $$(".dashboard-card").forEach(n => n.classList.remove("is-drop-target-before","is-drop-target-after"));
+  const salvarOrdem = () => {
+    p.cards = [...$$("#dashboardGridLarge [data-dashboard-card]"), ...$$("#dashboardGridSmall [data-dashboard-card]")]
+      .map(n => n.dataset.dashboardCard);
+    salvarPaineis();
+  };
+  $$("#dashboardCanvas [data-dashboard-card-handle]").forEach(punho => {
+    const card = punho.closest("[data-dashboard-card]");
+    punho.ondragstart = ev => {
+      if (!state.paineis.editando){ ev.preventDefault(); return; }
+      origem = card; card.classList.add("is-dragging");
+      ev.dataTransfer.effectAllowed = "move";
+      ev.dataTransfer.setData("text/plain", card.dataset.dashboardCard);
+      ev.dataTransfer.setDragImage(card, 24, 24);
+    };
+    punho.ondragend = () => {
+      card.classList.remove("is-dragging");
+      limparAlvos();
+      origem = null; salvarOrdem(); aplicarSpans(); desenharGraficos();
+    };
+  });
+  $$("#dashboardCanvas [data-dashboard-card]").forEach(card => {
+    card.ondragover = ev => {
+      if (!origem || origem === card || origem.parentNode !== card.parentNode) return;
+      ev.preventDefault();
+      const r = card.getBoundingClientRect();
+      const depois = (ev.clientX - r.left) / r.width > 0.5;
+      card.classList.toggle("is-drop-target-after", depois);
+      card.classList.toggle("is-drop-target-before", !depois);
+    };
+    card.ondragleave = () => card.classList.remove("is-drop-target-before","is-drop-target-after");
+    card.ondrop = ev => {
+      if (!origem || origem === card || origem.parentNode !== card.parentNode) return;
+      ev.preventDefault();
+      const depois = card.classList.contains("is-drop-target-after");
+      limparAlvos();
+      card.parentNode.insertBefore(origem, depois ? card.nextSibling : card);
+      salvarOrdem();
+    };
+  });
+  $$("#dashboardCanvas [data-dashboard-card-remove]").forEach(b => b.onclick = () => {
+    p.cards = (p.cards || []).filter(x => x !== b.dataset.dashboardCardRemove);
+    salvarPaineis(); renderPainel(); toast("Card removido.");
+  });
+}
+
+/* ---------- menu de painéis ---------- */
+const ICO_EDITAR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
+const ICO_EXCLUIR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>';
+const ICO_PESSOAS = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>';
+const ICO_CADEADO = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
+const ICO_MAIS = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+
+function renderWorkspaces({animar = false} = {}){
+  const lista = paineisDaLoja(), ativo = state.paineis.ativo;
+  const linhas = lista.map((p, i) => `
+    <div class="dashboard-workspaces-row${p.id === ativo ? " is-active" : ""}" data-dashboard-workspace-row="${p.id}" style="--stagger-index:${i}">
+      <button class="dashboard-workspaces-row-action is-delete" type="button" data-painel-excluir="${p.id}"
+              aria-label="Excluir ${esc(p.nome)}" title="Excluir painel" ${lista.length === 1 ? "disabled" : ""}>${ICO_EXCLUIR}</button>
+      <button class="dashboard-workspaces-row-main" type="button" data-painel-abrir="${p.id}">
+        <span class="dashboard-workspaces-row-name">${esc(p.nome)}</span>
+        <span class="dashboard-workspaces-visibility-badge ${p.compartilhado ? "is-shared" : "is-private"}">
+          ${p.compartilhado ? ICO_PESSOAS : ICO_CADEADO}<span>${p.compartilhado ? "Compartilhado" : "Privado"}</span>
+        </span>
+        ${p.id === ativo ? '<span class="dashboard-workspaces-row-active-marker" aria-hidden="true">●</span>' : ""}
+      </button>
+      <button class="dashboard-workspaces-row-action is-edit" type="button" data-painel-editar="${p.id}"
+              aria-label="Editar layout de ${esc(p.nome)}" title="Editar layout">${ICO_EDITAR}</button>
+    </div>`).join("");
+
+  const criar = state.paineis.criando
+    ? `<form class="dashboard-workspaces-create-form" id="painelCriarForm" style="--stagger-index:${lista.length}">
+         <input type="text" maxlength="120" placeholder="Nome do painel" id="painelCriarNome" autocomplete="off">
+         <div class="dashboard-workspaces-visibility-toggle" role="radiogroup" aria-label="Visibilidade do painel">
+           <button type="button" class="dashboard-workspaces-visibility-option is-shared-option is-selected" role="radio" aria-checked="true" data-visibilidade="shared">${ICO_PESSOAS}<span>Compartilhado</span></button>
+           <button type="button" class="dashboard-workspaces-visibility-option is-private-option" role="radio" aria-checked="false" data-visibilidade="private">${ICO_CADEADO}<span>Privado</span></button>
+         </div>
+         <div class="dashboard-workspaces-create-actions">
+           <button class="dashboard-workspaces-create-form-cancel" type="button" data-painel-criar-cancelar>Cancelar</button>
+           <button class="dashboard-workspaces-create-form-submit" type="submit">Criar</button>
+         </div>
+       </form>`
+    : `<button class="dashboard-workspaces-create" type="button" data-painel-criar style="--stagger-index:${lista.length}">
+         ${ICO_MAIS}<span>Novo painel</span></button>`;
+
+  const box = $("#dashboardWorkspacesList");
+  box.innerHTML = linhas + criar;
+  box.classList.toggle("is-animating-in", animar);
+
+  $$("[data-painel-abrir]", box).forEach(b => b.onclick = () => {
+    state.paineis.ativo = Number(b.dataset.painelAbrir);
+    state.paineis.editando = false;
+    fecharMenuPaineis(); renderPainel();
+  });
+  $$("[data-painel-editar]", box).forEach(b => b.onclick = () => {
+    state.paineis.ativo = Number(b.dataset.painelEditar);
+    state.paineis.editando = true;
+    fecharMenuPaineis(); renderPainel();
+    toast("Arraste os cards pelo punho ou use o + para adicionar.");
+  });
+  $$("[data-painel-excluir]", box).forEach(b => b.onclick = () => {
+    const id = Number(b.dataset.painelExcluir);
+    const i = state.dados.paineis.findIndex(p => p.id === id);
+    if (i >= 0) state.dados.paineis.splice(i,1);
+    if (state.paineis.ativo === id) state.paineis.ativo = null;
+    salvarPaineis(); renderPainel(); toast("Painel excluído.");
+  });
+  const abrirCriar = $("[data-painel-criar]", box);
+  if (abrirCriar) abrirCriar.onclick = () => { state.paineis.criando = true; renderWorkspaces(); $("#painelCriarNome")?.focus(); };
+  const cancelar = $("[data-painel-criar-cancelar]", box);
+  if (cancelar) cancelar.onclick = () => { state.paineis.criando = false; renderWorkspaces(); };
+  const form = $("#painelCriarForm", box);
+  if (form){
+    let compartilhado = true;
+    $$("[data-visibilidade]", form).forEach(b => b.onclick = () => {
+      compartilhado = b.dataset.visibilidade === "shared";
+      $$("[data-visibilidade]", form).forEach(x => {
+        const sel = (x.dataset.visibilidade === "shared") === compartilhado;
+        x.classList.toggle("is-selected", sel); x.setAttribute("aria-checked", String(sel));
+      });
+    });
+    form.onsubmit = ev => {
+      ev.preventDefault();
+      const nome = $("#painelCriarNome").value.trim() || `Painel ${paineisDaLoja().length + 1}`;
+      const novo = {id: Date.now(), estabelecimento_id: state.estabelecimentoId, nome,
+                    compartilhado, padrao:false, cards:[...CARDS_PADRAO]};
+      state.dados.paineis.push(novo);
+      state.paineis.ativo = novo.id; state.paineis.editando = true; state.paineis.criando = false;
+      salvarPaineis(); fecharMenuPaineis(); renderPainel();
+      toast("Painel criado. Monte do jeito que preferir.");
+    };
+  }
+}
+function abrirMenuPaineis(){
+  state.paineis.menuAberto = true;
+  $("#dashboardWorkspacesMenu").classList.add("is-open");
+  $("#dashboardWorkspacesMenu").setAttribute("aria-hidden","false");
+  $("#dashboardManagerToggle").classList.add("is-active");
+  $("#dashboardManagerToggle").setAttribute("aria-expanded","true");
+  renderWorkspaces({animar:true});
+}
+function fecharMenuPaineis(){
+  state.paineis.menuAberto = false; state.paineis.criando = false;
+  $("#dashboardWorkspacesMenu")?.classList.remove("is-open");
+  $("#dashboardWorkspacesMenu")?.setAttribute("aria-hidden","true");
+  $("#dashboardManagerToggle")?.classList.remove("is-active");
+  $("#dashboardManagerToggle")?.setAttribute("aria-expanded","false");
+}
+
+/* ---------- biblioteca de cards ---------- */
+function renderBiblioteca(){
+  const p = painelAtual(); if (!p) return;
+  const ativos = (p.cards || []).filter(id => CARDS[id]);
+  const disponiveis = Object.keys(CARDS).filter(id => !ativos.includes(id));
+  const grupos = [...new Set(Object.values(CARDS).map(c => c.g))];
+
+  $("#dashboardManagerPanelBody").innerHTML = `
+    <section class="dashboard-manager-panel-section">
+      <div class="dashboard-manager-panel-section-head"><strong>Em uso</strong><span>${ativos.length} card(s)</span></div>
+      <div class="dashboard-manager-pill-row">
+        ${ativos.map(id => `
+          <div class="dashboard-manager-pill is-active">
+            <span>${esc(CARDS[id].t)}</span>
+            <button class="icon-button dashboard-manager-pill-action" type="button" data-lib-remover="${id}" aria-label="Remover ${esc(CARDS[id].t)}"><span aria-hidden="true">−</span></button>
+          </div>`).join("") || '<div class="dashboard-manager-empty-mini">Nenhum card em uso no momento.</div>'}
+      </div>
+    </section>
+    ${grupos.map(g => {
+      const doGrupo = disponiveis.filter(id => CARDS[id].g === g);
+      if (!doGrupo.length) return "";
+      return `<section class="dashboard-manager-panel-section">
+        <div class="dashboard-manager-panel-section-head"><strong>${esc(g)}</strong><span>${doGrupo.length} disponível(is)</span></div>
+        <div class="dashboard-manager-library-grid">
+          ${doGrupo.map(id => `
+            <article class="dashboard-library-card" data-dashboard-card-size="${CARDS[id].tam}">
+              <div>
+                <p class="eyebrow">${esc(g)} • ${CARDS[id].tam === "large" ? "Grande" : "Pequeno"}</p>
+                <h4>${esc(CARDS[id].t)}</h4>
+              </div>
+              <button class="ghost-button" type="button" data-lib-adicionar="${id}">Adicionar</button>
+            </article>`).join("")}
+        </div></section>`;
+    }).join("")}`;
+
+  $$("[data-lib-adicionar]").forEach(b => b.onclick = () => {
+    p.cards = [...(p.cards || []), b.dataset.libAdicionar];
+    salvarPaineis(); renderPainel(); toast(`${CARDS[b.dataset.libAdicionar].t} adicionado.`);
+  });
+  $$("[data-lib-remover]").forEach(b => b.onclick = () => {
+    p.cards = (p.cards || []).filter(x => x !== b.dataset.libRemover);
+    salvarPaineis(); renderPainel();
+  });
+}
+function abrirBiblioteca(){
+  state.paineis.bibliotecaAberta = true;
+  $("#dashboardManagerPanel").classList.add("is-open");
+  $("#dashboardManagerPanel").setAttribute("aria-hidden","false");
+  $("#dashboardLibraryFab").setAttribute("aria-expanded","true");
+  renderBiblioteca();
+}
+function fecharBiblioteca(){
+  state.paineis.bibliotecaAberta = false;
+  $("#dashboardManagerPanel")?.classList.remove("is-open");
+  $("#dashboardManagerPanel")?.setAttribute("aria-hidden","true");
+  $("#dashboardLibraryFab")?.setAttribute("aria-expanded","false");
+}
+
+/* ==========================================================================
+   conteúdo dos cards
+   ========================================================================== */
+function metricas(){
+  const ses = sessoesDaLoja(), ven = daLoja(state.dados.vendas), e = loja();
+  const energia = ses.reduce((a,s) => a + Number(s.energia_kwh||0), 0);
+  const receita = ven.reduce((a,v) => a + Number(v.valor_brl||0), 0);
+  // ponto em cortesia devolve dinheiro pela loja; ponto pago devolve no caixa
+  // do próprio carregador. Somar só um dos dois faz a conta mentir.
+  const recarga = ses.reduce((a,s) => a + Number(s.valor_cobrado_brl||0), 0);
+  const lucro = receita * Number(e.margem_liquida_pct || 0) / 100;
+  const custoEnergia = energia * Number(e.tarifa_kwh_brl || 0.789);
+  const custoEquip = ses.length * AMORT;
+  return { ses, ven, energia, receita, recarga, lucro, custoEnergia, custoEquip,
+           temCortesia: carregadoresDaLoja().some(c => c.modo === "cortesia"),
+           saldo: lucro + recarga - custoEnergia - custoEquip,
+           clientes: new Set(ses.map(s => s.cliente_id).filter(Boolean)).size };
+}
+function kpi(eyebrow, titulo, valor, meta, tom = ""){
+  return `<div class="dashboard-kpi-card" ${tom?`data-dashboard-metric-tone="${tom}"`:""}>
+    <p class="eyebrow">${esc(eyebrow)}</p><h3>${esc(titulo)}</h3>
+    <strong class="dashboard-kpi-value">${valor}</strong>
+    <p class="dashboard-kpi-meta">${meta}</p></div>`;
+}
+function corpoCard(id){
+  const m = metricas(), e = loja();
+  switch (id){
+    case "lucro":    return kpi("Retorno","Lucro atribuído", brl(m.lucro),
+                       `de ${brl(m.receita)} em vendas com cupom`,
+                       m.saldo > 0 ? "ok" : "warning");
+    case "vendas":   return kpi("Negócio","Vendas atribuídas", brl(m.receita),
+                       `${m.ven.length} vendas com cupom` + (m.recarga ? ` · ${brl(m.recarga)} cobrados na tomada` : ""));
+    case "sessoes":  return kpi("Operação","Sessões", num(m.ses.length), `${num(m.ses.length/30,1)} por dia, em média`);
+    case "clientes": return kpi("Público","Clientes únicos", num(m.clientes), "identificados pelo cupom");
+    case "energia":  return kpi("Custo","Energia entregue", `${num(m.energia,0)} kWh`,
+                       `${brl(m.custoEnergia)} de conta de luz · ${Math.round(m.energia*KM_KWH)} km devolvidos`);
+    case "ticket":   return kpi("Comparação","Ticket de quem carrega", brl(Number(e.ticket_medio_brl||0) * (1 + UPLIFT)),
+                       `${Math.round(UPLIFT*100)}% acima do ticket normal da loja`);
+    case "retorno":  return `<div class="trend-card">
+                       <div class="trend-card-head"><p class="eyebrow">Retorno</p><h3>Lucro atribuído × custo do carregador</h3></div>
+                       <svg id="chartRetorno" viewBox="0 0 640 240" role="img" aria-label="Lucro contra custo por dia"></svg>
+                       <p class="dashboard-kpi-meta"><span style="color:var(--status-ok)">■</span> lucro atribuído + recarga cobrada &nbsp; <span style="color:var(--status-warning)">■</span> energia + equipamento</p></div>`;
+    case "horas":    return `<div class="trend-card">
+                       <div class="trend-card-head"><p class="eyebrow">Movimento</p><h3>Sessões por hora do dia</h3></div>
+                       <svg id="chartHoras" viewBox="0 0 640 240" role="img" aria-label="Sessões por hora"></svg></div>`;
+    case "pontos":   return `<div class="trend-card">
+                       <div class="trend-card-head"><p class="eyebrow">Agora</p><h3>Carregadores</h3></div>
+                       <div id="pontosAoVivo" class="dashboard-widget-selection-list"></div></div>`;
+    case "teto":     return `<div class="trend-card">
+                       <div class="trend-card-head"><p class="eyebrow">Cortesia</p><h3>Quanto esta loja aguenta dar</h3></div>
+                       <div id="tetoCard"></div></div>`;
+    default: return "";
+  }
+}
+
+/* ==========================================================================
+   gráficos
+   ========================================================================== */
+const cor = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || "#8899aa";
+
+function desenharGraficos(){
+  const e = loja(), ses = sessoesDaLoja();
+
+  if ($("#chartRetorno")){
+    const porDia = {};
+    const bucket = d => (porDia[d] ||= {custo:0, lucro:0});
+    ses.forEach(s => { const b = bucket(String(s.inicio).slice(0,10));
+                       b.custo += Number(s.energia_kwh||0) * Number(e.tarifa_kwh_brl||0.789) + AMORT;
+                       b.lucro += Number(s.valor_cobrado_brl||0); });   // ponto pago entra direto
+    daLoja(state.dados.vendas).forEach(v => { const b = bucket(String(v.momento).slice(0,10));
+                       b.lucro += Number(v.valor_brl||0) * Number(e.margem_liquida_pct||0) / 100; });
+    const dias = Object.keys(porDia).sort();
+    const W=640,H=240,L=54,R=14,T=16,B=28;
+    const max = Math.max(1, ...dias.map(d => Math.max(porDia[d].lucro, porDia[d].custo))) * 1.15;
+    const x = i => dias.length < 2 ? (L+W-R)/2 : L + i*(W-L-R)/(dias.length-1);
+    const y = v => H-B - v*(H-T-B)/max;
+    let g = "";
+    for (let k=0;k<=4;k++){
+      const v = max*k/4;
+      g += `<line x1="${L}" y1="${y(v).toFixed(1)}" x2="${W-R}" y2="${y(v).toFixed(1)}" stroke="${cor("--chart-grid")}" stroke-width="1"/>
+            <text x="${L-8}" y="${(y(v)+4).toFixed(1)}" text-anchor="end" font-size="11" fill="${cor("--muted")}">${num(v)}</text>`;
+    }
+    const linha = (k,c,w) => `<path d="${dias.map((d,i)=>`${i?"L":"M"}${x(i).toFixed(1)},${y(porDia[d][k]).toFixed(1)}`).join(" ")}"
+                              fill="none" stroke="${c}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"/>`;
+    g += linha("custo", cor("--status-warning"), 2) + linha("lucro", cor("--status-ok"), 2.6);
+    $("#chartRetorno").innerHTML = g;
+  }
+
+  if ($("#chartHoras")){
+    const b = new Array(24).fill(0);
+    ses.forEach(s => b[new Date(s.inicio).getHours()]++);
+    const faixa = b.slice(6,23), max = Math.max(1,...faixa);
+    const W=640,H=240,L=36,R=12,T=14,B=30, slot=(W-L-R)/faixa.length, bw=slot*0.6;
+    let g = "";
+    faixa.forEach((v,i) => {
+      const h = v*(H-T-B)/max;
+      g += `<rect x="${(L+slot*i+(slot-bw)/2).toFixed(1)}" y="${(H-B-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(h,1).toFixed(1)}"
+                  rx="3" fill="${cor("--primary")}" opacity="${v===max?"1":"0.55"}"><title>${i+6}h — ${v} sessões</title></rect>`;
+      if (i%3===0) g += `<text x="${(L+slot*i+slot/2).toFixed(1)}" y="${H-B+16}" text-anchor="middle" font-size="11" fill="${cor("--muted")}">${i+6}h</text>`;
+    });
+    $("#chartHoras").innerHTML = g;
+  }
+
+  if ($("#pontosAoVivo")){
+    const cs = carregadoresDaLoja();
+    $("#pontosAoVivo").innerHTML = cs.length ? cs.map(c => `
+      <div class="dashboard-widget-selection-item">
+        <div class="dashboard-widget-selection-copy">
+          <strong>${esc(c.nome)}</strong>
+          <span>${num(c.potencia_kw,1)} kW · ${c.modo === "cortesia" ? `cortesia até ${num(c.teto_cortesia_kwh,1)} kWh` : `${brl(c.preco_kwh_brl)}/kWh`}</span>
+        </div>
+        ${chip(c.ativo ? "ativo" : "inativo", c.ativo ? "ok" : "offline")}
+        <a class="ghost-button" href="../vaga/?vaga=${encodeURIComponent(c.nome)}&loja=${encodeURIComponent(e.nome||"")}&modo=${c.modo}&full=1" target="_blank" rel="noopener">Telinha</a>
+      </div>`).join("")
+      : `<div class="empty-state">Nenhum carregador cadastrado.</div>`;
+  }
+
+  if ($("#tetoCard")){
+    const r = tetoCortesia(Number(e.margem_liquida_pct||0), Number(e.ticket_medio_brl||0), Number(e.tarifa_kwh_brl||0.789));
+    $("#tetoCard").innerHTML = r.kwh > 0.4
+      ? `<p class="dashboard-kpi-meta">Cada visita gera <strong>${brl(r.lucro)}</strong> de lucro. Tirando o equipamento, sobram <strong>${brl(r.sobra)}</strong>.</p>
+         <strong class="dashboard-kpi-value">${num(r.kwh,1)} kWh</strong>
+         <p class="dashboard-kpi-meta">cerca de ${Math.round(r.kwh*KM_KWH)} km de cortesia por visita</p>`
+      : `<p class="dashboard-kpi-meta">Cada visita gera <strong>${brl(r.lucro)}</strong> — menos do que o equipamento custa por sessão (${brl(AMORT)}).</p>
+         <strong class="dashboard-kpi-value" style="color:var(--status-critical)">Não se paga</strong>
+         <p class="dashboard-kpi-meta">Com esta margem e este ticket, o caminho é cobrar por kWh.</p>`;
+  }
+}
+
+/* ==========================================================================
+   financeiro
+   ========================================================================== */
+function renderFinanceiro(){
+  const e = loja(), m = metricas();
+  const r = tetoCortesia(Number(e.margem_liquida_pct||0), Number(e.ticket_medio_brl||0), Number(e.tarifa_kwh_brl||0.789));
+  const saldo = m.saldo;
+  const veredito = saldo > 0
+    ? (m.temCortesia ? "a cortesia está se pagando" : "os pontos pagos cobrem o custo")
+    : (m.temCortesia ? "a cortesia está grande demais" : "o preço por kWh não cobre o custo");
+  const blocos = [
+    ["Entrou","Lucro atribuído", brl(m.lucro), `${m.ven.length} vendas com cupom`, ""],
+    ["Entrou","Recarga cobrada", brl(m.recarga), "pontos que cobram por kWh", ""],
+    ["Saiu","Energia", brl(m.custoEnergia), `${num(m.energia,0)} kWh a ${brl(e.tarifa_kwh_brl)}/kWh`, "warning"],
+    ["Saiu","Equipamento", brl(m.custoEquip), `${brl(AMORT)} por sessão, 5 anos`, "warning"],
+    [saldo > 0 ? "No azul" : "No vermelho","Saldo", brl(saldo), veredito, saldo > 0 ? "ok" : "critical"],
+  ];
+  $("#screen-financeiro").innerHTML = `
+    <article class="table-card">
+      <div class="table-toolbar">
+        <div class="toolbar-left"><h3 class="table-title">Resultado de ${esc(e.nome || "")}</h3></div>
+        <div class="toolbar-right"><span class="table-meta">${m.ses.length} sessões no período</span></div>
+      </div>
+      <div class="dashboard-canvas-grid dashboard-canvas-grid-small" style="padding:18px">
+        ${blocos.map(([a,b,c,d,t]) =>
+          `<div class="dashboard-card dashboard-card-metric" style="grid-column:span 5;grid-row:span 2">${kpi(a,b,c,d,t)}</div>`).join("")}
+      </div>
+      <div class="table-section-banner">
+        <strong>Teto de cortesia recomendado:</strong>
+        ${r.kwh > 0.4
+          ? ` ${num(r.kwh,1)} kWh por visita — cerca de ${Math.round(r.kwh*KM_KWH)} km.
+              Sai de uma margem de ${num(e.margem_liquida_pct,1)}% sobre um ticket de ${brl(e.ticket_medio_brl)}:
+              ${brl(r.lucro)} de lucro por visita, menos ${brl(AMORT)} do equipamento, dividido pela tarifa de ${brl(e.tarifa_kwh_brl)}/kWh.`
+          : ` neste cenário a cortesia não se paga. Com margem de ${num(e.margem_liquida_pct,1)}% e ticket de ${brl(e.ticket_medio_brl)},
+              cada visita gera ${brl(r.lucro)} — abaixo dos ${brl(AMORT)} que o equipamento custa por sessão.
+              Aqui o modelo honesto é cobrar por kWh.`}
+      </div>
+    </article>`;
+}
+
+/* ==========================================================================
+   assistente
+   ========================================================================== */
+function initAssistente(){
+  const chat = $("#globalAiChat"), lancador = $("#globalAiLauncher");
+  lancador.hidden = false;
+  const abrir = ab => {
+    chat.classList.toggle("is-open", ab);
+    chat.setAttribute("aria-hidden", String(!ab));
+    lancador.setAttribute("aria-expanded", String(ab));
+    lancador.classList.toggle("is-active", ab);
+    if (ab) $("#globalAiChatInput").focus();
+  };
+  lancador.onclick = () => abrir(!chat.classList.contains("is-open"));
+  $("#globalAiChatClose").onclick = () => abrir(false);
+
+  const dizer = (texto, de) => {
+    const el = document.createElement("div");
+    el.className = `global-ai-chat-message is-${de}`;
+    el.innerHTML = `<p>${esc(texto)}</p>`;
+    $("#globalAiChatMessages").append(el);
+    $("#globalAiChatMessages").scrollTop = $("#globalAiChatMessages").scrollHeight;
+  };
+  const orb = () => $("bms-ai-entity[data-ai-entity-role='launcher']");
+
+  $("#globalAiChatForm").onsubmit = ev => {
+    ev.preventDefault();
+    const t = $("#globalAiChatInput").value.trim();
+    if (!t) return;
+    dizer(t, "user");
+    $("#globalAiChatInput").value = "";
+    orb()?.setAttribute("state", "thinking");
+    setTimeout(() => { orb()?.setAttribute("state","idle"); dizer(responder(t), "assistant"); }, 650);
+  };
+  $("#globalAiChatInput").onkeydown = ev => {
+    if (ev.key === "Enter" && !ev.shiftKey){ ev.preventDefault(); $("#globalAiChatForm").requestSubmit(); }
+  };
+  dizer("Posso resumir o retorno, explicar o teto de cortesia ou dizer como estão os carregadores desta loja.", "assistant");
+}
+/* Responde a partir dos números que já estão na tela. Não inventa nada, e é
+   por isso que ela explica em vez de decidir. */
+function responder(pergunta){
+  const p = pergunta.toLowerCase(), m = metricas(), e = loja();
+  const r = tetoCortesia(Number(e.margem_liquida_pct||0), Number(e.ticket_medio_brl||0), Number(e.tarifa_kwh_brl||0.789));
+  if (/cortesia|teto|gr[áa]tis|de gra[çc]a/.test(p))
+    return r.kwh > 0.4
+      ? `Com margem de ${num(e.margem_liquida_pct,1)}% e ticket de ${brl(e.ticket_medio_brl)}, cada visita gera ${brl(r.lucro)} de lucro. Tirando ${brl(AMORT)} do equipamento, o teto que se paga é ${num(r.kwh,1)} kWh — cerca de ${Math.round(r.kwh*KM_KWH)} km.`
+      : `Neste cenário a cortesia não se paga: cada visita gera ${brl(r.lucro)}, menos que os ${brl(AMORT)} do equipamento por sessão. O caminho honesto aqui é cobrar por kWh.`;
+  if (/carregador|vaga|ponto|tomada/.test(p)){
+    const cs = carregadoresDaLoja();
+    return `São ${cs.length} carregadores: ${cs.filter(c=>c.modo==="cortesia").length} em cortesia e ${cs.filter(c=>c.modo==="pago").length} cobrando por kWh. ${cs.filter(c=>!c.ativo).length} estão inativos.`;
+  }
+  if (/venda|lucro|retorno|dinheiro|pagou|paga/.test(p))
+    return `${brl(m.receita)} em vendas com cupom viraram ${brl(m.lucro)} de lucro a ${num(e.margem_liquida_pct,1)}% de margem`
+      + (m.recarga ? `, mais ${brl(m.recarga)} cobrados nos pontos pagos` : "")
+      + `. A energia custou ${brl(m.custoEnergia)} e o equipamento ${brl(m.custoEquip)} — saldo de ${brl(m.saldo)}.`;
+  if (/energia|kwh|consumo|luz/.test(p))
+    return `${num(m.energia,0)} kWh entregues em ${m.ses.length} sessões, ${brl(m.custoEnergia)} de conta de luz — cerca de ${Math.round(m.energia*KM_KWH)} km devolvidos aos clientes.`;
+  if (/cliente|gente|pessoa|p[úu]blico/.test(p))
+    return `${m.clientes} clientes diferentes já usaram o carregador. O ticket de quem carrega tende a ficar ${Math.round(UPLIFT*100)}% acima do normal da loja.`;
+  return `Sei responder sobre o retorno, a energia, os clientes, os carregadores e o teto de cortesia desta loja. Pergunte por qualquer um desses que eu busco o número.`;
 }
 
 /* ==========================================================================
    arranque
    ========================================================================== */
-const sidebar = createSidebarModule();
-const dashboard = createDashboardManager();
 const tour = createTourModule({
   state, setSection, canAccessSection, isCompactViewport,
-  setSidebarCollapsed: sidebar.setCollapsed,
-  syncSidebarGroupToggle: sidebar.syncGroupToggle,
-  waitForNextPaint,
+  setSidebarCollapsed, syncSidebarGroupToggle, waitForNextPaint,
 });
 
-function trocarLoja(l){
-  state.loja = l.nome; state.segmento = l.segmento;
-  const seg = SEGMENTOS[l.segmento];
-  $('#inMargem').value = seg.margem; $('#inTicket').value = seg.ticket;
-  $('#cfgStore').value = l.nome; $('#cfgSegmento').value = l.segmento;
-  carregarDados(); renderTudo(); calcular();
-  fecharModal('#modalLoja');
-  toast(`Agora vendo ${l.nome}.`);
+function renderTudo(){
+  const meta = (sel, v) => { const n = $(sel); if (n) n.textContent = v || ""; };
+  meta("#carregadoresNavMeta", carregadoresDaLoja().length);
+  meta("#sessoesNavMeta", sessoesDaLoja().length);
+  meta("#clientesNavMeta", daLoja(state.dados.clientes).length);
+  meta("#vendasNavMeta", daLoja(state.dados.vendas).length);
+  $("#floatingRefreshText").textContent = `${sessoesDaLoja().length} sessões carregadas`;
+  renderSecaoAtual();
 }
 
-function iniciar(){
-  const perfil = ler(LS.perfil, {});
-  state.usuario = perfil.usuario || state.usuario;
+async function iniciar(){
+  initTema();
+  initSidebar();
+  initAssistente();
 
-  aplicarTema(ler(LS.tema, matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'), false);
-  sidebar.init();
+  try {
+    await carregar();
+  } catch (err){
+    $("#dashboardLoadingText").textContent = "Não consegui carregar os dados.";
+    toast("Falha ao ler dados.json — rode api/exportar.py.", "error");
+    console.error(err);
+  }
 
-  const seg = SEGMENTOS[state.segmento];
-  $('#inMargem').value = seg.margem;
-  $('#inTicket').value = seg.ticket;
-  $('#inTarifa').value = state.tarifa;
-  $('#cfgStore').value = state.loja;
-  $('#cfgName').value = state.usuario;
-  $('#cfgSegmento').value = state.segmento;
+  renderEstabelecimentos();
 
-  carregarDados();
-  dashboard.init();
-  renderTudo();
-  calcular();
-  setSection('painel');
-
-  $$('.nav-item[data-section]').forEach(b => b.onclick = () => setSection(b.dataset.section));
-  $('#themeBtn').onclick = () => aplicarTema(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
-  $('#settingsBtn').onclick = () => abrirModal('#modalConfig');
-  $('#profileShortcut').onclick = () => abrirModal('#modalConfig');
-  $('#filtroModo').onchange = renderSessoes;
-  ['#inMargem','#inTicket','#inTarifa'].forEach(s => $(s).oninput = calcular);
-
-  $('#clientSwitcher').onclick = () => {
-    $('#storeList').innerHTML = LOJAS.map(l => `
-      <div class="row-item" data-loja="${l.nome}" style="cursor:pointer">
-        <span class="dot ${l.nome === state.loja ? 'livre' : ''}"></span>
-        <div class="row-copy"><b>${l.nome}</b><span>${SEGMENTOS[l.segmento].nome}</span></div>
-        <div class="row-side">${l.nome === state.loja ? '<span class="pill ok">atual</span>' : ''}</div>
-      </div>`).join('');
-    $$('#storeList .row-item').forEach(n => n.onclick = () => trocarLoja(LOJAS.find(x => x.nome === n.dataset.loja)));
-    abrirModal('#modalLoja');
+  // painéis
+  $("#dashboardManagerToggle").onclick = () =>
+    state.paineis.menuAberto ? fecharMenuPaineis() : abrirMenuPaineis();
+  document.addEventListener("click", ev => {
+    if (state.paineis.menuAberto
+        && !$("#dashboardWorkspacesMenu").contains(ev.target)
+        && !$("#dashboardManagerToggle").contains(ev.target)) fecharMenuPaineis();
+  });
+  $("[data-dashboard-layout-close]").onclick = () => {
+    state.paineis.editando = false; fecharBiblioteca(); renderPainel(); toast("Painel salvo.");
   };
-
-  $$('[data-close-modal]').forEach(b => b.onclick = () => b.closest('.modal-backdrop').hidden = true);
-  $$('.modal-backdrop').forEach(m => m.onclick = e => { if (e.target === m) m.hidden = true; });
-  $('#drawerClose').onclick = fecharDrawer;
-  $('#drawerBackdrop').onclick = fecharDrawer;
-
-  $('#cfgTheme').onchange = e => aplicarTema(e.target.checked ? 'dark' : 'light');
-  $('#cfgCollapsed').onchange = e => sidebar.setCollapsed(e.target.checked);
-  $('#cfgSegmento').onchange = e => {
-    state.segmento = e.target.value;
-    $('#inMargem').value = SEGMENTOS[e.target.value].margem;
-    $('#inTicket').value = SEGMENTOS[e.target.value].ticket;
-    carregarDados(); renderTudo(); calcular();
+  $("[data-dashboard-layout-reset]").onclick = () => {
+    const p = painelAtual(); if (!p) return;
+    p.cards = [...CARDS_PADRAO]; salvarPaineis(); renderPainel(); toast("Layout restaurado.");
   };
-  $('#cfgSave').onclick = () => {
-    state.loja = $('#cfgStore').value.trim() || state.loja;
-    state.usuario = $('#cfgName').value.trim() || state.usuario;
-    gravar(LS.perfil, {usuario: state.usuario});
-    renderTudo(); fecharModal('#modalConfig'); toast('Configurações salvas.');
+  $("#dashboardManagerEditbarTitleInput").onchange = ev => {
+    const p = painelAtual(); if (!p) return;
+    p.nome = ev.target.value.trim() || "Painel";
+    salvarPaineis(); renderWorkspaces();
   };
+  $("#dashboardLibraryFab").onclick = abrirBiblioteca;
+  $$("[data-dashboard-library-close]").forEach(b => b.onclick = fecharBiblioteca);
 
-  // troca de modo e gaveta, em qualquer lista
-  document.addEventListener('click', e => {
-    const btn = e.target.closest('.mode-toggle button');
-    if (btn){
-      const p = state.pontos.find(x => x.id === btn.closest('.mode-toggle').dataset.ponto);
-      if (p && p.modo !== btn.dataset.mode){
-        p.modo = btn.dataset.mode;
-        renderTudo();
-        if (!$('#pointDrawer').hidden) abrirDrawer(p);
-        toast(`${p.nome} agora está em ${p.modo === 'cortesia' ? 'cortesia' : 'cobrança por kWh'}.`);
-      }
-      return;
-    }
-    const det = e.target.closest('[data-drawer]');
-    if (det) abrirDrawer(state.pontos.find(x => x.id === det.dataset.drawer));
+  // gaveta de edição
+  $("#editorClose").onclick = fecharEditor;
+  $("#editorClear").onclick = () => {
+    const s = editorCtx?.secao;
+    if (s) ui(s).selecionados.clear();
+    fecharEditor();
+    if (s) renderTabela(s);
+  };
+  $("#editorDelete").onclick = excluirEditor;
+  $("#editorForm").onsubmit = salvarEditor;
+
+  // tour: só pelo botão "?" — bindEvents liga os botões do balão e o
+  // reposicionamento do "?" quando a barra de ações muda
+  tour.bindEvents();
+  $("#tourLaunchButton").onclick = () => tour.open();
+
+  addEventListener("keydown", ev => {
+    if (ev.key !== "Escape") return;
+    if (state.paineis.bibliotecaAberta) return fecharBiblioteca();
+    if (state.paineis.menuAberto) return fecharMenuPaineis();
+    fecharEditor();
   });
 
-  // O tour só abre no botão "?" — nunca sozinho.
-  $('#tourLaunchButton').onclick = () => tour.open();
+  setSection("painel");
+  renderTudo();
+
+  document.body.classList.remove("primary-loading");
+  const tela = $("#dashboardLoadingScreen");
+  tela.setAttribute("aria-hidden","true");
+  tela.classList.add("is-hidden");
+  setTimeout(() => tela.remove(), 400);
 }
 
 iniciar();

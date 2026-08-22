@@ -411,7 +411,7 @@
   <section>
     <h3>O painel do lojista</h3>
     <div class="body">
-      <p>Já está pronto e navegável. Primeira dobra respondendo o retorno, situação dos carregadores ao vivo, sessões, clientes, financeiro e alertas.</p>
+      <p>Já está pronto e navegável. Primeira dobra respondendo o retorno, situação dos carregadores ao vivo, sessões, clientes, vendas atribuídas e financeiro. O lojista monta o próprio painel: arrasta os cards, guarda mais de uma versão e escolhe se ela é dele ou de toda a loja.</p>
       <p>Tem <strong>tour guiado</strong> na primeira visita, <strong>tema claro e escuro</strong>, troca de estabelecimento e configurações. E a peça que mais importa: <strong>a calculadora que diz quanto de cortesia aquela loja aguenta</strong>, a partir da margem e do ticket dela.</p>
     </div>
     <div class="pull">
@@ -495,7 +495,7 @@
       <div class="row">
         <span class="n">Servidor</span>
         <span class="t">Python com FastAPI</span>
-        <span class="d">Linguagem que o time já domina. Serve os dados, roda as previsões e conversa com o banco. Três dependências: <code>fastapi</code>, <code>uvicorn</code>, <code>pymongo</code>.</span>
+        <span class="d">Linguagem que o time já domina. Serve os dados, roda as previsões e conversa com o banco. Três dependências: <code>fastapi</code>, <code>uvicorn</code>, <code>psycopg</code>.</span>
       </div>
       <div class="row">
         <span class="n">Previsão</span>
@@ -504,8 +504,8 @@
       </div>
       <div class="row">
         <span class="n">Banco</span>
-        <span class="t">MongoDB</span>
-        <span class="d">Documento casa bem com sessão de recarga, que tem formato irregular. Fica na nuvem porque o dono vai querer olhar do celular, em casa.</span>
+        <span class="t">PostgreSQL 18</span>
+        <span class="d">Sessão, cupom e venda só valem se estiverem amarrados entre si — e é exatamente isso que uma chave estrangeira garante e um banco de documentos não garante. São dez tabelas, cada uma com sua seção no painel. Fica na nuvem porque o dono vai querer olhar do celular, em casa.</span>
       </div>
       <div class="row">
         <span class="n">Texto</span>
