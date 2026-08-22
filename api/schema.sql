@@ -12,16 +12,44 @@
 -- --------------------------------------------------------------------------
 -- quem opera o painel. O lojista não mexe nesta tabela.
 -- --------------------------------------------------------------------------
+-- Tres papeis, e a diferenca entre eles e o que o painel libera:
+--   main     -- quem desenvolve. Ve e mexe em tudo, e troca de cliente.
+--   gerente  -- dono da loja. Mexe em tudo do cliente dele, ve o financeiro,
+--               mas nao troca de cliente: so existe o dele.
+--   operador -- balconista. Ve tudo do cliente dele menos o financeiro, e
+--               nao altera nada. O painel particular dele e a unica coisa
+--               que ele monta, porque e area de trabalho dele, nao dado da
+--               loja.
 CREATE TABLE IF NOT EXISTS usuarios (
   id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   nome          text        NOT NULL,
   email         text        NOT NULL UNIQUE,
-  papel         text        NOT NULL DEFAULT 'lojista'
-                            CHECK (papel IN ('lojista','operador','admin')),
-  senha_hash    text,
+  papel         text        NOT NULL DEFAULT 'operador'
+                            CHECK (papel IN ('main','gerente','operador')),
+  senha_hash    text        NOT NULL,
+  -- tema, barra lateral, grupos fechados, ultima secao, painel ativo e
+  -- ajustes de cada tabela. E o que faz o usuario abrir em outro computador
+  -- e encontrar exatamente o que deixou.
+  preferencias  jsonb       NOT NULL DEFAULT '{}'::jsonb,
+  ultimo_acesso timestamptz,
   ativo         boolean     NOT NULL DEFAULT true,
   criado_em     timestamptz NOT NULL DEFAULT now()
 );
+
+-- --------------------------------------------------------------------------
+-- sessao de login. Fica no banco, e nao so num cookie assinado, para que
+-- "sair" signifique de fato encerrar: o token some daqui e nao vale mais em
+-- lugar nenhum, inclusive nos outros computadores onde a pessoa esqueceu
+-- aberto.
+-- --------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sessoes_web (
+  token       text        PRIMARY KEY,
+  usuario_id  bigint      NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  criada_em   timestamptz NOT NULL DEFAULT now(),
+  expira_em   timestamptz NOT NULL,
+  agente      text
+);
+CREATE INDEX IF NOT EXISTS ix_sessoes_web_usuario ON sessoes_web (usuario_id);
 
 -- --------------------------------------------------------------------------
 -- o estabelecimento. Margem e ticket ficam aqui porque são o que define o
@@ -175,15 +203,61 @@ CREATE INDEX IF NOT EXISTS ix_leituras_carregador ON leituras (carregador_id, mo
 CREATE TABLE IF NOT EXISTS paineis (
   id                  bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   estabelecimento_id  bigint      NOT NULL REFERENCES estabelecimentos(id) ON DELETE CASCADE,
-  usuario_id          bigint      REFERENCES usuarios(id) ON DELETE SET NULL,
+  -- dono do painel. Num painel particular e quem o ve; num compartilhado e
+  -- so quem criou, e a loja inteira enxerga.
+  usuario_id          bigint      NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
   nome                text        NOT NULL,
   compartilhado       boolean     NOT NULL DEFAULT true,
   padrao              boolean     NOT NULL DEFAULT false,
+  -- Um objeto por card, com tudo que o usuario mexeu:
+  --   {"id":"retorno","grupo":"large","cols":11,"rows":4,"config":{}}
+  -- A ordem do array e a ordem na tela. Guardar largura e altura aqui e o
+  -- que faz o layout atravessar de um computador para outro.
   cards               jsonb       NOT NULL DEFAULT '[]'::jsonb,
   criado_em           timestamptz NOT NULL DEFAULT now(),
   atualizado_em       timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS ix_paineis_estab ON paineis (estabelecimento_id);
+
+-- Um painel particular por usuario, por loja. O banco recusa o segundo, e
+-- nao so a interface -- limite que so a interface respeita nao e limite.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_painel_particular
+  ON paineis (usuario_id, estabelecimento_id) WHERE NOT compartilhado;
+
+-- Quantos compartilhados a loja aguenta e "um por usuario dela", e isso
+-- depende de contar linhas de outra tabela -- CHECK nao faz isso. Fica numa
+-- funcao chamada por gatilho, que e onde essa regra ainda vale para qualquer
+-- caminho de escrita.
+CREATE OR REPLACE FUNCTION limite_paineis_compartilhados() RETURNS trigger AS $$
+DECLARE
+  usuarios_da_loja integer;
+  compartilhados   integer;
+BEGIN
+  IF NOT NEW.compartilhado THEN
+    RETURN NEW;
+  END IF;
+  SELECT count(*) INTO usuarios_da_loja
+    FROM usuarios_estabelecimentos ue
+    JOIN usuarios u ON u.id = ue.usuario_id AND u.ativo
+   WHERE ue.estabelecimento_id = NEW.estabelecimento_id;
+  SELECT count(*) INTO compartilhados
+    FROM paineis
+   WHERE estabelecimento_id = NEW.estabelecimento_id
+     AND compartilhado
+     AND id IS DISTINCT FROM NEW.id;
+  IF compartilhados >= GREATEST(usuarios_da_loja, 1) THEN
+    RAISE EXCEPTION 'limite de paineis compartilhados atingido: % para % usuario(s)',
+      compartilhados, usuarios_da_loja
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS tg_limite_paineis ON paineis;
+CREATE TRIGGER tg_limite_paineis
+  BEFORE INSERT OR UPDATE ON paineis
+  FOR EACH ROW EXECUTE FUNCTION limite_paineis_compartilhados();
 
 -- --------------------------------------------------------------------------
 -- visões que o painel consome direto
@@ -216,3 +290,45 @@ JOIN carregadores c     ON c.id = s.carregador_id
 JOIN estabelecimentos e ON e.id = c.estabelecimento_id
 LEFT JOIN vendas v      ON v.sessao_id = s.id
 GROUP BY e.id, date_trunc('day', s.inicio);
+
+
+-- ===========================================================================
+-- Migracao. As tabelas acima usam CREATE IF NOT EXISTS, entao num banco que
+-- ja existe elas nao mudam sozinhas. Este bloco leva o esquema antigo ate o
+-- de cima, e pode rodar quantas vezes for.
+-- ===========================================================================
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS preferencias  jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_acesso timestamptz;
+
+DO $$
+BEGIN
+  -- papeis antigos (lojista/admin) viram os tres de agora
+  IF EXISTS (SELECT 1 FROM information_schema.constraint_column_usage
+              WHERE table_name = 'usuarios' AND constraint_name = 'usuarios_papel_check') THEN
+    ALTER TABLE usuarios DROP CONSTRAINT usuarios_papel_check;
+  END IF;
+  UPDATE usuarios SET papel = 'main'    WHERE papel = 'admin';
+  UPDATE usuarios SET papel = 'gerente' WHERE papel = 'lojista';
+  ALTER TABLE usuarios ADD CONSTRAINT usuarios_papel_check
+    CHECK (papel IN ('main','gerente','operador'));
+  ALTER TABLE usuarios ALTER COLUMN papel SET DEFAULT 'operador';
+END $$;
+
+-- quem nao tem senha nao entra, entao nao e usuario de nada
+DELETE FROM usuarios WHERE senha_hash IS NULL;
+ALTER TABLE usuarios ALTER COLUMN senha_hash SET NOT NULL;
+
+-- painel sem dono nao tem como ser "o particular de alguem"
+DELETE FROM paineis WHERE usuario_id IS NULL;
+ALTER TABLE paineis ALTER COLUMN usuario_id SET NOT NULL;
+
+DO $$
+BEGIN
+  -- o dono sai, o painel dele sai junto (antes era SET NULL, que deixava orfao)
+  IF EXISTS (SELECT 1 FROM information_schema.table_constraints
+              WHERE table_name = 'paineis' AND constraint_name = 'paineis_usuario_id_fkey') THEN
+    ALTER TABLE paineis DROP CONSTRAINT paineis_usuario_id_fkey;
+  END IF;
+  ALTER TABLE paineis ADD CONSTRAINT paineis_usuario_id_fkey
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE;
+END $$;

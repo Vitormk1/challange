@@ -1,0 +1,609 @@
+"""API do painel: login, dados por papel, painéis salvos e o assistente.
+
+Por que existe um servidor, se o painel é HTML estático:
+
+  1. A chave da OpenRouter não pode ir para o navegador. Página publicada é
+     código-fonte aberto — qualquer pessoa abre e copia a chave, e a conta é
+     nossa. O navegador pergunta aqui, e é este processo que fala com a
+     OpenRouter.
+  2. Permissão conferida só na tela não é permissão. Esconder o botão do
+     financeiro do operador é conforto; o que impede de verdade é o servidor
+     não mandar o número.
+  3. O layout do painel tem que atravessar de um computador para outro. Isso
+     mora no banco, e quem escreve no banco é o servidor.
+
+Rodar:
+
+    uvicorn api.main:app --reload --port 8000
+"""
+
+from __future__ import annotations
+
+import json
+import os
+from datetime import datetime, timezone
+from decimal import Decimal
+from typing import Any
+
+import psycopg
+import requests
+from fastapi import Body, Cookie, Depends, FastAPI, HTTPException, Response
+from fastapi.middleware.cors import CORSMiddleware
+
+from auth import (conferir_senha, novo_token, permissoes, pode,
+                  secoes_bloqueadas, validade)
+from db import conectar
+
+COOKIE = "praca_sessao"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+MODELO_PADRAO = "mistralai/mistral-small-24b-instruct-2501"
+
+KM_KWH = 10.4
+AMORT = 1.11          # equipamento por sessão: R$6.000 em 5 anos, 3 sessões/dia
+COMPRAM, UPLIFT, NOVOS = 0.90, 0.12, 0.20
+
+app = FastAPI(title="Praça de Recarga")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o for o in os.environ.get(
+        "ORIGENS_PERMITIDAS",
+        "http://localhost:8765,http://127.0.0.1:8765").split(",") if o],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ------------------------------------------------------------------ util ---
+def simples(valor: Any):
+    if isinstance(valor, Decimal):
+        return float(valor)
+    if isinstance(valor, datetime):
+        return valor.isoformat()
+    return valor
+
+
+def limpar(linha: dict) -> dict:
+    return {k: simples(v) for k, v in linha.items()}
+
+
+def consultar(sql: str, params: tuple = (), cur=None) -> list[dict]:
+    """Uma consulta. Passando `cur`, reaproveita a conexão de quem chamou.
+
+    Isso importa mais do que parece: abrir conexão contra um Postgres na
+    nuvem custa um handshake TLS inteiro. A rota /dados faz oito consultas —
+    com oito conexões ela demorava segundos; com uma só, responde de imediato.
+    """
+    if cur is not None:
+        cur.execute(sql, params)
+        return [limpar(l) for l in cur.fetchall()]
+    with conectar() as con, con.cursor() as c:
+        c.execute(sql, params)
+        return [limpar(l) for l in c.fetchall()]
+
+
+# ------------------------------------------------------------- sessão -----
+def usuario_atual(praca_sessao: str | None = Cookie(default=None)) -> dict:
+    if not praca_sessao:
+        raise HTTPException(401, "sem sessão")
+    linhas = consultar(
+        "SELECT u.id, u.nome, u.email, u.papel, u.preferencias, s.expira_em "
+        "  FROM sessoes_web s JOIN usuarios u ON u.id = s.usuario_id "
+        " WHERE s.token = %s AND u.ativo",
+        (praca_sessao,),
+    )
+    if not linhas:
+        raise HTTPException(401, "sessão inválida")
+    u = linhas[0]
+    if datetime.fromisoformat(u["expira_em"]) < datetime.now(timezone.utc):
+        raise HTTPException(401, "sessão expirada")
+    u["permissoes"] = permissoes(u["papel"])
+    u["secoes_bloqueadas"] = sorted(secoes_bloqueadas(u["papel"]))
+    return u
+
+
+def lojas_do_usuario(u: dict) -> list[int]:
+    """main vê todas; os outros, só as que estão ligadas a eles.
+
+    O resultado fica no dicionário do usuário durante a requisição: várias
+    funções perguntam a mesma coisa, e cada pergunta seria outra ida ao banco.
+    """
+    if "_lojas" in u:
+        return u["_lojas"]
+    if u["papel"] == "main":
+        ids = [l["id"] for l in consultar("SELECT id FROM estabelecimentos ORDER BY id")]
+    else:
+        ids = [l["estabelecimento_id"] for l in consultar(
+            "SELECT estabelecimento_id FROM usuarios_estabelecimentos "
+            " WHERE usuario_id = %s ORDER BY estabelecimento_id", (u["id"],))]
+    u["_lojas"] = ids
+    return ids
+
+
+def exigir_loja(u: dict, estabelecimento_id: int) -> int:
+    if estabelecimento_id not in lojas_do_usuario(u):
+        raise HTTPException(403, "esta loja não é sua")
+    return estabelecimento_id
+
+
+def exigir(u: dict, acao: str) -> None:
+    if not pode(u["papel"], acao):
+        raise HTTPException(403, f"seu papel não permite: {acao}")
+
+
+# Margem e ticket são a rentabilidade da loja: é deles que saem lucro, saldo e
+# teto de cortesia. Quem não vê financeiro não recebe os dois — se recebesse,
+# a conta seria refeita no navegador em três linhas, e esconder a seção teria
+# sido teatro.
+CAMPOS_DE_LUCRO = ("margem_liquida_pct", "ticket_medio_brl")
+
+
+def sem_financeiro(lojas: list[dict]) -> list[dict]:
+    return [{k: v for k, v in l.items() if k not in CAMPOS_DE_LUCRO} for l in lojas]
+
+
+# ------------------------------------------------------------------ auth ---
+@app.post("/auth/login")
+def login(resp: Response, corpo: dict = Body(...)):
+    email = str(corpo.get("email", "")).strip().lower()
+    senha = str(corpo.get("senha", ""))
+    linhas = consultar(
+        "SELECT id, nome, email, papel, senha_hash FROM usuarios "
+        " WHERE lower(email) = %s AND ativo", (email,))
+    # mesma resposta para e-mail que não existe e senha errada: dizer qual dos
+    # dois falhou entrega quais e-mails são válidos
+    if not linhas or not conferir_senha(senha, linhas[0]["senha_hash"]):
+        raise HTTPException(401, "e-mail ou senha incorretos")
+
+    u = linhas[0]
+    token = novo_token()
+    with conectar() as con, con.cursor() as cur:
+        cur.execute("INSERT INTO sessoes_web (token, usuario_id, expira_em) VALUES (%s,%s,%s)",
+                    (token, u["id"], validade()))
+        cur.execute("UPDATE usuarios SET ultimo_acesso = now() WHERE id = %s", (u["id"],))
+        con.commit()
+
+    resp.set_cookie(COOKIE, token, httponly=True, samesite="lax",
+                    max_age=60 * 60 * 24 * 14,
+                    secure=os.environ.get("COOKIE_SEGURO", "") == "1")
+    return eu(usuario_atual(token))
+
+
+@app.post("/auth/logout")
+def logout(resp: Response, praca_sessao: str | None = Cookie(default=None)):
+    if praca_sessao:
+        # o token some do banco: sair aqui derruba a sessão em todo lugar
+        with conectar() as con, con.cursor() as cur:
+            cur.execute("DELETE FROM sessoes_web WHERE token = %s", (praca_sessao,))
+            con.commit()
+    resp.delete_cookie(COOKIE)
+    return {"ok": True}
+
+
+@app.get("/auth/eu")
+def eu(u: dict = Depends(usuario_atual)):
+    ids = lojas_do_usuario(u)
+    lojas = consultar(
+        "SELECT * FROM estabelecimentos WHERE id = ANY(%s) ORDER BY nome", (ids,)) if ids else []
+    return {
+        "usuario": {k: u[k] for k in ("id", "nome", "email", "papel", "preferencias")},
+        "permissoes": u["permissoes"],
+        "secoes_bloqueadas": u["secoes_bloqueadas"],
+        "estabelecimentos": lojas if pode(u["papel"], "ver_financeiro") else sem_financeiro(lojas),
+    }
+
+
+# ------------------------------------------------------------------ dados ---
+# Tudo que o painel desenha, numa consulta só.
+#
+# A tentação é escrever nove SELECTs em Python. Cada um é uma ida e volta até
+# o Aiven, e cada ida custa uns 400 ms — nove viram quatro segundos de tela
+# parada. O Postgres monta o JSON inteiro de uma vez, e a resposta chega numa
+# viagem. De quebra, os tipos já saem prontos: numeric vira número e
+# timestamptz vira texto ISO, sem conversão no meio do caminho.
+SQL_DADOS = """
+SELECT json_build_object(
+  'carregadores', (SELECT coalesce(json_agg(t ORDER BY t.id), '[]'::json)
+                     FROM carregadores t WHERE t.estabelecimento_id = %(e)s),
+  'clientes',     (SELECT coalesce(json_agg(t ORDER BY t.id), '[]'::json)
+                     FROM clientes t WHERE t.estabelecimento_id = %(e)s),
+  'vendas',       (SELECT coalesce(json_agg(t ORDER BY t.momento DESC), '[]'::json)
+                     FROM vendas t WHERE t.estabelecimento_id = %(e)s),
+  'sessoes',      (SELECT coalesce(json_agg(t ORDER BY t.inicio DESC), '[]'::json)
+                     FROM sessoes t JOIN carregadores c ON c.id = t.carregador_id
+                    WHERE c.estabelecimento_id = %(e)s),
+  'cupons',       (SELECT coalesce(json_agg(t ORDER BY t.emitido_em DESC), '[]'::json)
+                     FROM cupons t JOIN sessoes s ON s.id = t.sessao_id
+                     JOIN carregadores c ON c.id = s.carregador_id
+                    WHERE c.estabelecimento_id = %(e)s),
+  'leituras',     (SELECT coalesce(json_agg(t), '[]'::json) FROM (
+                     SELECT l.* FROM leituras l JOIN carregadores c ON c.id = l.carregador_id
+                      WHERE c.estabelecimento_id = %(e)s
+                      ORDER BY l.momento DESC LIMIT %(lim)s) t),
+  'paineis',      (SELECT coalesce(json_agg(t ORDER BY t.compartilhado DESC, t.nome), '[]'::json)
+                     FROM paineis t
+                    WHERE t.estabelecimento_id = %(e)s
+                      AND (t.compartilhado OR t.usuario_id = %(u)s)),
+  'usuarios_da_loja', (SELECT coalesce(json_agg(json_build_object(
+                          'id', u.id, 'nome', u.nome, 'papel', u.papel) ORDER BY u.nome), '[]'::json)
+                     FROM usuarios u
+                     JOIN usuarios_estabelecimentos ue ON ue.usuario_id = u.id
+                    WHERE ue.estabelecimento_id = %(e)s AND u.ativo),
+  'estabelecimentos', (SELECT coalesce(json_agg(t ORDER BY t.nome), '[]'::json)
+                     FROM estabelecimentos t WHERE t.id = ANY(%(lojas)s))
+) AS payload
+"""
+
+LIMITE_LEITURAS = 800
+
+
+@app.get("/dados")
+def dados(estabelecimento_id: int, u: dict = Depends(usuario_atual)):
+    """Tudo que o painel desenha, já filtrado pela loja e pelo papel."""
+    exigir_loja(u, estabelecimento_id)
+    with conectar() as con, con.cursor() as cur:
+        cur.execute(SQL_DADOS, {"e": estabelecimento_id, "u": u["id"],
+                                "lim": LIMITE_LEITURAS, "lojas": lojas_do_usuario(u)})
+        saida = cur.fetchone()["payload"]
+    if not pode(u["papel"], "ver_financeiro"):
+        saida["estabelecimentos"] = sem_financeiro(saida["estabelecimentos"])
+    return saida
+
+
+# ------------------------------------------------------------------ CRUD ---
+CAMPOS_EDITAVEIS = {
+    "carregadores": {"nome", "numero_serie", "potencia_kw", "conector", "modo",
+                     "teto_cortesia_kwh", "kwh_por_real", "preco_kwh_brl",
+                     "carencia_min", "taxa_ociosidade_min", "ativo"},
+    "clientes": {"apelido", "modelo_veiculo", "bateria_kwh", "consentimento_lgpd"},
+    "vendas": {"valor_brl", "cupom_id", "sessao_id", "momento"},
+    "estabelecimentos": {"nome", "segmento", "margem_liquida_pct", "ticket_medio_brl",
+                         "tarifa_kwh_brl", "demanda_contratada_kw"},
+}
+
+
+def _colunas_validas(tabela: str, corpo: dict) -> dict:
+    permitidos = CAMPOS_EDITAVEIS.get(tabela)
+    if not permitidos:
+        raise HTTPException(400, f"tabela {tabela} não é editável pelo painel")
+    campos = {k: v for k, v in corpo.items() if k in permitidos}
+    if not campos:
+        raise HTTPException(400, "nenhum campo editável no corpo")
+    return campos
+
+
+def _confere_dono(tabela: str, registro_id: int, lojas: list[int]) -> None:
+    coluna = "id" if tabela == "estabelecimentos" else "estabelecimento_id"
+    linhas = consultar(f"SELECT {coluna} AS loja FROM {tabela} WHERE id = %s", (registro_id,))
+    if not linhas or linhas[0]["loja"] not in lojas:
+        raise HTTPException(404, "registro não encontrado")
+
+
+@app.post("/registros/{tabela}")
+def criar(tabela: str, corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
+    exigir(u, "editar_dados")
+    campos = _colunas_validas(tabela, corpo)
+    if tabela != "estabelecimentos":
+        campos["estabelecimento_id"] = exigir_loja(u, int(corpo["estabelecimento_id"]))
+    elif u["papel"] != "main":
+        raise HTTPException(403, "só o desenvolvedor cria estabelecimento")
+    cols = ", ".join(campos)
+    marcas = ",".join(["%s"] * len(campos))
+    with conectar() as con, con.cursor() as cur:
+        cur.execute(f"INSERT INTO {tabela} ({cols}) VALUES ({marcas}) RETURNING *",
+                    list(campos.values()))
+        linha = limpar(cur.fetchone())
+        con.commit()
+    return linha
+
+
+@app.patch("/registros/{tabela}/{registro_id}")
+def alterar(tabela: str, registro_id: int, corpo: dict = Body(...),
+            u: dict = Depends(usuario_atual)):
+    exigir(u, "editar_dados")
+    campos = _colunas_validas(tabela, corpo)
+    _confere_dono(tabela, registro_id, lojas_do_usuario(u))
+    sets = ", ".join(f"{k} = %s" for k in campos)
+    with conectar() as con, con.cursor() as cur:
+        cur.execute(f"UPDATE {tabela} SET {sets} WHERE id = %s RETURNING *",
+                    [*campos.values(), registro_id])
+        linha = limpar(cur.fetchone())
+        con.commit()
+    return linha
+
+
+@app.delete("/registros/{tabela}/{registro_id}")
+def excluir(tabela: str, registro_id: int, u: dict = Depends(usuario_atual)):
+    exigir(u, "editar_dados")
+    if tabela not in CAMPOS_EDITAVEIS:
+        raise HTTPException(400, f"tabela {tabela} não é editável pelo painel")
+    _confere_dono(tabela, registro_id, lojas_do_usuario(u))
+    with conectar() as con, con.cursor() as cur:
+        cur.execute(f"DELETE FROM {tabela} WHERE id = %s", (registro_id,))
+        con.commit()
+    return {"ok": True, "id": registro_id}
+
+
+# ---------------------------------------------------------------- painéis ---
+@app.get("/paineis")
+def paineis(estabelecimento_id: int, u: dict = Depends(usuario_atual)):
+    """Os compartilhados da loja, mais o particular de quem está pedindo."""
+    exigir_loja(u, estabelecimento_id)
+    return consultar(
+        "SELECT * FROM paineis "
+        " WHERE estabelecimento_id = %s AND (compartilhado OR usuario_id = %s) "
+        " ORDER BY compartilhado DESC, nome",
+        (estabelecimento_id, u["id"]))
+
+
+@app.post("/paineis")
+def criar_painel(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
+    estab = exigir_loja(u, int(corpo["estabelecimento_id"]))
+    compartilhado = bool(corpo.get("compartilhado", False))
+    if compartilhado:
+        exigir(u, "editar_painel_compartilhado")
+    try:
+        with conectar() as con, con.cursor() as cur:
+            cur.execute(
+                "INSERT INTO paineis (estabelecimento_id, usuario_id, nome, "
+                " compartilhado, padrao, cards) VALUES (%s,%s,%s,%s,%s,%s::jsonb) RETURNING *",
+                (estab, u["id"], str(corpo.get("nome") or "Painel"), compartilhado,
+                 False, json.dumps(corpo.get("cards", []))))
+            linha = limpar(cur.fetchone())
+            con.commit()
+        return linha
+    except psycopg.errors.UniqueViolation:
+        raise HTTPException(409, "você já tem um painel particular nesta loja")
+    except psycopg.errors.CheckViolation:
+        raise HTTPException(409, "a loja já tem um painel compartilhado por usuário")
+
+
+def _painel_editavel(painel_id: int, u: dict) -> dict:
+    linhas = consultar("SELECT * FROM paineis WHERE id = %s", (painel_id,))
+    if not linhas or linhas[0]["estabelecimento_id"] not in lojas_do_usuario(u):
+        raise HTTPException(404, "painel não encontrado")
+    p = linhas[0]
+    # o particular é de quem o criou; o compartilhado depende do papel
+    if p["compartilhado"]:
+        exigir(u, "editar_painel_compartilhado")
+    elif p["usuario_id"] != u["id"]:
+        raise HTTPException(403, "este painel particular não é seu")
+    return p
+
+
+@app.patch("/paineis/{painel_id}")
+def alterar_painel(painel_id: int, corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
+    _painel_editavel(painel_id, u)
+    campos, valores = [], []
+    if "nome" in corpo:
+        campos.append("nome = %s"); valores.append(str(corpo["nome"])[:120])
+    if "cards" in corpo:
+        campos.append("cards = %s::jsonb"); valores.append(json.dumps(corpo["cards"]))
+    if "padrao" in corpo:
+        campos.append("padrao = %s"); valores.append(bool(corpo["padrao"]))
+    if not campos:
+        raise HTTPException(400, "nada para alterar")
+    campos.append("atualizado_em = now()")
+    with conectar() as con, con.cursor() as cur:
+        cur.execute(f"UPDATE paineis SET {', '.join(campos)} WHERE id = %s RETURNING *",
+                    [*valores, painel_id])
+        linha = limpar(cur.fetchone())
+        con.commit()
+    return linha
+
+
+@app.delete("/paineis/{painel_id}")
+def excluir_painel(painel_id: int, u: dict = Depends(usuario_atual)):
+    _painel_editavel(painel_id, u)
+    with conectar() as con, con.cursor() as cur:
+        cur.execute("DELETE FROM paineis WHERE id = %s", (painel_id,))
+        con.commit()
+    return {"ok": True, "id": painel_id}
+
+
+# ----------------------------------------------------------- preferências ---
+@app.patch("/preferencias")
+def salvar_preferencias(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
+    """Tema, barra lateral, grupos, seção, painel ativo e ajustes de tabela.
+
+    Vai inteiro, e não campo a campo: é estado de tela, o painel manda o que
+    tem, e o servidor guarda. Assim uma preferência nova não exige mexer aqui.
+    """
+    with conectar() as con, con.cursor() as cur:
+        cur.execute("UPDATE usuarios SET preferencias = %s::jsonb WHERE id = %s "
+                    "RETURNING preferencias", (json.dumps(corpo), u["id"]))
+        prefs = cur.fetchone()["preferencias"]
+        con.commit()
+    return prefs
+
+
+# ------------------------------------------------------------- assistente ---
+def contexto_da_loja(estabelecimento_id: int, papel: str) -> dict:
+    """O retrato da loja que o modelo recebe.
+
+    É calculado aqui, não pedido ao modelo — ele responde sobre números
+    prontos em vez de inventar consultas. E o corte por papel acontece nesta
+    função: o operador simplesmente não recebe as chaves de dinheiro, então
+    não existe pergunta capaz de arrancá-las dele.
+    """
+    e = consultar("SELECT * FROM estabelecimentos WHERE id = %s", (estabelecimento_id,))[0]
+    carregadores = consultar(
+        "SELECT nome, potencia_kw, conector, modo, teto_cortesia_kwh, preco_kwh_brl, "
+        "       carencia_min, taxa_ociosidade_min, ativo "
+        "  FROM carregadores WHERE estabelecimento_id = %s ORDER BY nome",
+        (estabelecimento_id,))
+    resumo = consultar(
+        "SELECT count(*) AS sessoes, "
+        "       COALESCE(sum(s.energia_kwh),0) AS energia_kwh, "
+        "       COALESCE(sum(s.custo_energia_brl),0) AS custo_energia_brl, "
+        "       COALESCE(sum(s.valor_cobrado_brl),0) AS recarga_cobrada_brl, "
+        "       count(DISTINCT s.cliente_id) AS clientes "
+        "  FROM sessoes s JOIN carregadores c ON c.id = s.carregador_id "
+        " WHERE c.estabelecimento_id = %s", (estabelecimento_id,))[0]
+    vendas = consultar(
+        "SELECT count(*) AS n, COALESCE(sum(valor_brl),0) AS total "
+        "  FROM vendas WHERE estabelecimento_id = %s", (estabelecimento_id,))[0]
+    cupons = consultar(
+        "SELECT count(*) AS emitidos, count(cu.usado_em) AS usados "
+        "  FROM cupons cu JOIN sessoes s ON s.id = cu.sessao_id "
+        "  JOIN carregadores c ON c.id = s.carregador_id "
+        " WHERE c.estabelecimento_id = %s", (estabelecimento_id,))[0]
+    por_hora = consultar(
+        "SELECT extract(hour FROM s.inicio)::int AS hora, count(*) AS n "
+        "  FROM sessoes s JOIN carregadores c ON c.id = s.carregador_id "
+        " WHERE c.estabelecimento_id = %s GROUP BY 1 ORDER BY 2 DESC LIMIT 5",
+        (estabelecimento_id,))
+    clientes = consultar(
+        "SELECT apelido, modelo_veiculo, visitas FROM clientes "
+        " WHERE estabelecimento_id = %s ORDER BY visitas DESC LIMIT 8",
+        (estabelecimento_id,))
+
+    ctx = {
+        "loja": {"nome": e["nome"], "segmento": e["segmento"],
+                 "tarifa_energia_brl_kwh": e["tarifa_kwh_brl"],
+                 "demanda_contratada_kw": e["demanda_contratada_kw"]},
+        "carregadores": carregadores,
+        "operacao": {**resumo,
+                     "km_devolvidos": round(float(resumo["energia_kwh"]) * KM_KWH),
+                     "cupons_emitidos": cupons["emitidos"],
+                     "cupons_usados": cupons["usados"]},
+        "horarios_de_pico": por_hora,
+        "clientes_mais_frequentes": clientes,
+    }
+
+    if papel == "operador":
+        # Daqui para baixo é dinheiro, e não é da conta dele. A chave abaixo
+        # existe porque só omitir os números não basta: sem ela o modelo pega
+        # o teto configurado no carregador e monta uma justificativa
+        # financeira inventada em volta.
+        ctx["financeiro_indisponivel"] = (
+            "Este usuário é operador. Margem, ticket, lucro, saldo, custo e o "
+            "cálculo do teto de cortesia foram retirados deste contexto de "
+            "propósito. Não calcule, não estime e não deduza nenhum desses "
+            "valores: responda que essa parte é do gerente.")
+        return ctx
+
+    margem, ticket = float(e["margem_liquida_pct"]), float(e["ticket_medio_brl"])
+    tarifa = float(e["tarifa_kwh_brl"])
+    lucro_visita = COMPRAM * (NOVOS * ticket + (1 - NOVOS) * UPLIFT * ticket) * margem / 100
+    sobra = lucro_visita - AMORT
+    lucro = float(vendas["total"]) * margem / 100
+    saldo = lucro + float(resumo["recarga_cobrada_brl"]) - float(resumo["custo_energia_brl"]) \
+        - resumo["sessoes"] * AMORT
+
+    ctx["loja"].update({"margem_liquida_pct": margem, "ticket_medio_brl": ticket})
+    ctx["financeiro"] = {
+        "vendas_atribuidas_brl": float(vendas["total"]),
+        "vendas_atribuidas_qtd": vendas["n"],
+        "lucro_atribuido_brl": round(lucro, 2),
+        "recarga_cobrada_brl": float(resumo["recarga_cobrada_brl"]),
+        "custo_energia_brl": float(resumo["custo_energia_brl"]),
+        "custo_equipamento_brl": round(resumo["sessoes"] * AMORT, 2),
+        "saldo_brl": round(saldo, 2),
+    }
+    ctx["teto_de_cortesia"] = {
+        "lucro_por_visita_brl": round(lucro_visita, 2),
+        "amortizacao_por_sessao_brl": AMORT,
+        "sobra_por_visita_brl": round(sobra, 2),
+        "teto_kwh": round(max(0.0, sobra / tarifa), 2),
+        "teto_km": round(max(0.0, sobra / tarifa) * KM_KWH),
+        "se_paga": sobra > 0,
+    }
+    return ctx
+
+
+INSTRUCOES = """Você é a assistente do painel Praça de Recarga.
+
+O QUE É O PRODUTO
+A loja instala um carregador de carro elétrico para atrair cliente. Cada
+ponto tem um dos dois modelos:
+- cortesia: a energia sai de graça até um teto em kWh, e a loja ganha na
+  compra que a pessoa faz enquanto carrega.
+- pago: cobra por kWh, para quem só quer a tomada.
+
+COMO SE SABE QUE VALEU
+No fim da recarga a tela emite um cupom de desconto. A pessoa digita o código
+no caixa. É esse código que liga a venda àquela recarga — por isso existe
+"venda atribuída". Sem cupom digitado, a venda não entra na conta.
+
+DE ONDE SAI O TETO DE CORTESIA
+lucro por visita = 0,90 x (0,20 x ticket + 0,80 x 0,12 x ticket) x margem%
+Tira R$ 1,11 de amortização do equipamento por sessão e divide pela tarifa de
+energia. Se sobrar menos que zero, a cortesia não se paga naquela loja e o
+caminho honesto é cobrar por kWh.
+
+REGRAS QUE O PRODUTO NÃO QUEBRA
+- a recarga nunca é pausada; a taxa de vaga ocupada cobra o espaço, não a energia
+- não guardamos CPF nem nome completo: o cliente é um apelido e um hash
+- a previsão de tempo fica gravada ao lado do resultado real, para o painel
+  poder mostrar o próprio erro
+
+OS PAPÉIS
+- main: quem desenvolve. Vê tudo e troca de loja.
+- gerente: dono. Mexe em tudo da loja dele e vê o financeiro. Não troca de loja.
+- operador: vê tudo da loja menos o financeiro, e não altera nada.
+
+COMO RESPONDER
+- Português do Brasil, direto, no máximo cinco frases. Sem saudação.
+- Use SOMENTE números que estejam literalmente no CONTEXTO. É proibido
+  calcular, estimar, deduzir ou completar um número que não esteja lá —
+  inclusive fazendo contas com números de outros campos.
+- Se o dado não está no contexto, diga que não está no painel e pare. Uma
+  resposta curta que admite não ter o número é certa; uma conta inventada
+  para parecer completa é errada.
+- Se o contexto trouxer "financeiro_indisponivel", obedeça: nada de margem,
+  lucro, saldo, custo ou teto de cortesia, nem por dedução. Diga que essa
+  parte é do gerente, sem rodeio e sem pedir desculpa.
+- Formato brasileiro: R$ 1.234,56 e 11,9 kWh — vírgula decimal, ponto de
+  milhar. Diga a autonomia em km quando ajudar a entender."""
+
+
+@app.post("/ia/perguntar")
+def perguntar(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
+    chave = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if not chave:
+        raise HTTPException(503, "OPENROUTER_API_KEY não configurada no servidor")
+
+    pergunta = str(corpo.get("pergunta", "")).strip()[:1000]
+    if not pergunta:
+        raise HTTPException(400, "pergunta vazia")
+    estab = exigir_loja(u, int(corpo["estabelecimento_id"]))
+    ctx = contexto_da_loja(estab, u["papel"])
+
+    historico = corpo.get("historico") or []
+    mensagens = [{"role": "system", "content": INSTRUCOES},
+                 {"role": "system",
+                  "content": f"QUEM PERGUNTA: {u['nome']}, papel {u['papel']}.\n"
+                             f"CONTEXTO (JSON):\n{json.dumps(ctx, ensure_ascii=False)}"}]
+    for m in historico[-6:]:
+        if m.get("papel") in ("user", "assistant") and m.get("texto"):
+            mensagens.append({"role": m["papel"], "content": str(m["texto"])[:1000]})
+    mensagens.append({"role": "user", "content": pergunta})
+
+    try:
+        r = requests.post(
+            OPENROUTER_URL, timeout=45,
+            headers={"Authorization": f"Bearer {chave}",
+                     "Content-Type": "application/json",
+                     "X-Title": "Praca de Recarga"},
+            json={"model": os.environ.get("OPENROUTER_MODEL", MODELO_PADRAO),
+                  "messages": mensagens,
+                  "max_tokens": 400,
+                  "temperature": 0.2},
+        )
+        r.raise_for_status()
+        dados_resp = r.json()
+    except requests.RequestException as erro:
+        raise HTTPException(502, f"a OpenRouter não respondeu: {erro}")
+
+    escolha = (dados_resp.get("choices") or [{}])[0]
+    texto = (escolha.get("message") or {}).get("content", "").strip()
+    if not texto:
+        raise HTTPException(502, "a OpenRouter respondeu vazio")
+    return {"resposta": texto, "modelo": dados_resp.get("model")}
+
+
+@app.get("/saude")
+def saude():
+    return {"ok": True, "ia": bool(os.environ.get("OPENROUTER_API_KEY"))}

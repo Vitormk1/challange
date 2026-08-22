@@ -16,9 +16,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import random
 from datetime import datetime, timedelta, timezone
 
+from auth import criar_hash
 from db import conectar
 
 random.seed(20260821)
@@ -63,7 +65,36 @@ APELIDOS = ["Ana", "Bruno", "Carla", "Diego", "Elis", "Fábio", "Gabi", "Heitor"
             "Iara", "João", "Kelly", "Lucas", "Marina", "Nando", "Olívia",
             "Paulo", "Rita", "Sérgio", "Tati", "Vitor"]
 
-CARDS_PADRAO = ["retorno", "teto", "lucro", "sessoes", "clientes", "energia"]
+# Cada card guarda o tamanho junto: e o que faz o layout atravessar de um
+# computador para outro exatamente como a pessoa deixou.
+CARDS_PADRAO = [
+    {"id": "retorno",  "grupo": "large", "cols": 11, "rows": 4, "config": {}},
+    {"id": "teto",     "grupo": "large", "cols": 9,  "rows": 4, "config": {}},
+    {"id": "lucro",    "grupo": "small", "cols": 5,  "rows": 2, "config": {}},
+    {"id": "sessoes",  "grupo": "small", "cols": 5,  "rows": 2, "config": {}},
+    {"id": "clientes", "grupo": "small", "cols": 5,  "rows": 2, "config": {}},
+    {"id": "energia",  "grupo": "small", "cols": 5,  "rows": 2, "config": {}},
+]
+
+# Painel do operador: os mesmos indicadores, sem nada de dinheiro.
+CARDS_OPERADOR = [
+    {"id": "horas",    "grupo": "large", "cols": 11, "rows": 4, "config": {}},
+    {"id": "pontos",   "grupo": "large", "cols": 9,  "rows": 4, "config": {}},
+    {"id": "sessoes",  "grupo": "small", "cols": 5,  "rows": 2, "config": {}},
+    {"id": "clientes", "grupo": "small", "cols": 5,  "rows": 2, "config": {}},
+    {"id": "energia",  "grupo": "small", "cols": 5,  "rows": 2, "config": {}},
+]
+
+# Senha de demonstração. Trocar em produção, e a do main sai do ambiente.
+SENHA_DEMO = os.environ.get("SENHA_DEMO", "praca2026")
+SENHA_MAIN = os.environ.get("SENHA_MAIN", "praca2026")
+
+# (apelido do slug, nome do gerente, nome do operador)
+EQUIPE = {
+    "pet":         ("petecia",  "Renata Alves",  "Caio Moreira"),
+    "restaurante": ("cantina",  "Marco Bianchi", "Juliana Reis"),
+    "mercado":     ("bompreco", "Sandro Lima",   "Patrícia Nunes"),
+}
 
 # o pico é no fim da tarde, quando a loja também está cheia
 PESO_HORA = [2, 2, 3, 5, 6, 4, 3, 3, 4, 6, 8, 7, 5, 3]   # 8h..21h
@@ -112,9 +143,12 @@ def semear() -> None:
             "RESTART IDENTITY CASCADE"
         )
 
-        usuario_id = inserir(cur, "usuarios", ["nome", "email", "papel"],
-                             [("Vitor Nascimento", "vitor@pracaderecarga.local", "admin")],
-                             devolve_id=True)[0]
+        # ---- quem entra no painel ----
+        main_id = inserir(
+            cur, "usuarios", ["nome", "email", "papel", "senha_hash"],
+            [("Vitor Nascimento", "vitor@pracaderecarga.local", "main",
+              criar_hash(SENHA_MAIN))],
+            devolve_id=True)[0]
 
         estab_ids = inserir(
             cur, "estabelecimentos",
@@ -124,12 +158,41 @@ def semear() -> None:
              for nome, seg, margem, ticket, demanda in LOJAS],
             devolve_id=True,
         )
+
+        # um gerente e um operador por loja, e o main ligado a todas
+        equipe_linhas, equipe_meta = [], []
+        for estab_id, loja in zip(estab_ids, LOJAS):
+            slug, nome_gerente, nome_operador = EQUIPE[loja[1]]
+            for papel, nome in (("gerente", nome_gerente), ("operador", nome_operador)):
+                equipe_linhas.append((nome, f"{papel}.{slug}@praca.local", papel,
+                                      criar_hash(SENHA_DEMO)))
+                equipe_meta.append({"estab": estab_id, "papel": papel})
+        equipe_ids = inserir(cur, "usuarios",
+                             ["nome", "email", "papel", "senha_hash"],
+                             equipe_linhas, devolve_id=True)
+        for meta, uid in zip(equipe_meta, equipe_ids):
+            meta["id"] = uid
+
         inserir(cur, "usuarios_estabelecimentos", ["usuario_id", "estabelecimento_id"],
-                [(usuario_id, e) for e in estab_ids])
+                [(main_id, e) for e in estab_ids]
+                + [(m["id"], m["estab"]) for m in equipe_meta])
+
+        # o compartilhado da loja é do gerente; cada um ganha o particular dele
+        paineis_linhas = []
+        for estab_id in estab_ids:
+            gerente = next(m for m in equipe_meta
+                           if m["estab"] == estab_id and m["papel"] == "gerente")
+            operador = next(m for m in equipe_meta
+                            if m["estab"] == estab_id and m["papel"] == "operador")
+            paineis_linhas += [
+                (estab_id, gerente["id"], "Painel da loja", True, True, json.dumps(CARDS_PADRAO)),
+                (estab_id, gerente["id"], "Meu painel", False, False, json.dumps(CARDS_PADRAO)),
+                (estab_id, operador["id"], "Meu painel", False, False, json.dumps(CARDS_OPERADOR)),
+                (estab_id, main_id, "Meu painel", False, False, json.dumps(CARDS_PADRAO)),
+            ]
         inserir(cur, "paineis",
                 ["estabelecimento_id", "usuario_id", "nome", "compartilhado", "padrao", "cards"],
-                [(e, usuario_id, "Painel padrão", True, True, json.dumps(CARDS_PADRAO))
-                 for e in estab_ids])
+                paineis_linhas)
 
         # ---- carregadores ----
         linhas_carregador, meta_carregador = [], []
@@ -272,6 +335,10 @@ def semear() -> None:
         """)
         con.commit()
 
+    print(f"acessos:  vitor@pracaderecarga.local / {SENHA_MAIN}   (main)")
+    for slug, nome_g, nome_o in EQUIPE.values():
+        print(f"          gerente.{slug}@praca.local / {SENHA_DEMO}   ({nome_g})")
+        print(f"          operador.{slug}@praca.local / {SENHA_DEMO}  ({nome_o})")
     print(f"lojas: {len(LOJAS)}  carregadores: {len(linhas_carregador)}  "
           f"clientes: {len(linhas_cliente)}  sessões: {len(linhas_sessao)}  "
           f"leituras: {len(linhas_leitura)}  cupons: {len(linhas_cupom)}  "

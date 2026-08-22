@@ -1,0 +1,195 @@
+/* ==========================================================================
+   O que é nosso, por cima do style.css da referência.
+
+   Regra: nada aqui redesenha o que a referência já resolve. São só as peças
+   que ela não tem — a porta de login como camada sobre o painel, o palco de
+   edição e os avisos de somente-leitura — usando as mesmas variáveis dela,
+   para claro e escuro continuarem funcionando sozinhos.
+   ========================================================================== */
+
+/* -------- porta de login -------- */
+.login-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  background: var(--app-bg, #f3f7fb);
+}
+.login-gate[hidden] { display: none; }
+
+.login-gate .login-shell { min-height: auto; }
+.login-gate .brand { justify-content: flex-start; }
+.login-gate .brand h1 { font-size: 1.35rem; margin: 0; }
+.login-gate .brand-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: var(--primary, #248dd1);
+  color: #fff;
+}
+.login-gate .login-form { display: grid; gap: 12px; }
+.login-gate .refresh-status:empty { display: none; }
+.login-gate .refresh-status.is-error { color: var(--status-critical, #d64545); }
+
+/* Enquanto a sessão não é conhecida, o painel não pode piscar por trás da
+   porta de login: um vislumbre de dados de outra pessoa já é vazamento. */
+body.sem-sessao .app-shell,
+body.sem-sessao .global-ai-launcher,
+body.sem-sessao .global-ai-chat,
+body.sem-sessao .tour-launch-button,
+body.sem-sessao .sidebar-edge-toggle { display: none !important; }
+
+/* -------- palco de edição do painel -------- */
+/* A esfera fica no mesmo canto do botão "+" de adicionar card. Em edição,
+   quem manda ali é o "+". */
+body.editando-painel .global-ai-launcher,
+body.editando-painel .global-ai-chat { display: none !important; }
+
+/* O conteúdo do card grande tem que caber no espaço que a grade deu a ele.
+   Sem isto, o card cresce pela altura do próprio conteúdo e invade o grupo
+   de baixo. */
+.dashboard-card-samples > .trend-card {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dashboard-card-samples > .trend-card > svg {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+}
+.dashboard-card-samples > .trend-card > .lista-rolavel {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.dashboard-card-samples .card-heading { flex: 0 0 auto; }
+.dashboard-card-samples .card-heading h3 { margin: 0; font-size: 1rem; }
+.dashboard-card-samples .card-heading p { margin: 0; }
+
+/* Respiro entre o grupo dos grandes e o dos pequenos. */
+.dashboard-canvas { row-gap: 28px; }
+.dashboard-canvas-group + .dashboard-canvas-group { margin-top: 4px; }
+
+/* -------- redimensionar card -------- */
+.dashboard-manager-shell.is-editing .dashboard-card.is-resizable-card {
+  cursor: default;
+}
+.card-resize-handle {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--primary, #248dd1);
+  cursor: nwse-resize;
+  display: none;
+  place-items: center;
+  z-index: 5;
+  touch-action: none;
+}
+.dashboard-manager-shell.is-editing .card-resize-handle { display: grid; }
+.card-resize-handle svg { width: 14px; height: 14px; opacity: 0.55; }
+.card-resize-handle:hover svg,
+.card-resize-handle:focus-visible svg { opacity: 1; }
+.dashboard-card.is-resizing { z-index: 6; }
+.dashboard-card.is-resizing .trend-card,
+.dashboard-card.is-resizing .dashboard-kpi-card {
+  outline: 2px dashed var(--primary, #248dd1);
+  outline-offset: -2px;
+}
+.card-resize-medida {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 7;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: var(--primary, #248dd1);
+  pointer-events: none;
+}
+
+/* -------- papel do usuário -------- */
+.perfil-papel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.72;
+}
+
+/* Somente leitura: o operador vê a tabela inteira, mas as caixas de seleção
+   e os botões de criar somem em vez de ficarem ali para falhar depois. */
+body.somente-leitura .row-check,
+body.somente-leitura .head-check,
+body.somente-leitura [data-criar] { display: none; }
+
+.aviso-somente-leitura {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md, 14px);
+  border: 1px solid var(--line, rgba(15, 42, 68, 0.1));
+  background: var(--surface-soft, rgba(36, 141, 209, 0.06));
+  color: var(--muted, #5b7089);
+  font-size: 0.86rem;
+}
+
+/* Quem não troca de loja não precisa de um seletor com uma opção só. */
+body.loja-unica .client-dropdown-arrow { display: none; }
+body.loja-unica .client-dropdown-trigger { cursor: default; }
+
+/* -------- modo demonstração (sem servidor) -------- */
+.faixa-demo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  color: var(--muted, #5b7089);
+  background: var(--surface-soft, rgba(36, 141, 209, 0.06));
+  border-bottom: 1px solid var(--line, rgba(15, 42, 68, 0.1));
+}
+.faixa-demo strong { color: var(--text, #0f2a44); }
+
+/* -------- lista de carregadores dentro do card -------- */
+.linha-ponto {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-md, 14px);
+  border: 1px solid var(--line, rgba(15, 42, 68, 0.08));
+  background: var(--surface-soft, rgba(255, 255, 255, 0.5));
+}
+.linha-ponto-copy { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+.linha-ponto-copy strong {
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.linha-ponto-copy span { font-size: 0.78rem; color: var(--muted, #5b7089); }

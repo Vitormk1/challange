@@ -411,7 +411,7 @@
   <section>
     <h3>O painel do lojista</h3>
     <div class="body">
-      <p>Já está pronto e navegável. Primeira dobra respondendo o retorno, situação dos carregadores ao vivo, sessões, clientes, vendas atribuídas e financeiro. O lojista monta o próprio painel: arrasta os cards, guarda mais de uma versão e escolhe se ela é dele ou de toda a loja.</p>
+      <p>Já está pronto e navegável. Primeira dobra respondendo o retorno, situação dos carregadores ao vivo, sessões, clientes, vendas atribuídas e financeiro. O lojista monta o próprio painel: arrasta os cards, puxa o canto para redimensionar, guarda mais de uma versão e escolhe se ela é dele ou de toda a loja. Tudo fica no banco, então abrir em outro computador devolve a mesma tela. São três acessos: quem desenvolve vê todas as lojas, o gerente manda na dele, e o operador vê tudo menos o financeiro e não altera nada.</p>
       <p>Tem <strong>tour guiado</strong> na primeira visita, <strong>tema claro e escuro</strong>, troca de estabelecimento e configurações. E a peça que mais importa: <strong>a calculadora que diz quanto de cortesia aquela loja aguenta</strong>, a partir da margem e do ticket dela.</p>
     </div>
     <div class="pull">
@@ -495,7 +495,7 @@
       <div class="row">
         <span class="n">Servidor</span>
         <span class="t">Python com FastAPI</span>
-        <span class="d">Linguagem que o time já domina. Serve os dados, roda as previsões e conversa com o banco. Três dependências: <code>fastapi</code>, <code>uvicorn</code>, <code>psycopg</code>.</span>
+        <span class="d">Linguagem que o time já domina. Serve os dados, roda as previsões e conversa com o banco. Ele guarda a chave da IA (uma página publicada é código-fonte aberto — chave em JavaScript é chave doada), confere quem pode o quê e grava o painel de cada pessoa. Quatro dependências: <code>fastapi</code>, <code>uvicorn</code>, <code>psycopg</code> e <code>requests</code>.</span>
       </div>
       <div class="row">
         <span class="n">Previsão</span>

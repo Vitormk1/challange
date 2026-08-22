@@ -21,6 +21,14 @@ from psycopg.rows import dict_row
 RAIZ = pathlib.Path(__file__).resolve().parent
 SCHEMA = RAIZ / "schema.sql"
 
+# Carrega o .env da raiz, se existir. Sem isto, cada terminal e cada processo
+# (uvicorn, scripts) precisaria exportar as variaveis na mao.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(RAIZ.parent / ".env")
+except ImportError:
+    pass
+
 
 def uri() -> str:
     valor = os.environ.get("DATABASE_URL", "").strip()
@@ -33,9 +41,34 @@ def uri() -> str:
     return valor
 
 
-def conectar(*, autocommit: bool = False) -> psycopg.Connection:
-    """Conexão com linhas em dicionário — é o formato que o resto espera."""
-    return psycopg.connect(uri(), row_factory=dict_row, autocommit=autocommit)
+_pool: "ConnectionPool | None" = None
+
+
+def pool():
+    """Conexões reaproveitadas.
+
+    Abrir conexão contra o Aiven custa ~1,2s de handshake TLS. Uma requisição
+    que abre quatro paga cinco segundos antes de consultar qualquer coisa. O
+    pool paga esse preço uma vez, na subida, e depois só empresta.
+    """
+    global _pool
+    if _pool is None:
+        from psycopg_pool import ConnectionPool
+        _pool = ConnectionPool(uri(), min_size=2, max_size=8, open=True,
+                               kwargs={"row_factory": dict_row})
+        _pool.wait(timeout=30)
+    return _pool
+
+
+def conectar(*, autocommit: bool = False):
+    """Conexão com linhas em dicionário — é o formato que o resto espera.
+
+    Com `autocommit`, vai direto ao banco sem passar pelo pool: é o caso dos
+    scripts de esquema, que rodam DDL uma vez e saem.
+    """
+    if autocommit:
+        return psycopg.connect(uri(), row_factory=dict_row, autocommit=True)
+    return pool().connection()
 
 
 def aplicar_schema() -> None:

@@ -5,10 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Praça de Recarga — Painel</title>
 <meta name="description" content="Painel do lojista: retorno, carregadores, sessões, clientes e vendas atribuídas.">
-<link rel="stylesheet" href="./style.css?v=20260822a">
-<link rel="stylesheet" href="./static/css/tour.css?v=20260822a">
+<link rel="stylesheet" href="./style.css?v=20260823a">
+<link rel="stylesheet" href="./static/css/tour.css?v=20260823a">
+<link rel="stylesheet" href="./painel.css?v=20260823a">
 </head>
-<body class="primary-loading">
+<body class="primary-loading sem-sessao">
 
 <!-- ===================== tela de carregamento ===================== -->
 <div class="dashboard-loading-screen" id="dashboardLoadingScreen" aria-hidden="true">
@@ -29,6 +30,44 @@
     </div>
     <div class="dashboard-loading-sheen" aria-hidden="true"></div>
   </div>
+</div>
+
+
+<!-- ===================== login ===================== -->
+<div class="login-gate" id="loginGate" hidden>
+  <main class="login-shell">
+    <section class="login-card">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2Z"/></svg>
+        </div>
+        <div>
+          <p class="eyebrow">Acesso protegido</p>
+          <h1>Praça de Recarga</h1>
+        </div>
+      </div>
+      <div class="login-copy">
+        <h2>Entrar</h2>
+        <p>Use o e-mail e a senha da sua loja para abrir o painel.</p>
+      </div>
+      <form id="loginForm" class="login-form" autocomplete="on">
+        <label class="sr-only" for="loginEmail">E-mail</label>
+        <input class="text-input" type="email" id="loginEmail" name="email" placeholder="E-mail" autocomplete="username" required>
+        <div class="password-field">
+          <label class="sr-only" for="loginSenha">Senha</label>
+          <input class="text-input password-input" type="password" id="loginSenha" name="senha" placeholder="Senha" autocomplete="current-password" required>
+          <button class="password-toggle" id="loginSenhaToggle" type="button" aria-label="Mostrar senha">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
+          </button>
+        </div>
+        <button class="ghost-button login-button" id="loginButton" type="submit">Acessar painel</button>
+      </form>
+      <div class="refresh-status" id="loginStatus" aria-live="polite"></div>
+    </section>
+  </main>
 </div>
 
 <div class="app-shell">
@@ -91,9 +130,9 @@
 
     <div class="sidebar-profile-row">
       <button class="profile-card profile-card-docked" id="profileShortcut" type="button" aria-label="Abrir menu da conta e aparência" aria-haspopup="dialog" aria-expanded="false" aria-controls="collapsedProfileMenu">
-        <div class="avatar" id="profileAvatar">VN</div>
+        <div class="avatar" id="profileAvatar">··</div>
         <div class="profile-copy">
-          <strong id="profileName">Vitor Nascimento</strong>
+          <strong id="profileName">Carregando...</strong>
           <div class="sidebar-system-status" id="floatingRefreshBadge">
             <span class="sidebar-system-status-copy">
               <span id="floatingRefreshText" aria-live="polite">Carregando...</span>
@@ -124,6 +163,9 @@
         <div class="account-menu-divider" aria-hidden="true"></div>
         <button class="collapsed-profile-menu-button" id="collapsedProfileMenuProfile" type="button">
           <span class="collapsed-profile-menu-icon" aria-hidden="true">⚙</span><span>Configurações do perfil</span>
+        </button>
+        <button class="collapsed-profile-menu-button is-logout" id="collapsedProfileMenuLogout" type="button">
+          <span class="collapsed-profile-menu-icon" aria-hidden="true">⇥</span><span>Fazer logout</span>
         </button>
       </div>
     </div>
@@ -285,8 +327,32 @@
   </form>
 </section>
 
+<div class="filter-modal logout-confirm-modal" id="logoutModal" aria-hidden="true">
+  <div class="filter-modal-dialog logout-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="logoutTitulo">
+    <div class="filter-modal-header">
+      <div>
+        <p class="eyebrow">Encerrar sessão</p>
+        <h3 id="logoutTitulo">Confirmar logout</h3>
+      </div>
+      <button class="icon-button" id="logoutFechar" type="button" aria-label="Fechar confirmação"><span aria-hidden="true">×</span></button>
+    </div>
+    <div class="filter-modal-body">
+      <div class="filter-modal-card logout-confirm-card">
+        <div class="delete-confirm-copy">
+          <strong>Sair do painel</strong>
+          <p>A sessão será encerrada neste e nos outros computadores onde você a deixou aberta.</p>
+        </div>
+        <div class="filter-modal-actions">
+          <button class="ghost-button" id="logoutCancelar" type="button">Cancelar</button>
+          <button class="primary-button danger-button" id="logoutConfirmar" type="button">Sair</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
 
-<script type="module" src="./app.js?v=20260822a"></script>
+<script type="module" src="./app.js?v=20260823a"></script>
 </body>
 </html>
