@@ -8,246 +8,197 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20260821b">
 </head>
 <body>
 
-<div class="app">
-
-  <!-- ================= barra lateral ================= -->
-  <aside class="sidebar" id="sidebar">
-    <div class="brand">
-      <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2Z"/></svg>
-      </span>
-      <span class="brand-text"><b>Praça de Recarga</b><span>Painel</span></span>
-    </div>
-
-    <button class="store-switch" type="button" data-open-modal="loja" data-tour="loja">
-      <small>Estabelecimento</small>
-      <b id="storeName">Pet &amp; Cia — Vila Mariana</b>
-    </button>
-
-    <nav class="nav" aria-label="Seções">
-      <button class="nav-item" data-page="painel" aria-current="page" data-tour="nav">
-        <span class="nav-item-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span>
-        Painel
-      </button>
-      <button class="nav-item" data-page="carregadores">
-        <span class="nav-item-icon"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="10" height="18" rx="2"/><path d="M16 8h2a2 2 0 0 1 2 2v5"/><path d="M11 8l-2 4h4l-2 4"/></svg></span>
-        Carregadores
-      </button>
-      <button class="nav-item" data-page="sessoes">
-        <span class="nav-item-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span>
-        Sessões
-      </button>
-      <button class="nav-item" data-page="clientes">
-        <span class="nav-item-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5.5a3.5 3.5 0 0 1 0 7"/><path d="M18 20a6 6 0 0 0-2-4.5"/></svg></span>
-        Clientes
-      </button>
-      <button class="nav-item" data-page="financeiro">
-        <span class="nav-item-icon"><svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M16.5 7.5A3.5 3.5 0 0 0 13 5h-2a3 3 0 0 0 0 6h2a3 3 0 0 1 0 6h-2a3.5 3.5 0 0 1-3.5-2.5"/></svg></span>
-        Financeiro
-      </button>
-      <button class="nav-item" data-page="alertas">
-        <span class="nav-item-icon"><svg viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></span>
-        Alertas
-        <span class="nav-item-meta" id="alertCount">1</span>
-      </button>
-    </nav>
-
-    <div class="sidebar-foot">
-      <button class="nav-item" data-open-modal="config" data-tour="config">
-        <span class="nav-item-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7.5 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H1a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 2.7 7.5"/></svg></span>
-        Configurações
-      </button>
-    </div>
-  </aside>
-
-  <!-- ================= conteúdo ================= -->
-  <div class="main">
-    <header class="topbar">
-      <button class="icon-button menu-button" id="menuBtn" aria-label="Abrir menu">
-        <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-      </button>
-      <div class="topbar-title">
-        <h1 id="pageTitle">Painel</h1>
-        <p id="pageSubtitle">Agosto de 2026 · dados de demonstração</p>
-      </div>
-      <div class="topbar-actions">
-        <button class="ghost-button" id="tourBtn" data-tour="tour">Fazer o tour</button>
-        <button class="icon-button" id="themeBtn" aria-label="Alternar tema" data-tour="tema">
-          <svg id="themeIcon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
-        </button>
-        <button class="icon-button" data-open-modal="config" aria-label="Configurações">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
-        </button>
-      </div>
-    </header>
-
-    <!-- ---------- PAINEL ---------- -->
-    <section class="page is-active" data-page="painel">
-      <div class="grid" data-tour="kpis">
-        <article class="card kpi span-3" data-tone="good">
-          <div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v5h-5"/></svg></div>
-          <p class="eyebrow">Retorno</p><h3>Lucro atribuído</h3>
-          <strong class="kpi-value" id="kpiLucro">—</strong>
-          <p class="kpi-meta"><span class="delta up" id="kpiLucroDelta"></span> vs mês anterior</p>
-        </article>
-        <article class="card kpi span-3" data-tone="amber">
-          <div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2Z"/></svg></div>
-          <p class="eyebrow">Operação</p><h3>Sessões no mês</h3>
-          <strong class="kpi-value" id="kpiSessoes">—</strong>
-          <p class="kpi-meta" id="kpiSessoesMeta"></p>
-        </article>
-        <article class="card kpi span-3">
-          <div class="kpi-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0"/></svg></div>
-          <p class="eyebrow">Público</p><h3>Clientes únicos</h3>
-          <strong class="kpi-value" id="kpiClientes">—</strong>
-          <p class="kpi-meta" id="kpiClientesMeta"></p>
-        </article>
-        <article class="card kpi span-3" data-tone="warn">
-          <div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M16.5 7.5A3.5 3.5 0 0 0 13 5h-2a3 3 0 0 0 0 6h2a3 3 0 0 1 0 6h-2a3.5 3.5 0 0 1-3.5-2.5"/></svg></div>
-          <p class="eyebrow">Custo</p><h3>Energia entregue</h3>
-          <strong class="kpi-value" id="kpiEnergia">—</strong>
-          <p class="kpi-meta" id="kpiEnergiaMeta"></p>
-        </article>
-
-        <article class="card span-8" data-tour="grafico">
-          <div class="section-head">
-            <div><p class="eyebrow">Retorno</p><h2>Lucro atribuído × custo de energia</h2></div>
-          </div>
-          <div class="chart"><svg id="chartRetorno" viewBox="0 0 720 260" role="img" aria-label="Lucro atribuído contra custo de energia, por dia"></svg></div>
-          <div class="legend">
-            <span><i style="background:var(--success)"></i>lucro atribuído</span>
-            <span><i style="background:var(--amber)"></i>custo de energia</span>
-          </div>
-        </article>
-
-        <article class="card span-4">
-          <div><p class="eyebrow">Movimento</p><h2>Sessões por hora</h2></div>
-          <div class="chart"><svg id="chartHoras" viewBox="0 0 340 260" role="img" aria-label="Distribuição de sessões por hora do dia"></svg></div>
-          <p class="kpi-meta" id="horaPico"></p>
-        </article>
-
-        <article class="card span-12" data-tour="pontos">
-          <div class="section-head">
-            <div><p class="eyebrow">Agora</p><h2>Situação dos carregadores</h2></div>
-            <span class="spacer"></span>
-            <button class="ghost-button" data-page-link="carregadores">Configurar</button>
-          </div>
-          <div class="points" id="pointsLive"></div>
-        </article>
-      </div>
-    </section>
-
-    <!-- ---------- CARREGADORES ---------- -->
-    <section class="page" data-page="carregadores">
-      <div class="callout amber" data-tour="modo">
-        <strong>Cada carregador tem seu modelo.</strong> Em <em>cortesia</em>, o cliente ganha um teto de energia por conta da casa e estende comprando. Em <em>cobrança</em>, paga por quilowatt-hora. Troque quando quiser — a telinha da vaga muda sozinha.
-      </div>
-      <div class="points" id="pointsConfig"></div>
-    </section>
-
-    <!-- ---------- SESSÕES ---------- -->
-    <section class="page" data-page="sessoes">
-      <div class="section-head">
-        <div><p class="eyebrow">Últimos dias</p><h2>Sessões de recarga</h2></div>
-        <span class="spacer"></span>
-        <select id="filtroModo">
-          <option value="todos">Todos os modos</option>
-          <option value="cortesia">Só cortesia</option>
-          <option value="pago">Só cobrança</option>
-        </select>
-      </div>
-      <div class="card"><div class="sessions" id="sessionList"></div></div>
-    </section>
-
-    <!-- ---------- CLIENTES ---------- -->
-    <section class="page" data-page="clientes">
-      <div class="grid">
-        <article class="card kpi span-4" data-tone="good">
-          <div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></div>
-          <p class="eyebrow">Fidelidade</p><h3>Voltaram ao menos uma vez</h3>
-          <strong class="kpi-value" id="kpiRecorrencia">—</strong>
-          <p class="kpi-meta">de todos os clientes que carregaram</p>
-        </article>
-        <article class="card kpi span-4">
-          <div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M6 20V10M12 20V4M18 20v-7"/></svg></div>
-          <p class="eyebrow">Comparação</p><h3>Ticket de quem carrega</h3>
-          <strong class="kpi-value" id="kpiTicketEV">—</strong>
-          <p class="kpi-meta" id="kpiTicketDelta"></p>
-        </article>
-        <article class="card kpi span-4" data-tone="amber">
-          <div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M20 12v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-7"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 7v13"/></svg></div>
-          <p class="eyebrow">Adesão</p><h3>Usaram o código de desconto</h3>
-          <strong class="kpi-value" id="kpiCupom">—</strong>
-          <p class="kpi-meta">é por eles que a venda é atribuída</p>
-        </article>
-        <article class="card span-12">
-          <div><p class="eyebrow">Retorno</p><h2>Quantas vezes cada cliente voltou</h2></div>
-          <div class="chart"><svg id="chartRecorrencia" viewBox="0 0 720 200" role="img" aria-label="Distribuição de visitas por cliente"></svg></div>
-        </article>
-      </div>
-    </section>
-
-    <!-- ---------- FINANCEIRO ---------- -->
-    <section class="page" data-page="financeiro">
-      <div class="callout" data-tour="calculadora">
-        <strong>Quanto de cortesia sua loja aguenta.</strong> A conta usa a margem e o ticket que você informou em Configurações, mais o custo real da energia. O teto é calculado para nunca dar prejuízo.
-      </div>
-      <div class="grid">
-        <article class="card span-6">
-          <div><p class="eyebrow">Calculadora</p><h2>Teto de cortesia recomendado</h2></div>
-          <div class="field">
-            <label for="inMargem">Margem líquida <b id="outMargem" class="mono"></b></label>
-            <input type="range" id="inMargem" min="1" max="40" step="0.5">
-          </div>
-          <div class="field">
-            <label for="inTicket">Ticket médio <b id="outTicket" class="mono"></b></label>
-            <input type="range" id="inTicket" min="20" max="400" step="5">
-          </div>
-          <div class="field">
-            <label for="inTarifa">Tarifa de energia <b id="outTarifa" class="mono"></b></label>
-            <input type="range" id="inTarifa" min="0.5" max="1.2" step="0.005">
-          </div>
-          <div class="callout amber" id="tetoResultado"></div>
-        </article>
-        <article class="card span-6">
-          <div><p class="eyebrow">Mês</p><h2>Onde o dinheiro entrou e saiu</h2></div>
-          <div class="chart"><svg id="chartFinanceiro" viewBox="0 0 360 240" role="img" aria-label="Composição do resultado do mês"></svg></div>
-          <div class="points" id="finBreakdown"></div>
-        </article>
-      </div>
-    </section>
-
-    <!-- ---------- ALERTAS ---------- -->
-    <section class="page" data-page="alertas">
-      <div class="section-head"><div><p class="eyebrow">Atenção</p><h2>Alertas abertos</h2></div></div>
-      <div class="points" id="alertList"></div>
-    </section>
+<!-- ================= barra lateral ================= -->
+<aside class="sidebar" id="sidebar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2Z"/></svg>
+    </span>
+    <span class="brand-copy"><b>Praça de Recarga</b><span>Painel</span></span>
   </div>
+
+  <button class="client-switcher" type="button" id="clientSwitcher" data-tooltip="Trocar estabelecimento">
+    <span class="client-copy">
+      <small>Estabelecimento</small>
+      <b id="clientName">Pet &amp; Cia — Vila Mariana</b>
+    </span>
+    <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+  </button>
+
+  <nav class="sidebar-nav" id="sidebarNav" aria-label="Seções">
+    <div class="nav-group" data-nav-group="operacao">
+      <button class="nav-group-toggle" type="button"><span>Operação</span><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+      <div class="nav-group-items">
+        <button class="nav-item active" data-section="painel" data-tooltip="Painel">
+          <span class="nav-item-label"><span class="nav-item-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span><span class="nav-item-text">Painel</span></span>
+        </button>
+        <button class="nav-item" data-section="carregadores" data-tooltip="Carregadores">
+          <span class="nav-item-label"><span class="nav-item-icon"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="10" height="18" rx="2"/><path d="M16 8h2a2 2 0 0 1 2 2v5"/><path d="M11 8l-2 4h4l-2 4"/></svg></span><span class="nav-item-text">Carregadores</span></span>
+        </button>
+        <button class="nav-item" data-section="sessoes" data-tooltip="Sessões">
+          <span class="nav-item-label"><span class="nav-item-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span><span class="nav-item-text">Sessões</span></span>
+        </button>
+        <button class="nav-item" data-section="alertas" data-tooltip="Alertas">
+          <span class="nav-item-label"><span class="nav-item-icon"><svg viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></span><span class="nav-item-text">Alertas</span></span>
+          <span class="nav-item-meta" id="alertCount">1</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="nav-group" data-nav-group="negocio">
+      <button class="nav-group-toggle" type="button"><span>Negócio</span><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+      <div class="nav-group-items">
+        <button class="nav-item" data-section="clientes" data-tooltip="Clientes">
+          <span class="nav-item-label"><span class="nav-item-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5.5a3.5 3.5 0 0 1 0 7"/></svg></span><span class="nav-item-text">Clientes</span></span>
+        </button>
+        <button class="nav-item" data-section="financeiro" data-tooltip="Financeiro">
+          <span class="nav-item-label"><span class="nav-item-icon"><svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M16.5 7.5A3.5 3.5 0 0 0 13 5h-2a3 3 0 0 0 0 6h2a3 3 0 0 1 0 6h-2a3.5 3.5 0 0 1-3.5-2.5"/></svg></span><span class="nav-item-text">Financeiro</span></span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="sidebar-foot">
+    <button class="profile-row" type="button" id="profileShortcut" data-tooltip="Sua conta">
+      <span class="profile-avatar" id="profileInitials">VN</span>
+      <span class="profile-copy"><b id="profileName">Vitor Nascimento</b><small>Administrador</small></span>
+    </button>
+  </div>
+</aside>
+
+<button class="sidebar-edge-toggle" id="sidebarToggleDesktop" type="button" aria-label="Recolher menu">
+  <svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
+</button>
+
+<!-- ================= conteúdo ================= -->
+<div class="main-panel">
+  <header class="topbar">
+    <button class="icon-button menu-button" id="menuBtn" aria-label="Abrir menu">
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="topbar-title">
+      <h1 id="pageTitle">Painel</h1>
+      <p id="pageSubtitle">Agosto de 2026 · dados de demonstração</p>
+    </div>
+    <div class="topbar-side" id="topbarActions">
+      <button class="ghost-button" id="dashboardEditToggle">Editar painel</button>
+      <button class="icon-button" id="themeBtn" aria-label="Alternar tema">
+        <svg id="themeIcon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+      </button>
+      <button class="icon-button" id="settingsBtn" aria-label="Configurações">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8M4.6 9a1.6 1.6 0 0 0-.3-1.8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <button class="icon-button tour-launch-button" id="tourLaunchButton" type="button" aria-label="Fazer o tour guiado">?</button>
+
+  <!-- ---------- PAINEL ---------- -->
+  <section class="page is-active" data-page="painel">
+    <div id="cardLibraryWrap" hidden>
+      <div class="card">
+        <div class="section-head"><div><p class="eyebrow">Biblioteca</p><h2>Adicionar cards ao painel</h2></div>
+          <span class="spacer"></span><button class="ghost-button" id="dashboardReset">Restaurar padrão</button></div>
+        <div class="card-library" id="cardLibrary"></div>
+      </div>
+    </div>
+    <div class="dashboard-grid" id="dashboardGrid"></div>
+  </section>
+
+  <!-- ---------- CARREGADORES ---------- -->
+  <section class="page" data-page="carregadores">
+    <div class="callout amber" id="chargerHint">
+      <strong>Cada carregador tem seu modelo.</strong> Em <em>cortesia</em>, o cliente ganha um teto de energia por conta da casa e estende comprando. Em <em>cobrança</em>, paga por quilowatt-hora. Troque quando quiser — a telinha da vaga muda sozinha.
+    </div>
+    <div class="rows" id="pointsConfig"></div>
+  </section>
+
+  <!-- ---------- SESSÕES ---------- -->
+  <section class="page" data-page="sessoes">
+    <div class="section-head">
+      <div><p class="eyebrow">Últimos dias</p><h2>Sessões de recarga</h2></div>
+      <span class="spacer"></span>
+      <select id="filtroModo">
+        <option value="todos">Todos os modos</option>
+        <option value="cortesia">Só cortesia</option>
+        <option value="pago">Só cobrança</option>
+      </select>
+    </div>
+    <div class="card"><div class="rows" id="sessionList"></div></div>
+  </section>
+
+  <!-- ---------- CLIENTES ---------- -->
+  <section class="page" data-page="clientes">
+    <div class="dashboard-grid">
+      <article class="card span-4" data-tone="good">
+        <div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></div>
+        <p class="eyebrow">Fidelidade</p><h3>Voltaram ao menos uma vez</h3>
+        <strong class="kpi-value" id="kpiRecorrencia">—</strong>
+        <p class="kpi-meta">de todos os clientes que carregaram</p>
+      </article>
+      <article class="card span-4">
+        <div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M6 20V10M12 20V4M18 20v-7"/></svg></div>
+        <p class="eyebrow">Comparação</p><h3>Ticket de quem carrega</h3>
+        <strong class="kpi-value" id="kpiTicketEV">—</strong>
+        <p class="kpi-meta" id="kpiTicketDelta"></p>
+      </article>
+      <article class="card span-4" data-tone="amber">
+        <div class="kpi-icon"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M20 12v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-7"/><path d="M12 7v13"/></svg></div>
+        <p class="eyebrow">Adesão</p><h3>Usaram o código de desconto</h3>
+        <strong class="kpi-value" id="kpiCupom">—</strong>
+        <p class="kpi-meta">é por eles que a venda é atribuída</p>
+      </article>
+      <article class="card span-12">
+        <div><p class="eyebrow">Retorno</p><h2>Quantas vezes cada cliente voltou</h2></div>
+        <div class="chart"><svg id="chartRecorrencia" viewBox="0 0 720 200" role="img" aria-label="Distribuição de visitas por cliente"></svg></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ---------- FINANCEIRO ---------- -->
+  <section class="page" data-page="financeiro">
+    <div class="callout" id="calcHint">
+      <strong>Quanto de cortesia sua loja aguenta.</strong> A conta usa a margem e o ticket informados, mais o custo real da energia. O teto é calculado para nunca dar prejuízo.
+    </div>
+    <div class="dashboard-grid">
+      <article class="card span-6">
+        <div><p class="eyebrow">Calculadora</p><h2>Teto de cortesia recomendado</h2></div>
+        <div class="field"><label for="inMargem">Margem líquida <b id="outMargem" class="mono"></b></label><input type="range" id="inMargem" min="1" max="40" step="0.5"></div>
+        <div class="field"><label for="inTicket">Ticket médio <b id="outTicket" class="mono"></b></label><input type="range" id="inTicket" min="20" max="400" step="5"></div>
+        <div class="field"><label for="inTarifa">Tarifa de energia <b id="outTarifa" class="mono"></b></label><input type="range" id="inTarifa" min="0.5" max="1.2" step="0.005"></div>
+        <div class="callout amber" id="tetoResultado"></div>
+      </article>
+      <article class="card span-6">
+        <div><p class="eyebrow">Mês</p><h2>Onde o dinheiro entrou e saiu</h2></div>
+        <div class="chart"><svg id="chartFinanceiro" viewBox="0 0 360 240" role="img" aria-label="Composição do resultado do mês"></svg></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ---------- ALERTAS ---------- -->
+  <section class="page" data-page="alertas">
+    <div class="section-head"><div><p class="eyebrow">Atenção</p><h2>Alertas abertos</h2></div></div>
+    <div class="rows" id="alertList"></div>
+  </section>
 </div>
 
 <!-- ================= modais ================= -->
 <div class="modal-backdrop" id="modalConfig" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cfgTitle">
-    <div class="modal-head">
-      <h2 id="cfgTitle">Configurações</h2>
-      <button class="icon-button" data-close-modal aria-label="Fechar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-    </div>
+    <div class="modal-head"><h2 id="cfgTitle">Configurações</h2>
+      <button class="icon-button" data-close-modal aria-label="Fechar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     <div class="modal-body">
-      <div class="field">
-        <label>Aparência</label>
+      <div class="field"><label>Aparência</label>
         <label class="switch"><input type="checkbox" id="cfgTheme"><span class="track"></span><span>Modo escuro</span></label>
-        <small>A escolha fica salva neste navegador.</small>
+        <label class="switch"><input type="checkbox" id="cfgCollapsed"><span class="track"></span><span>Menu recolhido ao abrir</span></label>
       </div>
-      <div class="field">
-        <label for="cfgStore">Nome do estabelecimento</label>
-        <input type="text" id="cfgStore">
-      </div>
-      <div class="field">
-        <label for="cfgSegmento">Segmento</label>
+      <div class="field"><label for="cfgName">Seu nome</label><input type="text" id="cfgName"></div>
+      <div class="field"><label for="cfgStore">Nome do estabelecimento</label><input type="text" id="cfgStore"></div>
+      <div class="field"><label for="cfgSegmento">Segmento</label>
         <select id="cfgSegmento">
           <option value="pet">Pet shop e clínica veterinária</option>
           <option value="restaurante">Restaurante</option>
@@ -257,8 +208,7 @@
         </select>
         <small>Define os valores iniciais de margem e ticket na calculadora.</small>
       </div>
-      <div class="field">
-        <label>Notificar quando</label>
+      <div class="field"><label>Notificar quando</label>
         <label class="switch"><input type="checkbox" id="cfgAlertaPonto" checked><span class="track"></span><span>Um carregador ficar fora do ar</span></label>
         <label class="switch"><input type="checkbox" id="cfgAlertaDemanda" checked><span class="track"></span><span>A demanda contratada estiver perto do limite</span></label>
         <label class="switch"><input type="checkbox" id="cfgAlertaPrejuizo"><span class="track"></span><span>Uma sessão custar mais que o lucro dela</span></label>
@@ -273,35 +223,21 @@
 
 <div class="modal-backdrop" id="modalLoja" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="lojaTitle">
-    <div class="modal-head">
-      <h2 id="lojaTitle">Trocar de estabelecimento</h2>
-      <button class="icon-button" data-close-modal aria-label="Fechar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-    </div>
-    <div class="modal-body"><div class="points" id="storeList"></div></div>
+    <div class="modal-head"><h2 id="lojaTitle">Trocar de estabelecimento</h2>
+      <button class="icon-button" data-close-modal aria-label="Fechar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="modal-body"><div class="rows" id="storeList"></div></div>
   </div>
 </div>
 
-<!-- ================= tour ================= -->
-<div class="tour-overlay" id="tourOverlay" hidden>
-  <div class="tour-scrim" data-scrim="top"></div>
-  <div class="tour-scrim" data-scrim="bottom"></div>
-  <div class="tour-scrim" data-scrim="left"></div>
-  <div class="tour-scrim" data-scrim="right"></div>
-  <div class="tour-spot-ring" id="tourRing"></div>
-  <div class="tour-balloon" id="tourBalloon">
-    <span class="tour-balloon-step" id="tourStep"></span>
-    <h3 id="tourTitle"></h3>
-    <p id="tourText"></p>
-    <div class="tour-balloon-nav">
-      <button class="ghost-button" id="tourSkip">Sair</button>
-      <span class="spacer"></span>
-      <button class="ghost-button" id="tourPrev">Anterior</button>
-      <button class="primary-button" id="tourNext">Próximo</button>
-    </div>
-  </div>
-</div>
+<!-- ================= gaveta do ponto ================= -->
+<div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+<aside class="drawer" id="pointDrawer" hidden role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+  <div class="drawer-head"><h2 id="drawerTitle">Carregador</h2>
+    <button class="icon-button" id="drawerClose" aria-label="Fechar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
 
 <div class="toasts" id="toasts"></div>
-<script src="app.js"></script>
+<script src="app.js?v=20260821a"></script>
 </body>
 </html>
