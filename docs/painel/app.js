@@ -373,6 +373,7 @@ function mostrarLogin(mensagem = "", tipo = "erro"){
   esconderCarregando();
   $("#loginGate").hidden = false;
   statusLogin(mensagem, mensagem ? tipo : "");
+  pintarAnel(0, "vazio");
   $("#loginEmail").focus();
 }
 /* A mensagem tem que dizer o que fazer, não só que deu errado. */
@@ -388,35 +389,85 @@ function explicarFalha(erro){
   if (erro.status >= 500) return "O servidor respondeu com erro. Veja o terminal onde a API está rodando.";
   return erro.message || "Não consegui entrar.";
 }
+/* ---------- o anel de carga ----------
+   Único elemento animado da porta de login, e ele responde ao que a pessoa
+   digita: enche conforme o formulário fica válido. Não é enfeite — é a barra
+   de progresso do próprio formulário, então dá para ver que falta alguma
+   coisa antes de tentar enviar. E a leitura é a de uma bateria carregando,
+   que é exatamente o produto.
+
+   327 é o perímetro do círculo de raio 52 (2·π·52); o traço é desenhado
+   encurtando o vão. */
+const ANEL_PERIMETRO = 327;
+
+function pintarAnel(pct, estado){
+  const anel = $("#loginAnel");
+  if (!anel) return;
+  const valor = clamp(pct, 0, 100);
+  $("#loginAnelNivel").style.strokeDashoffset = String(ANEL_PERIMETRO * (1 - valor / 100));
+  $("#loginAnelPct").textContent = `${Math.round(valor)}%`;
+  anel.dataset.estado = estado ?? (valor >= 100 ? "cheio" : valor > 0 ? "carregando-form" : "vazio");
+}
+
+/* Quanto do formulário já está pronto. O e-mail vale mais que a senha porque
+   é o campo que costuma sair errado — e é o único que dá para conferir aqui
+   sem falar com o servidor. */
+function progressoDoLogin(){
+  const email = $("#loginEmail").value.trim();
+  const senha = $("#loginSenha").value;
+  let pct = 0;
+  if (email) pct += 20;
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) pct += 35;
+  if (senha) pct += 15;
+  if (senha.length >= 6) pct += 30;
+  return pct;
+}
+
 function initLogin(){
   const form = $("#loginForm"), botao = $("#loginButton");
+  const email = $("#loginEmail"), senha = $("#loginSenha");
+
+  const atualizar = () => pintarAnel(progressoDoLogin());
+  email.addEventListener("input", atualizar);
+  senha.addEventListener("input", atualizar);
+  // o preenchimento automático do navegador não dispara "input"
+  setTimeout(atualizar, 300);
 
   const olho = $("#loginSenhaToggle");
   olho.onclick = () => {
-    const campo = $("#loginSenha");
-    const vendo = campo.type === "text";
-    campo.type = vendo ? "password" : "text";
+    const vendo = senha.type === "text";
+    senha.type = vendo ? "password" : "text";
     olho.setAttribute("aria-pressed", String(!vendo));
     olho.setAttribute("aria-label", vendo ? "Mostrar senha" : "Ocultar senha");
-    campo.focus();
+    senha.focus();
   };
 
   form.onsubmit = async ev => {
     ev.preventDefault();
-    const email = $("#loginEmail").value.trim();
-    const senha = $("#loginSenha").value;
-    if (!email || !senha){ statusLogin("Preencha o e-mail e a senha.", "erro"); return; }
+    const usuario = email.value.trim(), chave = senha.value;
+    if (!usuario || !chave){
+      statusLogin("Preencha o e-mail e a senha.", "erro");
+      pintarAnel(progressoDoLogin(), "erro");
+      setTimeout(atualizar, 700);
+      (usuario ? senha : email).focus();
+      return;
+    }
 
     botao.disabled = true;
     botao.classList.add("is-carregando");
     statusLogin("");
+    pintarAnel(100, "carregando");
     try {
-      const sessao = await api.entrar(email, senha);
-      $("#loginSenha").value = "";
+      const sessao = await api.entrar(usuario, chave);
+      pintarAnel(100, "cheio");
+      senha.value = "";
       $("#loginGate").hidden = true;
       await entrarNoPainel(sessao);
     } catch (erro){
       statusLogin(explicarFalha(erro), "erro");
+      pintarAnel(progressoDoLogin(), "erro");
+      setTimeout(atualizar, 900);
+      senha.select();
       console.error("login:", erro);
     } finally {
       botao.disabled = false;

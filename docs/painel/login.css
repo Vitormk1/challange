@@ -4,66 +4,296 @@
    Não herda nada do style.css, de propósito. As classes de lá foram afinadas
    para a barra lateral escura: `.brand h1` é branco puro e `.refresh-status`
    é quase branco. Num card claro o título some e a mensagem de erro fica
-   branca sobre branco — era exatamente por isso que "clico em entrar e nada
-   acontece": o erro aparecia, e não dava para lê-lo.
+   branca sobre branco — era por isso que "clico em entrar e nada acontece":
+   o erro aparecia, e não dava para lê-lo.
 
-   Aqui os tokens são declarados no próprio `.login-gate`, para claro e para
-   escuro, e nada depende do que o resto do painel esteja fazendo.
+   Uma coluna só, centralizada, tudo dentro de 360px. Nada encostado na
+   borda: o seletor de tema fica logo abaixo do formulário, não no canto.
    ========================================================================== */
 .login-gate {
   --lg-fundo: #eef4fa;
+  --lg-fundo-2: #ffffff;
   --lg-superficie: #ffffff;
   --lg-texto: #0f2a44;
-  --lg-suave: #4f6478;          /* medido: 4,42 era abaixo do minimo de 4,5 */
-  --lg-linha: #dbe6f0;
-  --lg-campo: #f7fafd;
-  --lg-primaria: #248dd1;
-  --lg-primaria-forte: #1b6fa8;
-  --lg-ciano: #27c2e6;
+  --lg-suave: #4f6478;
+  --lg-linha: #d7e3ee;
+  --lg-campo: #ffffff;
+  --lg-primaria: #1a73ae;        /* branco por cima media 4,34 no #1f7fbe */
+  --lg-primaria-forte: #175f8f;
+  --lg-ciano: #14a5c8;
+  --lg-anel-trilho: rgba(15, 42, 68, 0.09);
   --lg-erro: #a82a1d;
   --lg-erro-fundo: rgba(168, 42, 29, 0.08);
   --lg-erro-borda: rgba(168, 42, 29, 0.28);
-  --lg-ok: #1f8a5a;
+  --lg-ok: #16744a;
+  --lg-sobre-primaria: #ffffff;   /* texto por cima do azul */
+  --lg-sombra: 0 18px 44px rgba(12, 40, 66, 0.1);
 
   position: fixed;
   inset: 0;
   z-index: 12000;
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-  background: var(--lg-fundo);
-  color: var(--lg-texto);
+  place-items: center;
+  padding: 28px 20px;
   overflow: auto;
+  color: var(--lg-texto);
+  background:
+    radial-gradient(60% 45% at 50% 0%, color-mix(in srgb, var(--lg-primaria) 9%, transparent), transparent 70%),
+    linear-gradient(180deg, var(--lg-fundo-2) 0%, var(--lg-fundo) 100%);
 }
 .login-gate[hidden] { display: none; }
 
 :root[data-theme="dark"] .login-gate {
-  --lg-fundo: #071726;
-  --lg-superficie: #0e2436;
-  --lg-texto: #eaf3fb;
-  --lg-suave: #93aabf;
-  --lg-linha: rgba(255, 255, 255, 0.1);
-  --lg-campo: rgba(255, 255, 255, 0.05);
-  --lg-primaria: #46a9e8;
-  --lg-primaria-forte: #2f8dcb;
-  --lg-erro: #ff8a7a;
-  --lg-erro-fundo: rgba(255, 138, 122, 0.12);
-  --lg-erro-borda: rgba(255, 138, 122, 0.32);
-  --lg-ok: #5fd6a0;
+  --lg-fundo: #050f1a;
+  --lg-fundo-2: #0b1f31;
+  --lg-superficie: #10263a;
+  --lg-texto: #f2f8fd;          /* quase branco: o texto principal do escuro */
+  --lg-suave: #a9c0d4;          /* medido em 8,1 sobre o fundo escuro */
+  --lg-linha: rgba(255, 255, 255, 0.16);
+  --lg-campo: rgba(255, 255, 255, 0.07);
+  --lg-primaria: #5ab6ef;
+  --lg-primaria-forte: #3f9ad8;
+  --lg-ciano: #46d6f2;
+  --lg-anel-trilho: rgba(255, 255, 255, 0.13);
+  --lg-erro: #ff9d8f;
+  --lg-erro-fundo: rgba(255, 157, 143, 0.14);
+  --lg-erro-borda: rgba(255, 157, 143, 0.36);
+  --lg-ok: #6fe0af;
+  /* no escuro o azul e claro demais para texto branco (3,08).
+     Texto quase preto por cima dele passa com folga e e o padrao
+     que os temas escuros modernos usam. */
+  --lg-sobre-primaria: #04121d;
+  --lg-sombra: 0 18px 44px rgba(0, 0, 0, 0.4);
 }
 
-/* ---------- seletor de tema ---------- */
-.login-tema {
+/* ---------- a coluna ---------- */
+.login-caixa {
+  width: min(360px, 100%);
+  display: grid;
+  justify-items: center;
+  gap: 26px;
+}
+
+/* ---------- marca com o anel de carga ----------
+   O anel é o único elemento animado da tela, e ele responde ao que a pessoa
+   digita: enche conforme o formulário fica válido. Serve de barra de
+   progresso — a pessoa vê que falta algo antes de tentar enviar — e é o
+   próprio produto desenhado, já que a leitura é a de uma bateria carregando. */
+.login-marca { display: grid; justify-items: center; gap: 14px; }
+
+.login-anel {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  display: grid;
+  place-items: center;
+}
+.login-anel-svg {
   position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 3;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);       /* começa no topo */
+}
+.login-anel-trilho,
+.login-anel-nivel {
+  fill: none;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.login-anel-trilho { stroke: var(--lg-anel-trilho); }
+.login-anel-nivel {
+  stroke: var(--lg-primaria);
+  stroke-dasharray: 327;           /* 2·π·52 */
+  stroke-dashoffset: 327;          /* vazio */
+  transition: stroke-dashoffset 0.55s cubic-bezier(.22,.9,.3,1), stroke 0.3s ease;
+}
+.login-anel[data-estado="cheio"] .login-anel-nivel { stroke: var(--lg-ciano); }
+.login-anel[data-estado="erro"] .login-anel-nivel { stroke: var(--lg-erro); }
+
+.login-anel-raio {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 22px;
+  color: var(--lg-sobre-primaria);
+  background: linear-gradient(140deg, var(--lg-primaria), var(--lg-primaria-forte));
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--lg-primaria) 34%, transparent);
+  transition: transform 0.35s cubic-bezier(.34,1.56,.64,1), box-shadow 0.3s ease;
+}
+.login-anel-raio svg { width: 28px; height: 28px; }
+.login-anel[data-estado="cheio"] .login-anel-raio { transform: scale(1.06); }
+.login-anel[data-estado="erro"] .login-anel-raio {
+  animation: login-tremer 0.42s ease;
+  background: linear-gradient(140deg, var(--lg-erro), color-mix(in srgb, var(--lg-erro) 70%, #000));
+  box-shadow: none;
+}
+@keyframes login-tremer {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  45% { transform: translateX(5px); }
+  70% { transform: translateX(-3px); }
+}
+
+/* a porcentagem só aparece quando há o que mostrar */
+.login-anel-pct {
+  position: absolute;
+  bottom: -6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--lg-texto);              /* o acento media 4,34: abaixo do minimo */
+  background: var(--lg-superficie);
+  border: 1px solid color-mix(in srgb, var(--lg-primaria) 40%, var(--lg-linha));
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.login-anel:not([data-estado="vazio"]) .login-anel-pct { opacity: 1; transform: translateY(0); }
+.login-anel[data-estado="carregando"] .login-anel-svg { animation: login-girar 1.1s linear infinite; }
+
+.login-gate h1 {
+  margin: 0;
+  font-size: 1.32rem;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  color: var(--lg-texto);          /* a referência deixava branco: sumia no claro */
+}
+
+/* ---------- formulário ---------- */
+.login-form { width: 100%; display: grid; gap: 10px; }
+.login-campo { position: relative; display: grid; }
+
+.login-gate input[type="email"],
+.login-gate input[type="password"],
+.login-gate input[type="text"] {
+  width: 100%;
+  padding: 14px 16px;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--lg-texto);
+  background: var(--lg-campo);
+  border: 1px solid var(--lg-linha);
+  border-radius: 14px;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+.login-gate input::placeholder { color: var(--lg-suave); opacity: 0.75; }
+.login-gate input:focus {
+  outline: none;
+  border-color: var(--lg-primaria);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--lg-primaria) 22%, transparent);
+}
+/* o autofill do navegador pinta fundo claro e texto escuro por conta própria;
+   no tema escuro isso deixava o campo ilegível */
+.login-gate input:-webkit-autofill,
+.login-gate input:-webkit-autofill:hover,
+.login-gate input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--lg-texto);
+  -webkit-box-shadow: 0 0 0 60px var(--lg-superficie) inset;
+  caret-color: var(--lg-texto);
+}
+
+.login-senha input { padding-right: 50px; }
+.login-olho {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--lg-suave);
+  cursor: pointer;
+}
+.login-olho:hover { color: var(--lg-texto); background: var(--lg-linha); }
+.login-olho:focus-visible { outline: 2px solid var(--lg-primaria); outline-offset: 1px; }
+.login-olho svg {
+  width: 18px; height: 18px;
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.login-olho .olho-esconder { display: none; }
+.login-olho[aria-pressed="true"] .olho-ver { display: none; }
+.login-olho[aria-pressed="true"] .olho-esconder { display: block; }
+
+.login-entrar {
+  position: relative;
+  margin-top: 4px;
+  padding: 14px 18px;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--lg-sobre-primaria);
+  background: linear-gradient(135deg, var(--lg-primaria), var(--lg-primaria-forte));
+  border: 0;
+  border-radius: 14px;
+  cursor: pointer;
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--lg-primaria) 28%, transparent);
+  transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
+}
+.login-entrar:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px color-mix(in srgb, var(--lg-primaria) 34%, transparent);
+}
+.login-entrar:active:not(:disabled) { transform: translateY(0); }
+.login-entrar:focus-visible { outline: 2px solid var(--lg-primaria); outline-offset: 3px; }
+.login-entrar:disabled { cursor: progress; filter: saturate(0.75) brightness(0.96); box-shadow: none; }
+
+.login-entrar-girando { display: none; }
+.login-entrar.is-carregando .login-entrar-texto { visibility: hidden; }
+.login-entrar.is-carregando .login-entrar-girando {
+  display: block;
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 18px;
+  height: 18px;
+  border: 2px solid color-mix(in srgb, var(--lg-sobre-primaria) 35%, transparent);
+  border-top-color: var(--lg-sobre-primaria);
+  border-radius: 50%;
+  animation: login-girar 0.7s linear infinite;
+}
+@keyframes login-girar { to { transform: rotate(360deg); } }
+
+/* A mensagem precisa ser legível nos dois temas — era aqui que o erro sumia. */
+.login-status {
+  margin: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 0.87rem;
+  line-height: 1.5;
+  color: var(--lg-suave);
+}
+.login-status:empty { display: none; }
+.login-status.is-erro {
+  padding: 11px 14px;
+  border-radius: 13px;
+  color: var(--lg-erro);
+  background: var(--lg-erro-fundo);
+  border: 1px solid var(--lg-erro-borda);
+  font-weight: 600;
+  text-align: left;
+}
+.login-status.is-ok { color: var(--lg-ok); font-weight: 600; }
+
+/* ---------- seletor de tema, junto do conteúdo ---------- */
+.login-tema {
   display: flex;
   gap: 2px;
   padding: 3px;
   border-radius: 999px;
   background: var(--lg-superficie);
   border: 1px solid var(--lg-linha);
-  box-shadow: 0 6px 18px rgba(8, 30, 52, 0.1);
+  box-shadow: var(--lg-sombra);
 }
 .login-tema-op {
   display: grid;
@@ -79,303 +309,55 @@
   transition: background 0.16s ease, color 0.16s ease;
 }
 .login-tema-op svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.9;
-  stroke-linejoin: round;
+  width: 16px; height: 16px;
+  fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linejoin: round;
 }
 .login-tema-op[data-theme-choice="dark"] svg { fill: currentColor; stroke: none; }
 .login-tema-op:hover { color: var(--lg-texto); background: var(--lg-campo); }
-.login-tema-op[aria-checked="true"] { background: var(--lg-primaria); color: #fff; }
+.login-tema-op[aria-checked="true"] { background: var(--lg-primaria); color: var(--lg-sobre-primaria); }
 .login-tema-op:focus-visible { outline: 2px solid var(--lg-primaria); outline-offset: 2px; }
 
-/* ---------- lado da marca ---------- */
-.login-marca {
-  position: relative;
-  padding: 48px;
-  overflow: hidden;
-  color: #eaf6ff;
-  background: linear-gradient(150deg, #082b43 0%, #0d3855 52%, #14507a 100%);
+/* ---------- responsivo ---------- */
+@media (max-width: 420px) {
+  .login-gate { padding: 22px 16px; }
+  .login-caixa { gap: 22px; }
+  .login-anel { width: 92px; height: 92px; }
+  .login-anel-raio { width: 55px; height: 55px; border-radius: 19px; }
+  .login-anel-raio svg { width: 25px; height: 25px; }
+  .login-gate h1 { font-size: 1.2rem; }
 }
-/* brilho ciano que sugere energia, sem virar visual genérico de IA */
-.login-marca-fundo {
-  position: absolute;
-  inset: -30%;
-  background:
-    radial-gradient(38% 34% at 78% 14%, rgba(39, 194, 230, 0.34), transparent 70%),
-    radial-gradient(44% 38% at 12% 88%, rgba(36, 141, 209, 0.32), transparent 72%);
-  filter: blur(6px);
+/* Tela baixa (celular deitado). O objetivo é caber sem rolar: barra de
+   rolagem lateral rouba ~15px e desloca a coluna do centro, que é
+   justamente o que a tela não pode fazer. */
+@media (max-height: 620px) {
+  .login-gate { padding: 20px; }
+  .login-caixa { gap: 16px; }
+  .login-anel { width: 74px; height: 74px; }
+  .login-anel-raio { width: 45px; height: 45px; border-radius: 16px; }
+  .login-anel-raio svg { width: 21px; height: 21px; }
+  .login-anel-pct { display: none; }
+  .login-gate h1 { font-size: 1.1rem; }
 }
-.login-marca-conteudo {
-  position: relative;
-  display: grid;
-  align-content: space-between;
-  gap: 40px;
-  height: 100%;
-}
-.login-marca-topo { display: flex; align-items: center; gap: 12px; }
-.login-marca-selo {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.13);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-.login-marca-selo svg { width: 19px; height: 19px; color: var(--lg-ciano); }
-.login-marca-nome { font-weight: 700; letter-spacing: -0.01em; }
-
-.login-marca-frase h2 {
-  margin: 0 0 14px;
-  font-size: clamp(2rem, 3.4vw, 3.1rem);
-  line-height: 1.05;
-  letter-spacing: -0.035em;
-  font-weight: 800;
-}
-.login-marca-frase p {
-  margin: 0;
-  max-width: 34ch;
-  font-size: 1.02rem;
-  line-height: 1.6;
-  color: rgba(234, 246, 255, 0.76);
+@media (max-height: 460px) {
+  .login-gate { padding: 14px 20px; }
+  .login-caixa { gap: 12px; }
+  .login-marca { gap: 8px; }
+  .login-anel { width: 54px; height: 54px; }
+  .login-anel-raio { width: 34px; height: 34px; border-radius: 12px; }
+  .login-anel-raio svg { width: 16px; height: 16px; }
+  .login-anel-trilho, .login-anel-nivel { stroke-width: 7; }
+  .login-gate h1 { font-size: 1rem; }
+  .login-gate input,
+  .login-entrar { padding-top: 11px; padding-bottom: 11px; }
+  .login-form { gap: 8px; }
+  .login-tema-op { width: 28px; height: 28px; }
 }
 
-/* barra de carga: o próprio produto desenhado, não enfeite abstrato */
-.login-carga {
-  display: grid;
-  gap: 10px;
-  padding: 18px 20px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(8px);
-  max-width: 380px;
-}
-.login-carga-topo,
-.login-carga-pe {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-}
-.login-carga-topo { font-size: 0.88rem; font-weight: 600; }
-.login-carga-pct { color: var(--lg-ciano); font-weight: 800; }
-.login-carga-pe { font-size: 0.76rem; color: rgba(234, 246, 255, 0.62); }
-.login-carga-trilho {
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
-  overflow: hidden;
-}
-.login-carga-nivel {
-  height: 100%;
-  width: 80%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--lg-primaria), var(--lg-ciano));
-  animation: login-carregando 5.5s ease-in-out infinite;
-}
-@keyframes login-carregando {
-  0%   { width: 12%; }
-  55%  { width: 80%; }
-  75%  { width: 80%; }
-  100% { width: 12%; }
-}
 @media (prefers-reduced-motion: reduce) {
-  .login-carga-nivel { animation: none; }
-}
-
-/* ---------- lado do formulário ---------- */
-.login-painel {
-  display: grid;
-  place-items: center;
-  padding: 40px 24px;
-  min-height: 100vh;
-}
-.login-card {
-  width: min(400px, 100%);
-  display: grid;
-  gap: 22px;
-}
-.login-card-marca {
-  display: none;               /* no desktop a marca já está do lado esquerdo */
-  align-items: center;
-  gap: 10px;
-  font-weight: 700;
-}
-.login-card-selo {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
-  background: var(--lg-primaria);
-  color: #fff;
-}
-.login-card-selo svg { width: 17px; height: 17px; }
-
-.login-cabeca { display: grid; gap: 6px; }
-.login-eyebrow {
-  margin: 0;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--lg-primaria);
-}
-.login-gate h1 {
-  margin: 0;
-  font-size: 1.7rem;
-  line-height: 1.15;
-  letter-spacing: -0.03em;
-  font-weight: 800;
-  color: var(--lg-texto);      /* a referência deixava branco: sumia no card claro */
-}
-.login-sub { margin: 0; color: var(--lg-suave); font-size: 0.94rem; }
-
-.login-form { display: grid; gap: 16px; }
-.login-campo { display: grid; gap: 7px; }
-.login-campo label { font-size: 0.8rem; font-weight: 650; color: var(--lg-suave); }
-
-.login-gate input[type="email"],
-.login-gate input[type="password"],
-.login-gate input[type="text"] {
-  width: 100%;
-  padding: 13px 15px;
-  font: inherit;
-  font-size: 0.95rem;
-  color: var(--lg-texto);
-  background: var(--lg-campo);
-  border: 1px solid var(--lg-linha);
-  border-radius: 13px;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
-}
-.login-gate input::placeholder { color: var(--lg-suave); opacity: 0.68; }
-.login-gate input:focus {
-  outline: none;
-  background: var(--lg-superficie);
-  border-color: var(--lg-primaria);
-  box-shadow: 0 0 0 3px rgba(36, 141, 209, 0.16);
-}
-/* o autofill do navegador pinta fundo branco e texto escuro por conta
-   própria — no tema escuro isso deixava o campo ilegível */
-.login-gate input:-webkit-autofill,
-.login-gate input:-webkit-autofill:focus {
-  -webkit-text-fill-color: var(--lg-texto);
-  -webkit-box-shadow: 0 0 0 60px var(--lg-campo) inset;
-  caret-color: var(--lg-texto);
-}
-
-.login-senha { position: relative; }
-.login-senha input { padding-right: 48px; }
-.login-olho {
-  position: absolute;
-  top: 50%;
-  right: 6px;
-  transform: translateY(-50%);
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--lg-suave);
-  cursor: pointer;
-}
-.login-olho:hover { color: var(--lg-texto); background: var(--lg-linha); }
-.login-olho:focus-visible { outline: 2px solid var(--lg-primaria); outline-offset: 1px; }
-.login-olho svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.login-olho .olho-esconder { display: none; }
-.login-olho[aria-pressed="true"] .olho-ver { display: none; }
-.login-olho[aria-pressed="true"] .olho-esconder { display: block; }
-
-.login-entrar {
-  position: relative;
-  margin-top: 4px;
-  padding: 14px 18px;
-  font: inherit;
-  font-size: 0.96rem;
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(135deg, var(--lg-primaria), var(--lg-primaria-forte));
-  border: 0;
-  border-radius: 13px;
-  cursor: pointer;
-  box-shadow: 0 8px 20px rgba(36, 141, 209, 0.26);
-  transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
-}
-.login-entrar:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 26px rgba(36, 141, 209, 0.32);
-}
-.login-entrar:active:not(:disabled) { transform: translateY(0); }
-.login-entrar:focus-visible { outline: 2px solid var(--lg-primaria); outline-offset: 3px; }
-.login-entrar:disabled { cursor: progress; filter: saturate(0.7) brightness(0.95); box-shadow: none; }
-
-.login-entrar-girando { display: none; }
-.login-entrar.is-carregando .login-entrar-texto { visibility: hidden; }
-.login-entrar.is-carregando .login-entrar-girando {
-  display: block;
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: login-girar 0.7s linear infinite;
-}
-@keyframes login-girar { to { transform: rotate(360deg); } }
-
-/* A mensagem precisa ser legível nos dois temas — era aqui que o erro sumia. */
-.login-status {
-  margin: 0;
-  font-size: 0.88rem;
-  line-height: 1.5;
-  color: var(--lg-suave);
-}
-.login-status:empty { display: none; }
-.login-status.is-erro {
-  padding: 11px 14px;
-  border-radius: 12px;
-  color: var(--lg-erro);
-  background: var(--lg-erro-fundo);
-  border: 1px solid var(--lg-erro-borda);
-  font-weight: 600;
-}
-.login-status.is-ok { color: var(--lg-ok); font-weight: 600; }
-
-.login-rodape {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--lg-suave);
-  opacity: 0.85;
-}
-
-/* ---------- telas estreitas ---------- */
-@media (max-width: 900px) {
-  .login-gate { grid-template-columns: 1fr; }
-  .login-marca { display: none; }
-  .login-card-marca { display: flex; }
-  .login-painel { padding: 74px 20px 40px; }
-}
-@media (max-height: 660px) and (min-width: 901px) {
-  .login-marca { padding: 32px; }
-  .login-marca-frase h2 { font-size: 2rem; }
-  .login-carga { display: none; }
+  .login-anel-svg,
+  .login-anel-raio,
+  .login-anel-nivel,
+  .login-entrar-girando { animation: none !important; transition: none !important; }
 }
 
 /* Enquanto a sessão não é conhecida, o painel não pode piscar por trás da
