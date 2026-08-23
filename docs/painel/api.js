@@ -14,11 +14,23 @@
 
 const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 
+/* Onde a API mora, publicada. Quando o serviço subir no Render, é esta linha
+   que muda — e só ela. Enquanto estiver vazia, a versão publicada roda em
+   modo demonstração, que é o comportamento correto: melhor dizer "isto é
+   demonstração" do que tentar falar com um servidor que não existe. */
+const API_PUBLICADA = "";
+
 export const BASE = (() => {
+  // ?api=... na URL vence tudo, e fica gravado: serve para apontar o painel
+  // publicado para uma API local durante um teste, sem republicar nada
   const forcado = new URLSearchParams(location.search).get("api");
-  if (forcado) { try { localStorage.setItem("pr.api", forcado); } catch {} return forcado; }
+  if (forcado !== null){
+    try { forcado ? localStorage.setItem("pr.api", forcado) : localStorage.removeItem("pr.api"); } catch {}
+    if (forcado) return forcado;
+  }
   try { const salvo = localStorage.getItem("pr.api"); if (salvo) return salvo; } catch {}
-  return local ? "http://127.0.0.1:8000" : "/api";
+  if (local) return "http://127.0.0.1:8000";
+  return API_PUBLICADA;   // vazio => sem servidor => modo demonstração
 })();
 
 export class ErroApi extends Error {
@@ -28,6 +40,7 @@ export class ErroApi extends Error {
 }
 
 async function pedir(caminho, {metodo = "GET", corpo} = {}){
+  if (!BASE) throw new ErroApi(0, "sem servidor configurado");
   let r;
   try {
     r = await fetch(`${BASE}${caminho}`, {

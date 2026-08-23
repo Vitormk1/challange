@@ -1,0 +1,50 @@
+# Infraestrutura como arquivo, não como cliques.
+#
+# O Render lê isto e monta o serviço sozinho. A vantagem de estar no
+# repositório é que o próximo que for subir uma cópia não precisa adivinhar
+# nem lembrar o que foi configurado na tela.
+#
+# Como usar: Render → New → Blueprint → aponta para este repositório.
+# As chaves marcadas `sync: false` NÃO ficam aqui — o Render pergunta e
+# guarda no cofre dele. Segredo em arquivo versionado é segredo vazado.
+
+services:
+  - type: web
+    name: praca-recarga-api
+    runtime: python
+    plan: free
+    region: oregon          # mais perto do Aiven; ver comentário abaixo
+    rootDir: api
+    buildCommand: pip install -r ../requirements.txt
+    # 1 worker de propósito: o plano gratuito tem 512 MB, e cada worker abre
+    # seu próprio pool de conexões contra o Postgres.
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /saude
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+
+      # ---- segredos: preenchidos no painel do Render, nunca aqui ----
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+
+      - key: OPENROUTER_MODEL
+        value: mistralai/mistral-small-24b-instruct-2501
+
+      # De onde o navegador pode chamar esta API. Trocar pelo endereço real
+      # do GitHub Pages.
+      - key: ORIGENS_PERMITIDAS
+        value: https://vitormk1.github.io
+
+      # Em HTTPS o cookie de sessão exige HTTPS.
+      - key: COOKIE_SEGURO
+        value: "1"
+
+      # O painel fica em github.io e a API em onrender.com — domínios
+      # diferentes. Um cookie SameSite=Lax simplesmente não é enviado nesse
+      # caso, e o login "funcionaria" sem nunca manter a sessão. None+Secure
+      # é o que faz sessão entre domínios existir.
+      - key: COOKIE_SAMESITE
+        value: none

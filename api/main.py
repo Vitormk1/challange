@@ -216,7 +216,13 @@ def login(resp: Response, corpo: dict = Body(...)):
         cur.execute("UPDATE usuarios SET ultimo_acesso = now() WHERE id = %s", (u["id"],))
         con.commit()
 
-    resp.set_cookie(COOKIE, token, httponly=True, samesite="lax",
+    # Painel no GitHub Pages e API no Render são domínios diferentes, e um
+    # cookie SameSite=Lax não é enviado entre domínios: o login responderia
+    # 200 e a sessão nunca colaria. None exige Secure, então os dois andam
+    # juntos. Em desenvolvimento (tudo em localhost) o padrão Lax é melhor,
+    # porque não precisa de HTTPS.
+    resp.set_cookie(COOKIE, token, httponly=True,
+                    samesite=os.environ.get("COOKIE_SAMESITE", "lax").lower(),
                     max_age=60 * 60 * 24 * 14,
                     secure=os.environ.get("COOKIE_SEGURO", "") == "1")
     return eu(usuario_atual(token))
@@ -229,7 +235,10 @@ def logout(resp: Response, praca_sessao: str | None = Cookie(default=None)):
         with conectar() as con, con.cursor() as cur:
             cur.execute("DELETE FROM sessoes_web WHERE token = %s", (praca_sessao,))
             con.commit()
-    resp.delete_cookie(COOKIE)
+    # delete_cookie precisa dos mesmos atributos do set_cookie, senão o
+    # navegador entende que é outro cookie e não apaga nada
+    resp.delete_cookie(COOKIE, samesite=os.environ.get("COOKIE_SAMESITE", "lax").lower(),
+                       secure=os.environ.get("COOKIE_SEGURO", "") == "1")
     return {"ok": True}
 
 
@@ -764,4 +773,14 @@ def perguntar(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
 
 @app.get("/saude")
 def saude():
-    return {"ok": True, "ia": bool(os.environ.get("OPENROUTER_API_KEY"))}
+    """Sonda do Render, e conferência rápida do que subiu configurado."""
+    try:
+        consultar("SELECT 1 AS ok")
+        banco = True
+    except Exception:
+        banco = False
+    return {"ok": banco, "banco": banco,
+            "ia": bool(os.environ.get("OPENROUTER_API_KEY")),
+            "origens": os.environ.get("ORIGENS_PERMITIDAS", ""),
+            "cookie": {"samesite": os.environ.get("COOKIE_SAMESITE", "lax"),
+                       "secure": os.environ.get("COOKIE_SEGURO", "") == "1"}}

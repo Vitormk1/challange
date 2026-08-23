@@ -35,9 +35,18 @@ api/
   main.py      a API: login, dados por papel, painéis salvos e o assistente
   seed.py      trinta dias de operação de três lojas, para demonstração
   exportar.py  despeja o banco em docs/painel/dados.json (modo demonstração)
+  trocar_senha.py  troca a senha de um usuário, antes de publicar
 ai/
   charge_curve.py   previsão de tempo de recarga (o núcleo do produto)
 ```
+
+---
+
+## Publicar
+
+O painel vive no GitHub Pages; a API precisa de um servidor que execute Python.
+O passo a passo, com a escolha de hospedagem explicada e as armadilhas de cookie
+entre domínios, está em [HOSPEDAGEM.md](HOSPEDAGEM.md).
 
 ---
 
