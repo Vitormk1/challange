@@ -19,7 +19,7 @@
 
 import "./static/js/aiEntity.js";
 import { createTourModule } from "./static/js/tour.js";
-import { api, ErroApi } from "./api.js";
+import { api, BASE, ErroApi } from "./api.js";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -346,12 +346,13 @@ function toast(msg, tipo = "success"){
   el.className = `toast is-${tipo}`;
   el.innerHTML = `<span>${esc(msg)}</span>`;
   $("#toastStack").append(el);
-  setTimeout(() => { el.classList.add("is-leaving"); setTimeout(() => el.remove(), 400); }, 3600);
+  const vida = tipo === "error" ? 8000 : 3600;   // recusa explicada precisa de tempo de leitura
+  setTimeout(() => { el.classList.add("is-leaving"); setTimeout(() => el.remove(), 400); }, vida);
 }
 /* Erro do servidor vira frase, e sessão caída volta para o login em vez de
    deixar a pessoa clicando em algo que não vai funcionar. */
 function avisarErro(erro, oQue){
-  if (erro instanceof ErroApi && erro.semSessao){ mostrarLogin("Sua sessão expirou. Entre de novo."); return; }
+  if (erro instanceof ErroApi && erro.semSessao){ mostrarLogin("Sua sessão expirou. Entre de novo.", "erro"); return; }
   toast(erro instanceof ErroApi ? erro.message : `Não consegui ${oQue}.`, "error");
   console.error(oQue, erro);
 }
@@ -359,45 +360,67 @@ function avisarErro(erro, oQue){
 /* ==========================================================================
    login e logout
    ========================================================================== */
-function mostrarLogin(mensagem = ""){
+function statusLogin(texto, tipo = ""){
+  const st = $("#loginStatus");
+  st.textContent = texto;
+  st.classList.toggle("is-erro", tipo === "erro");
+  st.classList.toggle("is-ok", tipo === "ok");
+}
+function mostrarLogin(mensagem = "", tipo = "erro"){
   state.usuario = null;
   document.body.classList.add("sem-sessao");
   document.body.classList.remove("primary-loading");
   esconderCarregando();
-  const porta = $("#loginGate");
-  porta.hidden = false;
-  const st = $("#loginStatus");
-  st.textContent = mensagem;
-  st.classList.toggle("is-error", Boolean(mensagem));
+  $("#loginGate").hidden = false;
+  statusLogin(mensagem, mensagem ? tipo : "");
   $("#loginEmail").focus();
 }
+/* A mensagem tem que dizer o que fazer, não só que deu errado. */
+function explicarFalha(erro){
+  if (!(erro instanceof ErroApi)) return "Não consegui entrar. Tente de novo.";
+  if (erro.semRede){
+    return BASE.startsWith("http")
+      ? `Não achei o servidor em ${BASE}. Suba a API: uvicorn main:app --port 8000 --app-dir api`
+      : "Esta página está publicada sem servidor, então o login não funciona aqui. "
+        + "Abra o painel na máquina onde a API está rodando.";
+  }
+  if (erro.status === 401) return "E-mail ou senha incorretos.";
+  if (erro.status >= 500) return "O servidor respondeu com erro. Veja o terminal onde a API está rodando.";
+  return erro.message || "Não consegui entrar.";
+}
 function initLogin(){
-  const form = $("#loginForm"), botao = $("#loginButton"), st = $("#loginStatus");
-  $("#loginSenhaToggle").onclick = () => {
+  const form = $("#loginForm"), botao = $("#loginButton");
+
+  const olho = $("#loginSenhaToggle");
+  olho.onclick = () => {
     const campo = $("#loginSenha");
     const vendo = campo.type === "text";
     campo.type = vendo ? "password" : "text";
-    $("#loginSenhaToggle").setAttribute("aria-label", vendo ? "Mostrar senha" : "Ocultar senha");
+    olho.setAttribute("aria-pressed", String(!vendo));
+    olho.setAttribute("aria-label", vendo ? "Mostrar senha" : "Ocultar senha");
     campo.focus();
   };
+
   form.onsubmit = async ev => {
     ev.preventDefault();
+    const email = $("#loginEmail").value.trim();
+    const senha = $("#loginSenha").value;
+    if (!email || !senha){ statusLogin("Preencha o e-mail e a senha.", "erro"); return; }
+
     botao.disabled = true;
-    st.classList.remove("is-error");
-    st.textContent = "Entrando...";
+    botao.classList.add("is-carregando");
+    statusLogin("");
     try {
-      const sessao = await api.entrar($("#loginEmail").value.trim(), $("#loginSenha").value);
+      const sessao = await api.entrar(email, senha);
       $("#loginSenha").value = "";
-      st.textContent = "";
       $("#loginGate").hidden = true;
       await entrarNoPainel(sessao);
     } catch (erro){
-      st.classList.add("is-error");
-      st.textContent = erro instanceof ErroApi && erro.semRede
-        ? "O servidor não respondeu. Rode a API em api/main.py."
-        : (erro.message || "Não consegui entrar.");
+      statusLogin(explicarFalha(erro), "erro");
+      console.error("login:", erro);
     } finally {
       botao.disabled = false;
+      botao.classList.remove("is-carregando");
     }
   };
 }
@@ -424,7 +447,7 @@ function initLogout(){
     state.tabela = {}; state.conversa = [];
     state.paineis = { ativo:null, editando:false, menuAberto:false, criando:false, bibliotecaAberta:false };
     $("#globalAiChatMessages").innerHTML = "";
-    mostrarLogin("Sessão encerrada.");
+    mostrarLogin("Sessão encerrada.", "ok");
   };
 }
 
@@ -842,6 +865,8 @@ async function excluirEditor(){
     renderTudo();
     toast(`${ids.length} registro(s) excluído(s).`);
   } catch (erro){
+    // 409 aqui é a guarda de histórico: a frase do servidor diz o que fazer,
+    // então ela vale mais que qualquer mensagem genérica nossa
     avisarErro(erro, "excluir");
   } finally {
     botao.disabled = false;
@@ -944,8 +969,19 @@ function guardarLayout(p, cards){
   p.cards = cards;
   if (state.demo){ gravar("pr.demo.paineis", state.dados.paineis); return; }
   clearTimeout(gravacaoPendente);
-  gravacaoPendente = setTimeout(() => {
-    api.alterarPainel(p.id, {cards}).catch(erro => avisarErro(erro, "salvar o layout"));
+  gravacaoPendente = setTimeout(async () => {
+    try {
+      // O servidor normaliza o layout e devolve o que de fato gravou. Adotar
+      // a resposta é o que faz um card recusado aparecer como recusado, em
+      // vez de continuar na tela até o próximo recarregamento e sumir lá.
+      const salvo = await api.alterarPainel(p.id, {cards});
+      const antes = JSON.stringify(p.cards);
+      p.cards = salvo.cards;
+      if (JSON.stringify(salvo.cards) !== antes){
+        toast("Parte do layout não foi aceita pelo servidor.", "error");
+        if (state.section === "painel") renderPainel();
+      }
+    } catch (erro){ avisarErro(erro, "salvar o layout"); }
   }, 500);
 }
 const lerCards = () => [...$$("#dashboardGridLarge [data-dashboard-card]"),
@@ -1536,7 +1572,7 @@ function initAssistente(){
       dizer(r.resposta, "assistant");
       state.conversa.push({papel:"assistant", texto:r.resposta});
     } catch (erro){
-      if (erro instanceof ErroApi && erro.semSessao) return mostrarLogin("Sua sessão expirou. Entre de novo.");
+      if (erro instanceof ErroApi && erro.semSessao) return mostrarLogin("Sua sessão expirou. Entre de novo.", "erro");
       dizer(erro instanceof ErroApi && erro.status === 503
         ? "O assistente não está configurado neste servidor (falta a chave da OpenRouter)."
         : "Não consegui responder agora. Tente de novo em instantes.", "assistant");

@@ -41,6 +41,15 @@ ai/
 
 ---
 
+## Arquitetura de dados
+
+O mapa completo de como a informação se move entre o painel e o Postgres — tabelas, quem escreve em
+cada uma, regras de exclusão, e os fluxos de ponta a ponta — está em
+[ARQUITETURA_DE_DADOS.md](ARQUITETURA_DE_DADOS.md). Vale ler antes de mexer no banco ou de criar
+seção nova.
+
+---
+
 ## Configuração
 
 ```bash

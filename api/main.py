@@ -27,8 +27,10 @@ from typing import Any
 
 import psycopg
 import requests
-from fastapi import Body, Cookie, Depends, FastAPI, HTTPException, Response
+from fastapi import Body, Cookie, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from psycopg import sql
 
 from auth import (conferir_senha, novo_token, permissoes, pode,
                   secoes_bloqueadas, validade)
@@ -53,6 +55,52 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# --------------------------------------------------------------- erros ------
+# Erro de banco vira frase em português, não traceback. Sem isto, tentar
+# excluir um carregador com histórico devolvia 500 e um texto em inglês sobre
+# violação de chave — o lojista não tem o que fazer com isso.
+NOMES_DE_TABELA = {
+    "sessoes": "recargas registradas", "leituras": "leituras do medidor",
+    "cupons": "cupons emitidos", "vendas": "vendas atribuídas",
+    "carregadores": "carregadores", "clientes": "clientes",
+    "paineis": "painéis", "estabelecimentos": "estabelecimentos",
+    "usuarios": "usuários",
+}
+
+
+def _tabela_amigavel(texto: str) -> str:
+    for chave, nome in NOMES_DE_TABELA.items():
+        if f'"{chave}"' in texto or f" {chave} " in texto:
+            return nome
+    return "outros registros"
+
+
+@app.exception_handler(psycopg.errors.ForeignKeyViolation)
+def erro_chave_estrangeira(request: Request, erro: psycopg.errors.ForeignKeyViolation):
+    return JSONResponse(status_code=409, content={"detail":
+        f"Não dá para excluir: há {_tabela_amigavel(str(erro))} apontando para este registro. "
+        "Se a intenção é tirar de operação, desative em vez de excluir."})
+
+
+@app.exception_handler(psycopg.errors.UniqueViolation)
+def erro_duplicado(request: Request, erro: psycopg.errors.UniqueViolation):
+    return JSONResponse(status_code=409,
+                        content={"detail": "Já existe um registro com esse valor único."})
+
+
+@app.exception_handler(psycopg.errors.CheckViolation)
+def erro_regra(request: Request, erro: psycopg.errors.CheckViolation):
+    return JSONResponse(status_code=409, content={"detail":
+        "O banco recusou: o valor está fora do que a regra permite."})
+
+
+@app.exception_handler(psycopg.OperationalError)
+def erro_banco_fora(request: Request, erro: psycopg.OperationalError):
+    # inclui o esgotamento do pool numa rajada de requisições
+    return JSONResponse(status_code=503, content={"detail":
+        "O banco não respondeu agora. Tente de novo em alguns segundos."})
 
 
 # ------------------------------------------------------------------ util ---
@@ -112,11 +160,15 @@ def lojas_do_usuario(u: dict) -> list[int]:
     if "_lojas" in u:
         return u["_lojas"]
     if u["papel"] == "main":
-        ids = [l["id"] for l in consultar("SELECT id FROM estabelecimentos ORDER BY id")]
+        ids = [l["id"] for l in consultar(
+            "SELECT id FROM estabelecimentos WHERE ativo ORDER BY id")]
     else:
+        # loja desativada some da lista na requisição seguinte, do mesmo jeito
+        # que um usuário desativado perde a sessão
         ids = [l["estabelecimento_id"] for l in consultar(
-            "SELECT estabelecimento_id FROM usuarios_estabelecimentos "
-            " WHERE usuario_id = %s ORDER BY estabelecimento_id", (u["id"],))]
+            "SELECT ue.estabelecimento_id FROM usuarios_estabelecimentos ue "
+            "  JOIN estabelecimentos e ON e.id = ue.estabelecimento_id AND e.ativo "
+            " WHERE ue.usuario_id = %s ORDER BY 1", (u["id"],))]
     u["_lojas"] = ids
     return ids
 
@@ -275,9 +327,32 @@ def _colunas_validas(tabela: str, corpo: dict) -> dict:
 
 def _confere_dono(tabela: str, registro_id: int, lojas: list[int]) -> None:
     coluna = "id" if tabela == "estabelecimentos" else "estabelecimento_id"
-    linhas = consultar(f"SELECT {coluna} AS loja FROM {tabela} WHERE id = %s", (registro_id,))
+    comando = sql.SQL("SELECT {} AS loja FROM {} WHERE id = %s").format(
+        sql.Identifier(coluna), sql.Identifier(tabela))
+    linhas = consultar(comando.as_string(), (registro_id,))
     if not linhas or linhas[0]["loja"] not in lojas:
         raise HTTPException(404, "registro não encontrado")
+
+
+# Quantas linhas de histórico dependem deste cadastro. É o que decide entre
+# "pode excluir" e "desative em vez disso".
+DEPENDENCIAS = {
+    "carregadores": [("sessoes", "carregador_id", "recargas"),
+                     ("leituras", "carregador_id", "leituras")],
+    "clientes":     [("sessoes", "cliente_id", "recargas")],
+}
+
+
+def _historico(tabela: str, registro_id: int) -> list[str]:
+    achados = []
+    for filha, coluna, rotulo in DEPENDENCIAS.get(tabela, []):
+        n = consultar(
+            sql.SQL("SELECT count(*) AS n FROM {} WHERE {} = %s")
+               .format(sql.Identifier(filha), sql.Identifier(coluna)).as_string(),
+            (registro_id,))[0]["n"]
+        if n:
+            achados.append(f"{n} {rotulo}")
+    return achados
 
 
 @app.post("/registros/{tabela}")
@@ -288,14 +363,17 @@ def criar(tabela: str, corpo: dict = Body(...), u: dict = Depends(usuario_atual)
         campos["estabelecimento_id"] = exigir_loja(u, int(corpo["estabelecimento_id"]))
     elif u["papel"] != "main":
         raise HTTPException(403, "só o desenvolvedor cria estabelecimento")
-    cols = ", ".join(campos)
-    marcas = ",".join(["%s"] * len(campos))
+    # sql.Identifier em vez de f-string: o nome vem da URL, e mesmo estando
+    # numa lista fechada, montar SQL por concatenação é um hábito que uma hora
+    # escapa. Aqui o psycopg escapa o identificador por conta própria.
+    comando = sql.SQL("INSERT INTO {tabela} ({colunas}) VALUES ({valores}) RETURNING *").format(
+        tabela=sql.Identifier(tabela),
+        colunas=sql.SQL(", ").join(map(sql.Identifier, campos)),
+        valores=sql.SQL(", ").join(sql.Placeholder() * len(campos)),
+    )
     with conectar() as con, con.cursor() as cur:
-        cur.execute(f"INSERT INTO {tabela} ({cols}) VALUES ({marcas}) RETURNING *",
-                    list(campos.values()))
-        linha = limpar(cur.fetchone())
-        con.commit()
-    return linha
+        cur.execute(comando, list(campos.values()))
+        return limpar(cur.fetchone())
 
 
 @app.patch("/registros/{tabela}/{registro_id}")
@@ -304,13 +382,14 @@ def alterar(tabela: str, registro_id: int, corpo: dict = Body(...),
     exigir(u, "editar_dados")
     campos = _colunas_validas(tabela, corpo)
     _confere_dono(tabela, registro_id, lojas_do_usuario(u))
-    sets = ", ".join(f"{k} = %s" for k in campos)
+    comando = sql.SQL("UPDATE {tabela} SET {atribuicoes} WHERE id = %s RETURNING *").format(
+        tabela=sql.Identifier(tabela),
+        atribuicoes=sql.SQL(", ").join(
+            sql.SQL("{} = {}").format(sql.Identifier(k), sql.Placeholder()) for k in campos),
+    )
     with conectar() as con, con.cursor() as cur:
-        cur.execute(f"UPDATE {tabela} SET {sets} WHERE id = %s RETURNING *",
-                    [*campos.values(), registro_id])
-        linha = limpar(cur.fetchone())
-        con.commit()
-    return linha
+        cur.execute(comando, [*campos.values(), registro_id])
+        return limpar(cur.fetchone())
 
 
 @app.delete("/registros/{tabela}/{registro_id}")
@@ -319,13 +398,67 @@ def excluir(tabela: str, registro_id: int, u: dict = Depends(usuario_atual)):
     if tabela not in CAMPOS_EDITAVEIS:
         raise HTTPException(400, f"tabela {tabela} não é editável pelo painel")
     _confere_dono(tabela, registro_id, lojas_do_usuario(u))
+
+    # Sessão e leitura são o que aconteceu de fato; carregador é cadastro.
+    # Apagar o cadastro não pode levar o histórico junto — o banco agora
+    # recusa, e aqui a recusa vira uma frase que diz o que fazer.
+    pendente = _historico(tabela, registro_id)
+    if pendente:
+        raise HTTPException(409,
+            f"Este registro tem {' e '.join(pendente)} no histórico e não pode ser excluído. "
+            "Marque como inativo para tirar de operação sem perder o que já aconteceu.")
+
+    comando = sql.SQL("DELETE FROM {} WHERE id = %s").format(sql.Identifier(tabela))
     with conectar() as con, con.cursor() as cur:
-        cur.execute(f"DELETE FROM {tabela} WHERE id = %s", (registro_id,))
-        con.commit()
+        cur.execute(comando, (registro_id,))
     return {"ok": True, "id": registro_id}
 
 
 # ---------------------------------------------------------------- painéis ---
+# O layout chega como JSON livre do navegador, e o Postgres só confere se é
+# JSON válido — não a forma de dentro. Sem normalizar aqui, qualquer coisa
+# entrava em `paineis.cards` e voltava para a tela na próxima leitura.
+#
+# A resposta devolve o layout já normalizado, e o painel adota o que voltou.
+# É assim que um card descartado fica visível em vez de "salvei e sumiu".
+CARDS_PERMITIDOS = {
+    "retorno", "teto", "horas", "pontos", "previsao",
+    "lucro", "vendas", "sessoes", "clientes", "energia", "ticket", "cupons",
+}
+GRUPOS_PERMITIDOS = {"large", "small"}
+COLUNAS_GRADE, MIN_COLS, MIN_ROWS, MAX_ROWS = 20, 4, 2, 8
+
+
+def normalizar_cards(bruto) -> list[dict]:
+    if not isinstance(bruto, list):
+        return []
+    vistos, saida = set(), []
+    for item in bruto[:40]:
+        if isinstance(item, str):
+            item = {"id": item}
+        if not isinstance(item, dict):
+            continue
+        cid = item.get("id")
+        if cid not in CARDS_PERMITIDOS or cid in vistos:
+            continue
+        vistos.add(cid)
+        grupo = item.get("grupo")
+        try:
+            cols = int(item.get("cols", 5))
+            linhas = int(item.get("rows", 2))
+        except (TypeError, ValueError):
+            cols, linhas = 5, 2
+        config = item.get("config")
+        saida.append({
+            "id": cid,
+            "grupo": grupo if grupo in GRUPOS_PERMITIDOS else "small",
+            "cols": max(MIN_COLS, min(cols, COLUNAS_GRADE)),
+            "rows": max(MIN_ROWS, min(linhas, MAX_ROWS)),
+            "config": config if isinstance(config, dict) else {},
+        })
+    return saida
+
+
 @app.get("/paineis")
 def paineis(estabelecimento_id: int, u: dict = Depends(usuario_atual)):
     """Os compartilhados da loja, mais o particular de quem está pedindo."""
@@ -348,8 +481,8 @@ def criar_painel(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
             cur.execute(
                 "INSERT INTO paineis (estabelecimento_id, usuario_id, nome, "
                 " compartilhado, padrao, cards) VALUES (%s,%s,%s,%s,%s,%s::jsonb) RETURNING *",
-                (estab, u["id"], str(corpo.get("nome") or "Painel"), compartilhado,
-                 False, json.dumps(corpo.get("cards", []))))
+                (estab, u["id"], str(corpo.get("nome") or "Painel")[:120], compartilhado,
+                 False, json.dumps(normalizar_cards(corpo.get("cards", [])))))
             linha = limpar(cur.fetchone())
             con.commit()
         return linha
@@ -379,7 +512,8 @@ def alterar_painel(painel_id: int, corpo: dict = Body(...), u: dict = Depends(us
     if "nome" in corpo:
         campos.append("nome = %s"); valores.append(str(corpo["nome"])[:120])
     if "cards" in corpo:
-        campos.append("cards = %s::jsonb"); valores.append(json.dumps(corpo["cards"]))
+        campos.append("cards = %s::jsonb")
+        valores.append(json.dumps(normalizar_cards(corpo["cards"])))
     if "padrao" in corpo:
         campos.append("padrao = %s"); valores.append(bool(corpo["padrao"]))
     if not campos:
@@ -419,6 +553,51 @@ def salvar_preferencias(corpo: dict = Body(...), u: dict = Depends(usuario_atual
 
 
 # ------------------------------------------------------------- assistente ---
+SQL_CONTEXTO = """
+SELECT json_build_object(
+  'loja', (SELECT to_json(t) FROM (
+             SELECT nome, segmento, margem_liquida_pct, ticket_medio_brl,
+                    tarifa_kwh_brl, demanda_contratada_kw
+               FROM estabelecimentos WHERE id = %(e)s) t),
+  'carregadores', (SELECT coalesce(json_agg(t ORDER BY t.nome), '[]'::json) FROM (
+             SELECT nome, potencia_kw, conector, modo, teto_cortesia_kwh,
+                    preco_kwh_brl, carencia_min, taxa_ociosidade_min, ativo
+               FROM carregadores WHERE estabelecimento_id = %(e)s) t),
+  'operacao', (SELECT to_json(t) FROM (
+             SELECT count(*) AS sessoes,
+                    COALESCE(sum(s.energia_kwh), 0) AS energia_kwh,
+                    COALESCE(sum(s.custo_energia_brl), 0) AS custo_energia_brl,
+                    COALESCE(sum(s.valor_cobrado_brl), 0) AS recarga_cobrada_brl,
+                    count(DISTINCT s.cliente_id) AS clientes
+               FROM sessoes s JOIN carregadores c ON c.id = s.carregador_id
+              WHERE c.estabelecimento_id = %(e)s) t),
+  'vendas', (SELECT to_json(t) FROM (
+             SELECT count(*) AS n, COALESCE(sum(valor_brl), 0) AS total
+               FROM vendas WHERE estabelecimento_id = %(e)s) t),
+  'cupons', (SELECT to_json(t) FROM (
+             SELECT count(*) AS emitidos, count(cu.usado_em) AS usados
+               FROM cupons cu JOIN sessoes s ON s.id = cu.sessao_id
+               JOIN carregadores c ON c.id = s.carregador_id
+              WHERE c.estabelecimento_id = %(e)s) t),
+  'horarios_de_pico', (SELECT coalesce(json_agg(t), '[]'::json) FROM (
+             SELECT extract(hour FROM s.inicio)::int AS hora, count(*) AS n
+               FROM sessoes s JOIN carregadores c ON c.id = s.carregador_id
+              WHERE c.estabelecimento_id = %(e)s
+              GROUP BY 1 ORDER BY 2 DESC LIMIT 5) t),
+  'clientes_mais_frequentes', (SELECT coalesce(json_agg(t), '[]'::json) FROM (
+             SELECT apelido, modelo_veiculo, visitas FROM clientes
+              WHERE estabelecimento_id = %(e)s ORDER BY visitas DESC LIMIT 8) t),
+  'precisao_da_previsao', (SELECT to_json(t) FROM (
+             SELECT count(*) AS sessoes_comparadas,
+                    ROUND(AVG(ABS(EXTRACT(EPOCH FROM (s.fim - s.previsao_fim)) / 60))::numeric, 1)
+                      AS erro_medio_min
+               FROM sessoes s JOIN carregadores c ON c.id = s.carregador_id
+              WHERE c.estabelecimento_id = %(e)s
+                AND s.fim IS NOT NULL AND s.previsao_fim IS NOT NULL) t)
+) AS ctx
+"""
+
+
 def contexto_da_loja(estabelecimento_id: int, papel: str) -> dict:
     """O retrato da loja que o modelo recebe.
 
@@ -426,50 +605,28 @@ def contexto_da_loja(estabelecimento_id: int, papel: str) -> dict:
     prontos em vez de inventar consultas. E o corte por papel acontece nesta
     função: o operador simplesmente não recebe as chaves de dinheiro, então
     não existe pergunta capaz de arrancá-las dele.
-    """
-    e = consultar("SELECT * FROM estabelecimentos WHERE id = %s", (estabelecimento_id,))[0]
-    carregadores = consultar(
-        "SELECT nome, potencia_kw, conector, modo, teto_cortesia_kwh, preco_kwh_brl, "
-        "       carencia_min, taxa_ociosidade_min, ativo "
-        "  FROM carregadores WHERE estabelecimento_id = %s ORDER BY nome",
-        (estabelecimento_id,))
-    resumo = consultar(
-        "SELECT count(*) AS sessoes, "
-        "       COALESCE(sum(s.energia_kwh),0) AS energia_kwh, "
-        "       COALESCE(sum(s.custo_energia_brl),0) AS custo_energia_brl, "
-        "       COALESCE(sum(s.valor_cobrado_brl),0) AS recarga_cobrada_brl, "
-        "       count(DISTINCT s.cliente_id) AS clientes "
-        "  FROM sessoes s JOIN carregadores c ON c.id = s.carregador_id "
-        " WHERE c.estabelecimento_id = %s", (estabelecimento_id,))[0]
-    vendas = consultar(
-        "SELECT count(*) AS n, COALESCE(sum(valor_brl),0) AS total "
-        "  FROM vendas WHERE estabelecimento_id = %s", (estabelecimento_id,))[0]
-    cupons = consultar(
-        "SELECT count(*) AS emitidos, count(cu.usado_em) AS usados "
-        "  FROM cupons cu JOIN sessoes s ON s.id = cu.sessao_id "
-        "  JOIN carregadores c ON c.id = s.carregador_id "
-        " WHERE c.estabelecimento_id = %s", (estabelecimento_id,))[0]
-    por_hora = consultar(
-        "SELECT extract(hour FROM s.inicio)::int AS hora, count(*) AS n "
-        "  FROM sessoes s JOIN carregadores c ON c.id = s.carregador_id "
-        " WHERE c.estabelecimento_id = %s GROUP BY 1 ORDER BY 2 DESC LIMIT 5",
-        (estabelecimento_id,))
-    clientes = consultar(
-        "SELECT apelido, modelo_veiculo, visitas FROM clientes "
-        " WHERE estabelecimento_id = %s ORDER BY visitas DESC LIMIT 8",
-        (estabelecimento_id,))
 
+    Uma consulta só, e a conexão é devolvida antes de qualquer chamada HTTP —
+    segurar conexão de pool esperando a rede de terceiro trava o painel
+    inteiro numa rajada.
+    """
+    with conectar() as con, con.cursor() as cur:
+        cur.execute(SQL_CONTEXTO, {"e": estabelecimento_id})
+        bruto = cur.fetchone()["ctx"]
+
+    e = bruto["loja"]
     ctx = {
         "loja": {"nome": e["nome"], "segmento": e["segmento"],
                  "tarifa_energia_brl_kwh": e["tarifa_kwh_brl"],
                  "demanda_contratada_kw": e["demanda_contratada_kw"]},
-        "carregadores": carregadores,
-        "operacao": {**resumo,
-                     "km_devolvidos": round(float(resumo["energia_kwh"]) * KM_KWH),
-                     "cupons_emitidos": cupons["emitidos"],
-                     "cupons_usados": cupons["usados"]},
-        "horarios_de_pico": por_hora,
-        "clientes_mais_frequentes": clientes,
+        "carregadores": bruto["carregadores"],
+        "operacao": {**bruto["operacao"],
+                     "km_devolvidos": round(float(bruto["operacao"]["energia_kwh"]) * KM_KWH),
+                     "cupons_emitidos": bruto["cupons"]["emitidos"],
+                     "cupons_usados": bruto["cupons"]["usados"]},
+        "horarios_de_pico": bruto["horarios_de_pico"],
+        "clientes_mais_frequentes": bruto["clientes_mais_frequentes"],
+        "precisao_da_previsao": bruto["precisao_da_previsao"],
     }
 
     if papel == "operador":
@@ -486,20 +643,21 @@ def contexto_da_loja(estabelecimento_id: int, papel: str) -> dict:
 
     margem, ticket = float(e["margem_liquida_pct"]), float(e["ticket_medio_brl"])
     tarifa = float(e["tarifa_kwh_brl"])
+    op, vendas = bruto["operacao"], bruto["vendas"]
     lucro_visita = COMPRAM * (NOVOS * ticket + (1 - NOVOS) * UPLIFT * ticket) * margem / 100
     sobra = lucro_visita - AMORT
     lucro = float(vendas["total"]) * margem / 100
-    saldo = lucro + float(resumo["recarga_cobrada_brl"]) - float(resumo["custo_energia_brl"]) \
-        - resumo["sessoes"] * AMORT
+    saldo = (lucro + float(op["recarga_cobrada_brl"]) - float(op["custo_energia_brl"])
+             - op["sessoes"] * AMORT)
 
     ctx["loja"].update({"margem_liquida_pct": margem, "ticket_medio_brl": ticket})
     ctx["financeiro"] = {
         "vendas_atribuidas_brl": float(vendas["total"]),
         "vendas_atribuidas_qtd": vendas["n"],
         "lucro_atribuido_brl": round(lucro, 2),
-        "recarga_cobrada_brl": float(resumo["recarga_cobrada_brl"]),
-        "custo_energia_brl": float(resumo["custo_energia_brl"]),
-        "custo_equipamento_brl": round(resumo["sessoes"] * AMORT, 2),
+        "recarga_cobrada_brl": float(op["recarga_cobrada_brl"]),
+        "custo_energia_brl": float(op["custo_energia_brl"]),
+        "custo_equipamento_brl": round(op["sessoes"] * AMORT, 2),
         "saldo_brl": round(saldo, 2),
     }
     ctx["teto_de_cortesia"] = {

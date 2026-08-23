@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Praça de Recarga — Painel</title>
 <meta name="description" content="Painel do lojista: retorno, carregadores, sessões, clientes e vendas atribuídas.">
-<link rel="stylesheet" href="./style.css?v=20260823a">
-<link rel="stylesheet" href="./static/css/tour.css?v=20260823a">
-<link rel="stylesheet" href="./painel.css?v=20260823a">
+<link rel="stylesheet" href="./style.css?v=20260824a">
+<link rel="stylesheet" href="./static/css/tour.css?v=20260824a">
+<link rel="stylesheet" href="./painel.css?v=20260824a">
+<link rel="stylesheet" href="./login.css?v=20260824a">
 </head>
 <body class="primary-loading sem-sessao">
 
@@ -35,38 +36,93 @@
 
 <!-- ===================== login ===================== -->
 <div class="login-gate" id="loginGate" hidden>
-  <main class="login-shell">
-    <section class="login-card">
-      <div class="brand">
-        <div class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2Z"/></svg>
+  <div class="login-tema" role="radiogroup" aria-label="Tema da interface">
+    <button class="login-tema-op" type="button" role="radio" aria-checked="false" data-theme-choice="light" title="Claro" aria-label="Tema claro">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><g stroke-linecap="round"><path d="M12 2.4v2.4M12 19.2v2.4M4.2 12H1.8M22.2 12h-2.4M6.5 6.5 4.8 4.8M19.2 19.2l-1.7-1.7M17.5 6.5l1.7-1.7M4.8 19.2l1.7-1.7"/></g></svg>
+    </button>
+    <button class="login-tema-op" type="button" role="radio" aria-checked="false" data-theme-choice="dark" title="Escuro" aria-label="Tema escuro">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.4A8.6 8.6 0 0 1 9.6 4a8.7 8.7 0 1 0 10.4 10.4Z"/></svg>
+    </button>
+    <button class="login-tema-op" type="button" role="radio" aria-checked="false" data-theme-choice="system" title="Seguir o sistema" aria-label="Seguir o tema do sistema">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.6" y="4.2" width="18.8" height="13" rx="2.2" fill="none" stroke-width="1.9"/><path d="M8.4 20.4h7.2" stroke-linecap="round" stroke-width="1.9"/></svg>
+    </button>
+  </div>
+
+  <!-- lado da marca -->
+  <aside class="login-marca" aria-hidden="true">
+    <div class="login-marca-fundo"></div>
+    <div class="login-marca-conteudo">
+      <div class="login-marca-topo">
+        <span class="login-marca-selo">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2Z"/></svg>
+        </span>
+        <span class="login-marca-nome">Praça de Recarga</span>
+      </div>
+
+      <div class="login-marca-frase">
+        <h2>O carregador<br>que se paga.</h2>
+        <p>A vaga vira cliente na loja. O painel mostra quanto disso voltou em caixa.</p>
+      </div>
+
+      <!-- barra de carga: o próprio produto, desenhado -->
+      <div class="login-carga">
+        <div class="login-carga-topo">
+          <span>Vaga 1 — frente</span>
+          <span class="login-carga-pct">80%</span>
         </div>
-        <div>
-          <p class="eyebrow">Acesso protegido</p>
-          <h1>Praça de Recarga</h1>
+        <div class="login-carga-trilho"><div class="login-carga-nivel"></div></div>
+        <div class="login-carga-pe">
+          <span>6,0 kWh de cortesia</span>
+          <span>≈ 62 km</span>
         </div>
       </div>
-      <div class="login-copy">
-        <h2>Entrar</h2>
-        <p>Use o e-mail e a senha da sua loja para abrir o painel.</p>
+    </div>
+  </aside>
+
+  <!-- lado do formulário -->
+  <main class="login-painel">
+    <div class="login-card">
+      <div class="login-card-marca">
+        <span class="login-card-selo">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2Z"/></svg>
+        </span>
+        <span>Praça de Recarga</span>
       </div>
-      <form id="loginForm" class="login-form" autocomplete="on">
-        <label class="sr-only" for="loginEmail">E-mail</label>
-        <input class="text-input" type="email" id="loginEmail" name="email" placeholder="E-mail" autocomplete="username" required>
-        <div class="password-field">
-          <label class="sr-only" for="loginSenha">Senha</label>
-          <input class="text-input password-input" type="password" id="loginSenha" name="senha" placeholder="Senha" autocomplete="current-password" required>
-          <button class="password-toggle" id="loginSenhaToggle" type="button" aria-label="Mostrar senha">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/>
-            </svg>
-          </button>
+
+      <header class="login-cabeca">
+        <p class="login-eyebrow">Acesso protegido</p>
+        <h1>Entrar no painel</h1>
+        <p class="login-sub">Use o e-mail e a senha da sua loja.</p>
+      </header>
+
+      <form id="loginForm" class="login-form" autocomplete="on" novalidate>
+        <div class="login-campo">
+          <label for="loginEmail">E-mail</label>
+          <input id="loginEmail" name="email" type="email" inputmode="email"
+                 placeholder="voce@sualoja.com.br" autocomplete="username" required>
         </div>
-        <button class="ghost-button login-button" id="loginButton" type="submit">Acessar painel</button>
+        <div class="login-campo">
+          <label for="loginSenha">Senha</label>
+          <div class="login-senha">
+            <input id="loginSenha" name="senha" type="password" placeholder="Sua senha"
+                   autocomplete="current-password" required>
+            <button class="login-olho" id="loginSenhaToggle" type="button" aria-label="Mostrar senha" aria-pressed="false">
+              <svg class="olho-ver" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="olho-esconder" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 6.2A9.6 9.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-3.3 3.9M6.6 8.1A16 16 0 0 0 2.5 12S6 18 12 18a9.4 9.4 0 0 0 3.3-.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <button class="login-entrar" id="loginButton" type="submit">
+          <span class="login-entrar-texto">Entrar</span>
+          <span class="login-entrar-girando" aria-hidden="true"></span>
+        </button>
       </form>
-      <div class="refresh-status" id="loginStatus" aria-live="polite"></div>
-    </section>
+
+      <p class="login-status" id="loginStatus" role="status" aria-live="polite"></p>
+
+      <p class="login-rodape">Não tem acesso? Peça ao gerente da sua loja para criar o seu.</p>
+    </div>
   </main>
 </div>
 
@@ -353,6 +409,6 @@
 
 <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
 
-<script type="module" src="./app.js?v=20260823a"></script>
+<script type="module" src="./app.js?v=20260824a"></script>
 </body>
 </html>

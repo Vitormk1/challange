@@ -7,42 +7,6 @@
    para claro e escuro continuarem funcionando sozinhos.
    ========================================================================== */
 
-/* -------- porta de login -------- */
-.login-gate {
-  position: fixed;
-  inset: 0;
-  z-index: 12000;
-  display: grid;
-  place-items: center;
-  overflow: auto;
-  background: var(--app-bg, #f3f7fb);
-}
-.login-gate[hidden] { display: none; }
-
-.login-gate .login-shell { min-height: auto; }
-.login-gate .brand { justify-content: flex-start; }
-.login-gate .brand h1 { font-size: 1.35rem; margin: 0; }
-.login-gate .brand-mark {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
-  background: var(--primary, #248dd1);
-  color: #fff;
-}
-.login-gate .login-form { display: grid; gap: 12px; }
-.login-gate .refresh-status:empty { display: none; }
-.login-gate .refresh-status.is-error { color: var(--status-critical, #d64545); }
-
-/* Enquanto a sessão não é conhecida, o painel não pode piscar por trás da
-   porta de login: um vislumbre de dados de outra pessoa já é vazamento. */
-body.sem-sessao .app-shell,
-body.sem-sessao .global-ai-launcher,
-body.sem-sessao .global-ai-chat,
-body.sem-sessao .tour-launch-button,
-body.sem-sessao .sidebar-edge-toggle { display: none !important; }
-
 /* -------- palco de edição do painel -------- */
 /* A esfera fica no mesmo canto do botão "+" de adicionar card. Em edição,
    quem manda ali é o "+". */

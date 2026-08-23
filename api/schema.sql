@@ -332,3 +332,45 @@ BEGIN
   ALTER TABLE paineis ADD CONSTRAINT paineis_usuario_id_fkey
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE;
 END $$;
+
+-- ===========================================================================
+-- Historico nao some junto com cadastro
+--
+-- Sessao, leitura e cupom sao o que aconteceu de fato; carregador e uma linha
+-- de configuracao. Com ON DELETE CASCADE, um clique em "excluir carregador"
+-- levava junto 69 sessoes, 671 leituras e 69 cupons -- sem perguntar nada.
+-- Agora o banco recusa, e o painel oferece desativar em vez de excluir.
+-- ===========================================================================
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.table_constraints
+              WHERE table_name = 'sessoes' AND constraint_name = 'sessoes_carregador_id_fkey') THEN
+    ALTER TABLE sessoes DROP CONSTRAINT sessoes_carregador_id_fkey;
+  END IF;
+  ALTER TABLE sessoes ADD CONSTRAINT sessoes_carregador_id_fkey
+    FOREIGN KEY (carregador_id) REFERENCES carregadores(id) ON DELETE RESTRICT;
+
+  IF EXISTS (SELECT 1 FROM information_schema.table_constraints
+              WHERE table_name = 'leituras' AND constraint_name = 'leituras_carregador_id_fkey') THEN
+    ALTER TABLE leituras DROP CONSTRAINT leituras_carregador_id_fkey;
+  END IF;
+  ALTER TABLE leituras ADD CONSTRAINT leituras_carregador_id_fkey
+    FOREIGN KEY (carregador_id) REFERENCES carregadores(id) ON DELETE RESTRICT;
+
+  -- venda com cupom continua valendo mesmo se a sessao for apagada
+  IF EXISTS (SELECT 1 FROM information_schema.table_constraints
+              WHERE table_name = 'vendas' AND constraint_name = 'vendas_cupom_id_fkey') THEN
+    ALTER TABLE vendas DROP CONSTRAINT vendas_cupom_id_fkey;
+  END IF;
+  ALTER TABLE vendas ADD CONSTRAINT vendas_cupom_id_fkey
+    FOREIGN KEY (cupom_id) REFERENCES cupons(id) ON DELETE SET NULL;
+END $$;
+
+-- Loja desativada derruba a sessao de quem estava dentro dela, como o
+-- usuario desativado ja fazia.
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS ativo boolean NOT NULL DEFAULT true;
+
+-- Carregador desativado nao aceita sessao nova, mas o que ja rodou continua
+-- na tabela. E o caminho no lugar de excluir.
+COMMENT ON COLUMN carregadores.ativo IS
+  'false = fora de operacao. Preferir isto a excluir: excluir e recusado quando ha historico.';
