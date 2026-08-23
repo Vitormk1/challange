@@ -99,8 +99,8 @@ fim: `https://vitormk1.github.io`.
 
 ### 5. Trocar as senhas
 
-As senhas de demonstração (`praca2026`) viram senhas de internet no momento em
-que a API fica pública. Antes de divulgar o link:
+As senhas do seed viram senhas de internet no momento em que a API fica
+pública. Antes de divulgar o link:
 
 ```bash
 python api/trocar_senha.py vitor@pracaderecarga.local

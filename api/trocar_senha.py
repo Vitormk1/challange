@@ -1,8 +1,8 @@
 """Troca a senha de um usuário.
 
-As senhas do seed (`praca2026`) viram senhas de internet no momento em que a
-API fica pública. Este script existe para trocá-las sem editar o seed nem
-recriar o banco.
+As senhas do seed viram senhas de internet no momento em que a API fica
+pública. Este script existe para trocá-las sem editar o seed nem recriar o
+banco.
 
     python api/trocar_senha.py vitor@pracaderecarga.local
     python api/trocar_senha.py --todos

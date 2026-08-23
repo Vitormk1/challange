@@ -18,6 +18,8 @@ import hashlib
 import json
 import os
 import random
+import secrets
+import string
 from datetime import datetime, timedelta, timezone
 
 from auth import criar_hash
@@ -85,9 +87,17 @@ CARDS_OPERADOR = [
     {"id": "energia",  "grupo": "small", "cols": 5,  "rows": 2, "config": {}},
 ]
 
-# Senha de demonstração. Trocar em produção, e a do main sai do ambiente.
-SENHA_DEMO = os.environ.get("SENHA_DEMO", "praca2026")
-SENHA_MAIN = os.environ.get("SENHA_MAIN", "praca2026")
+# Senha de demonstração. Sem SENHA_DEMO/SENHA_MAIN no ambiente, sorteia uma e
+# imprime no fim — um padrão fixo aqui seria um padrão fixo no repositório
+# público, e a partir do momento em que a API vai ao ar isso é uma senha
+# conhecida. Para trocar depois: python api/trocar_senha.py <email>
+def _sortear_senha(tamanho: int = 14) -> str:
+    alfabeto = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alfabeto) for _ in range(tamanho))
+
+
+SENHA_DEMO = os.environ.get("SENHA_DEMO") or _sortear_senha()
+SENHA_MAIN = os.environ.get("SENHA_MAIN") or _sortear_senha()
 
 # (apelido do slug, nome do gerente, nome do operador)
 EQUIPE = {
