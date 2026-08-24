@@ -480,6 +480,11 @@ CARDS_PERMITIDOS = {
     "lucro", "vendas", "sessoes", "clientes", "energia", "ticket", "cupons",
 }
 GRUPOS_PERMITIDOS = {"large", "small"}
+# Cards que só quem vê financeiro enxerga. O painel filtra estes da tela de
+# quem não pode — e é justamente aí que mora o perigo: se a tela filtra e
+# depois salva o que está na tela, um operador abrindo um painel
+# compartilhado apaga em silêncio os cards do gerente. Aconteceu.
+CARDS_FINANCEIROS = {"retorno", "teto", "lucro", "vendas", "ticket"}
 COLUNAS_GRADE, MIN_COLS, MIN_ROWS, MAX_ROWS = 20, 4, 2, 8
 
 
@@ -566,8 +571,17 @@ def alterar_painel(painel_id: int, corpo: dict = Body(...), u: dict = Depends(us
     if "nome" in corpo:
         campos.append("nome = %s"); valores.append(str(corpo["nome"])[:120])
     if "cards" in corpo:
+        novos = normalizar_cards(corpo["cards"])
+        if not pode(u["papel"], "ver_financeiro"):
+            # Devolve os cards que este usuário nem viu. Sem isto, salvar o
+            # layout equivale a apagar tudo que estava escondido dele.
+            atuais = consultar("SELECT cards FROM paineis WHERE id = %s", (painel_id,))[0]["cards"]
+            invisiveis = [c for c in (atuais or [])
+                          if isinstance(c, dict) and c.get("id") in CARDS_FINANCEIROS]
+            vistos = {c["id"] for c in novos}
+            novos += [c for c in invisiveis if c["id"] not in vistos]
         campos.append("cards = %s::jsonb")
-        valores.append(json.dumps(normalizar_cards(corpo["cards"])))
+        valores.append(json.dumps(novos))
     if "padrao" in corpo:
         campos.append("padrao = %s"); valores.append(bool(corpo["padrao"]))
     if not campos:

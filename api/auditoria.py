@@ -135,8 +135,11 @@ def main() -> None:
     print("== injeção e entrada malformada ==")
     for tabela in ["usuarios", "sessoes_web", "usuarios; DROP TABLE usuarios--", "pg_class"]:
         r = ger.post(f"{API}/registros/{tabela}", json={"estabelecimento_id": 1, "nome": "x"}, timeout=TEMPO)
+        # 403 também vale: a borda do Render barra caminho com ";" e "DROP"
+        # antes de chegar na aplicação. Defesa em camada, e o que importa é
+        # que não passa.
         checar(f"tabela fora da lista recusada: {tabela[:28]}",
-               r.status_code in (400, 404), f"HTTP {r.status_code}")
+               r.status_code in (400, 403, 404), f"HTTP {r.status_code}")
     r = ger.patch(f"{API}/registros/carregadores/1",
                   json={"nome": "ok", "senha_hash": "x", "estabelecimento_id": 3, "id": 999}, timeout=TEMPO)
     if r.ok:
@@ -161,6 +164,21 @@ def main() -> None:
                all(c["id"] in ("retorno",) for c in cards) and len(cards) == 1,
                json.dumps(cards)[:80])
         ger.patch(f"{API}/paineis/{meu['id']}", json={"cards": meu["cards"]}, timeout=TEMPO)
+
+    # O caso que motivou a proteção: operador abre painel compartilhado, o
+    # navegador esconde os cards de dinheiro, e salvar apagaria os do gerente.
+    comp = next((p for p in dg["paineis"] if p["compartilhado"]), None)
+    if comp:
+        antes = {c["id"] for c in comp["cards"]}
+        op.patch(f"{API}/paineis/{comp['id']}",
+                 json={"cards": [{"id": "sessoes", "grupo": "small", "cols": 5, "rows": 2}]},
+                 timeout=TEMPO)
+        depois = ger.get(f"{API}/dados?estabelecimento_id=1", timeout=TEMPO).json()
+        agora = {c["id"] for c in next(p for p in depois["paineis"]
+                                       if p["id"] == comp["id"])["cards"]}
+        checar("operador não apaga card financeiro que nem enxerga",
+               antes & {"retorno", "teto", "lucro"} <= agora,
+               f"antes {sorted(antes)} depois {sorted(agora)}")
 
     # ----------------------------------------------------------- perfil ----
     print("== perfil ==")
