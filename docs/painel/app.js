@@ -16,9 +16,9 @@
       a tela de login diz isso, e é só o que ela faz.
    ========================================================================== */
 
-import "./static/js/aiEntity.js?v=20260829a";
-import { createTourModule } from "./static/js/tour.js?v=20260829a";
-import { api, BASE, ErroApi } from "./api.js?v=20260829a";
+import "./static/js/aiEntity.js?v=20260830a";
+import { createTourModule } from "./static/js/tour.js?v=20260830a";
+import { api, BASE, ErroApi } from "./api.js?v=20260830a";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -1560,85 +1560,86 @@ function corpoCard(id, config){
 /* ==========================================================================
    Curva de recarga — o card detalhado
 
-   Mesma leitura do gráfico de clima da referência: várias séries no tempo,
-   grade leve, legenda no cabeçalho e um guia vertical que segue o ponteiro.
-   A diferença é que lá tudo é °C, e aqui potência é kW e carga é %. Duas
-   grandezas na mesma altura seriam mentira visual, então há dois eixos: kW à
-   esquerda, % à direita, cada série ancorada no seu.
+   O eixo do tempo é a SESSÃO, não o relógio. A primeira versão mostrava as
+   últimas 24 horas e ficava quase vazia: um carregador só reporta enquanto
+   alguém está carregando, então numa loja com três recargas por dia sobram
+   vinte horas de nada. Um gráfico com dois riscos e um deserto no meio não
+   informa — parece defeito.
 
-   Desenhado à mão em SVG, sem biblioteca. A referência usa Plotly; aqui a
-   CSP é `script-src 'self'`, então CDN não carrega — e o dossiê promete zero
-   dependência de gráfico. Um <path> e uma escala linear resolvem.
+   Recortado numa recarga, o mesmo desenho fica denso e diz o que interessa:
+   a potência se mantém no teto do ponto, a carga sobe em rampa, e o fim da
+   rampa é onde o carro parou de aceitar. É a leitura que a referência tem
+   com o clima da sala, com a diferença de que lá tudo é °C e aqui potência é
+   kW e carga é % — daí dois eixos, um de cada lado.
+
+   SVG à mão, sem biblioteca: a CSP é `script-src 'self'`, então CDN não
+   carrega, e o dossiê promete zero dependência de gráfico.
    ========================================================================== */
 const SERIES_CURVA = {
-  potencia: {rotulo:"Potência", cor:"--primary",         traco:"", largura:2.2, eixo:"kw"},
-  nominal:  {rotulo:"Nominal",  cor:"--status-warning",  traco:"4 3", largura:1.6, eixo:"kw"},
-  carga:    {rotulo:"Carga",    cor:"--status-ok",       traco:"7 4", largura:1.8, eixo:"pct"},
+  potencia: {rotulo:"Potência", cor:"--primary",        traco:"",    largura:2.4},
+  nominal:  {rotulo:"Nominal",  cor:"--status-warning", traco:"4 3", largura:1.5},
+  carga:    {rotulo:"Carga",    cor:"--status-ok",      traco:"7 4", largura:2},
 };
 
-/* A janela é de 24 horas terminando na última leitura, não o histórico
-   inteiro. Sem isso o card espremia trinta dias numa linha só: os rótulos
-   saíam "17:45, 05:39, 17:33" porque cada marca caía num dia diferente, e a
-   serrilha de centenas de sessões virava uma mancha. */
-const JANELA_CURVA = 24 * 60 * 60 * 1000;
-
-function leiturasDaCurva(config){
-  const ids = new Set(carregadoresDaLoja().map(c => c.id));
-  const todas = state.dados.leituras.filter(l => ids.has(l.carregador_id));
-  const escolhido = Number(config?.carregador_id) || todas[0]?.carregador_id;
-  const doPonto = todas
-    .filter(l => l.carregador_id === escolhido)
-    .sort((a, b) => new Date(a.momento) - new Date(b.momento));
-  if (!doPonto.length) return {escolhido, minhas: [], fim: null};
-  // termina na última leitura, e não em "agora": os dados são de demonstração
-  // e uma janela ancorada no relógio abriria o card vazio
-  const fim = new Date(doPonto[doPonto.length - 1].momento).getTime();
-  return {escolhido, fim,
-          minhas: doPonto.filter(l => new Date(l.momento).getTime() >= fim - JANELA_CURVA)};
+/* As recargas que têm leitura suficiente para virar curva. */
+function sessoesComCurva(){
+  const porSessao = new Map();
+  state.dados.leituras.forEach(l => {
+    if (!l.sessao_id) return;
+    (porSessao.get(l.sessao_id) || porSessao.set(l.sessao_id, []).get(l.sessao_id)).push(l);
+  });
+  return sessoesDaLoja()
+    .filter(s => (porSessao.get(s.id) || []).length >= 3)
+    .sort((a, b) => new Date(b.inicio) - new Date(a.inicio))
+    .slice(0, 40)
+    .map(s => ({
+      sessao: s,
+      carregador: state.dados.carregadores.find(c => c.id === s.carregador_id),
+      leituras: porSessao.get(s.id).sort((a, b) => new Date(a.momento) - new Date(b.momento)),
+    }));
 }
 
-/* Quebra o traço quando há um buraco no tempo. Entre uma recarga e a
-   seguinte podem passar horas sem leitura nenhuma; ligar os dois lados
-   desenharia uma reta que afirma uma potência que nunca existiu. */
-function segmentos(pontos, vaoMaximoMs = 15 * 60 * 1000){
-  const saida = [];
-  let atual = [];
-  pontos.forEach((p, i) => {
-    if (i && p.ms - pontos[i - 1].ms > vaoMaximoMs){
-      if (atual.length) saida.push(atual);
-      atual = [];
-    }
-    atual.push(p);
-  });
-  if (atual.length) saida.push(atual);
-  return saida;
+function curvaEscolhida(config){
+  const todas = sessoesComCurva();
+  return todas.find(x => x.sessao.id === Number(config?.sessao_id)) || todas[0] || null;
 }
 
 function corpoCurva(id, config){
-  const {escolhido} = leiturasDaCurva(config);
-  const ponto = state.dados.carregadores.find(c => c.id === escolhido);
-  const opcoes = carregadoresDaLoja();
+  const escolha = curvaEscolhida(config);
+  const todas = sessoesComCurva();
+  if (!escolha){
+    return `<div class="curva-card"><div class="curva-vazio">
+      Nenhuma recarga com leituras suficientes para desenhar a curva.</div></div>`;
+  }
+  const {sessao, carregador} = escolha;
+  const minutos = Math.max(1, Math.round((new Date(sessao.fim) - new Date(sessao.inicio)) / 60000));
   return `<div class="curva-card">
     <div class="curva-topo">
       <div class="curva-titulo">
-        <p class="eyebrow">Potência e carga · últimas 24 h</p>
-        <h3>${esc(ponto?.nome || "Sem carregador")}</h3>
+        <p class="eyebrow">Curva de recarga · ${esc(dataHora(sessao.inicio))}</p>
+        <h3>${esc(carregador?.nome || "Carregador")}</h3>
       </div>
       <div class="curva-lateral">
         <div class="curva-legenda">
-          ${Object.entries(SERIES_CURVA).map(([k, s]) => `
-            <span class="curva-chave"><i style="background:var(${s.cor});${s.traco ? "opacity:.85" : ""}"></i>${esc(s.rotulo)}</span>`).join("")}
+          ${Object.values(SERIES_CURVA).map(x => `
+            <span class="curva-chave"><i style="background:var(${x.cor})"></i>${esc(x.rotulo)}</span>`).join("")}
         </div>
-        ${opcoes.length > 1 ? `
-          <select class="curva-escolha" data-curva-ponto="${id}" aria-label="Carregador do gráfico">
-            ${opcoes.map(c => `<option value="${c.id}" ${c.id === escolhido ? "selected" : ""}>${esc(c.nome)}</option>`).join("")}
-          </select>` : ""}
+        <select class="curva-escolha" data-curva-sessao="${id}" aria-label="Recarga mostrada no gráfico">
+          ${todas.map(x => `<option value="${x.sessao.id}" ${x.sessao.id === sessao.id ? "selected" : ""}>
+            ${esc(x.carregador?.nome || "")} · ${esc(dataHora(x.sessao.inicio))}</option>`).join("")}
+        </select>
       </div>
     </div>
     <div class="curva-area">
       <svg class="curva-svg" id="curva_${id}" role="img"
-           aria-label="Potência e carga do carregador ao longo do tempo"></svg>
+           aria-label="Potência e carga durante a recarga"></svg>
       <div class="curva-dica" id="curvaDica_${id}" hidden></div>
+    </div>
+    <div class="curva-resumo">
+      <span><b>${num(sessao.energia_kwh, 1)} kWh</b> entregues</span>
+      <span><b>${minutos} min</b> de recarga</span>
+      <span>carga <b>${Math.round((sessao.soc_inicial ?? 0) * 100)}% → ${Math.round((sessao.soc_final ?? 0) * 100)}%</b></span>
+      <span><b>${Math.round(sessao.energia_kwh * KM_KWH)} km</b> devolvidos</span>
     </div>
   </div>`;
 }
@@ -1646,31 +1647,23 @@ function corpoCurva(id, config){
 function desenharCurva(id, config){
   const alvo = $(`#curva_${id}`);
   if (!alvo) return;
-  const {escolhido, minhas} = leiturasDaCurva(config);
-  const ponto = state.dados.carregadores.find(c => c.id === escolhido);
-
-  if (minhas.length < 2){
-    alvo.innerHTML = "";
-    alvo.closest(".curva-area").classList.add("sem-dado");
-    alvo.insertAdjacentHTML("afterend",
-      `<div class="curva-vazio">Sem leituras do medidor para este carregador.</div>`);
-    return;
-  }
-  alvo.closest(".curva-area").classList.remove("sem-dado");
-  $(".curva-vazio", alvo.parentNode)?.remove();
+  const escolha = curvaEscolhida(config);
+  if (!escolha) return;
+  const {sessao, carregador, leituras} = escolha;
 
   // o viewBox acompanha o tamanho real do card, para o texto não esticar
   const caixa = alvo.getBoundingClientRect();
   const W = Math.max(360, Math.round(caixa.width)) || 720;
-  const H = Math.max(180, Math.round(caixa.height)) || 260;
-  const E = 44, D = 40, T = 14, B = 26;          // margens: esquerda, direita, topo, base
+  const H = Math.max(150, Math.round(caixa.height)) || 220;
+  const E = 42, D = 40, T = 12, B = 24;
   alvo.setAttribute("viewBox", `0 0 ${W} ${H}`);
   alvo.setAttribute("preserveAspectRatio", "none");
 
-  const t0 = new Date(minhas[0].momento).getTime();
-  const t1 = new Date(minhas[minhas.length - 1].momento).getTime();
-  const nominal = Number(ponto?.potencia_kw) || 0;
-  const kwMax = Math.max(nominal, ...minhas.map(l => Number(l.potencia_kw) || 0)) * 1.12 || 1;
+  const t0 = new Date(sessao.inicio).getTime();
+  const t1 = Math.max(new Date(sessao.fim).getTime(),
+                      new Date(leituras[leituras.length - 1].momento).getTime());
+  const nominal = Number(carregador?.potencia_kw) || 0;
+  const kwMax = Math.max(nominal, ...leituras.map(l => Number(l.potencia_kw) || 0)) * 1.15 || 1;
 
   const x = ms => E + (t1 === t0 ? 0.5 : (ms - t0) / (t1 - t0)) * (W - E - D);
   const yKw = v => H - B - (v / kwMax) * (H - T - B);
@@ -1681,96 +1674,73 @@ function desenharCurva(id, config){
   const suave = cor("--muted") || "#8496a8";
 
   let g = "";
-
-  // grade e eixo da esquerda (kW)
   for (let i = 0; i <= 4; i++){
     const v = kwMax * i / 4, py = yKw(v);
     g += `<line x1="${E}" y1="${py.toFixed(1)}" x2="${W - D}" y2="${py.toFixed(1)}" stroke="${grade}" stroke-width="1"/>`
-       + `<text x="${E - 8}" y="${(py + 3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="${suave}">${num(v, v < 10 ? 1 : 0)}</text>`;
+       + `<text x="${E - 8}" y="${(py + 3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="${suave}">${num(v, 1)}</text>`
+       + `<text x="${W - D + 8}" y="${(yPct(25 * i) + 3.5).toFixed(1)}" text-anchor="start" font-size="10" fill="${suave}">${25 * i}%</text>`;
   }
-  // eixo da direita (%)
-  for (let i = 0; i <= 4; i++){
-    const v = 25 * i;
-    g += `<text x="${W - D + 8}" y="${(yPct(v) + 3.5).toFixed(1)}" text-anchor="start" font-size="10" fill="${suave}">${v}%</text>`;
-  }
-  // marcas de hora, espaçadas conforme a largura disponível
-  const horas = Math.max(3, Math.min(8, Math.floor((W - E - D) / 90)));
-  for (let i = 0; i <= horas; i++){
-    const ms = t0 + (t1 - t0) * i / horas;
-    const px = x(ms);
-    g += `<line x1="${px.toFixed(1)}" y1="${T}" x2="${px.toFixed(1)}" y2="${H - B}" stroke="${grade}" stroke-width="1" opacity=".55"/>`
+  // o eixo do tempo conta minutos desde o início — é o que a pessoa acompanha
+  const marcas = Math.max(3, Math.min(7, Math.floor((W - E - D) / 80)));
+  for (let i = 0; i <= marcas; i++){
+    const ms = t0 + (t1 - t0) * i / marcas, px = x(ms);
+    g += `<line x1="${px.toFixed(1)}" y1="${T}" x2="${px.toFixed(1)}" y2="${H - B}" stroke="${grade}" stroke-width="1" opacity=".5"/>`
        + `<text x="${px.toFixed(1)}" y="${H - B + 15}" text-anchor="middle" font-size="10" fill="${suave}">`
-       + `${new Date(ms).toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"})}</text>`;
+       + `${Math.round((ms - t0) / 60000)} min</text>`;
   }
 
-  const traco = (grupos, s) => grupos.filter(gp => gp.length > 1).map(gp =>
-    `<path d="${gp.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}"
-           fill="none" stroke="var(${s.cor})" stroke-width="${s.largura}"
-           ${s.traco ? `stroke-dasharray="${s.traco}"` : ""}
-           stroke-linejoin="round" stroke-linecap="round"/>`).join("");
+  const traco = (pontos, e) => pontos.length < 2 ? "" :
+    `<path d="${pontos.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}"
+           fill="none" stroke="var(${e.cor})" stroke-width="${e.largura}"
+           ${e.traco ? `stroke-dasharray="${e.traco}"` : ""}
+           stroke-linejoin="round" stroke-linecap="round"/>`;
+  const pontos = valor => leituras.map(l => ({ms: new Date(l.momento).getTime(),
+                                              x: x(new Date(l.momento).getTime()), y: valor(l)}));
 
-  const comTempo = (filtro, valor) => minhas.filter(filtro).map(l => {
-    const ms = new Date(l.momento).getTime();
-    return {ms, x: x(ms), y: valor(l)};
-  });
+  g += traco([{x:x(t0), y:yKw(nominal)}, {x:x(t1), y:yKw(nominal)}], SERIES_CURVA.nominal);
+  g += traco(pontos(l => yPct(Number(l.soc ?? 0) * 100)), SERIES_CURVA.carga);
+  g += traco(pontos(l => yKw(Number(l.potencia_kw) || 0)), SERIES_CURVA.potencia);
 
-  // a nominal é uma reta: valor constante do começo ao fim da janela
-  g += traco([[{ms:t0, x:x(t0), y:yKw(nominal)}, {ms:t1, x:x(t1), y:yKw(nominal)}]],
-             SERIES_CURVA.nominal);
-  g += traco(segmentos(comTempo(l => l.soc != null, l => yPct(Number(l.soc) * 100))),
-             SERIES_CURVA.carga);
-  g += traco(segmentos(comTempo(() => true, l => yKw(Number(l.potencia_kw) || 0))),
-             SERIES_CURVA.potencia);
-
-  // guia do ponteiro
   g += `<line class="curva-guia" x1="0" y1="${T}" x2="0" y2="${H - B}" stroke="var(--primary)" stroke-width="1" opacity="0" stroke-dasharray="3 3"/>`
      + `<circle class="curva-alvo" r="3.5" fill="var(--primary)" opacity="0"/>`
      + `<rect x="${E}" y="${T}" width="${W - E - D}" height="${H - T - B}" fill="transparent" class="curva-captura"/>`;
   alvo.innerHTML = g;
 
-  // ---- leitura pelo ponteiro ----
   const dica = $(`#curvaDica_${id}`);
   const guia = $(".curva-guia", alvo), marca = $(".curva-alvo", alvo);
-  const captura = $(".curva-captura", alvo);
-  captura.onpointermove = ev => {
+  $(".curva-captura", alvo).onpointermove = ev => {
     const r = alvo.getBoundingClientRect();
-    const px = (ev.clientX - r.left) / r.width * W;
-    const ms = t0 + (px - E) / (W - E - D) * (t1 - t0);
-    // binária: a lista já está ordenada, e são centenas de pontos
-    let a = 0, b = minhas.length - 1;
-    while (b - a > 1){
-      const m = (a + b) >> 1;
-      (new Date(minhas[m].momento).getTime() < ms ? a = m : b = m);
-    }
-    const l = Math.abs(new Date(minhas[a].momento) - ms) < Math.abs(new Date(minhas[b].momento) - ms)
-      ? minhas[a] : minhas[b];
-    const lx = x(new Date(l.momento).getTime());
-    guia.setAttribute("x1", lx); guia.setAttribute("x2", lx); guia.setAttribute("opacity", ".65");
-    marca.setAttribute("cx", lx); marca.setAttribute("cy", yKw(Number(l.potencia_kw) || 0));
+    const ms = t0 + ((ev.clientX - r.left) / r.width * W - E) / (W - E - D) * (t1 - t0);
+    let melhor = leituras[0], menor = Infinity;
+    leituras.forEach(l => {
+      const d = Math.abs(new Date(l.momento).getTime() - ms);
+      if (d < menor){ menor = d; melhor = l; }
+    });
+    const lx = x(new Date(melhor.momento).getTime());
+    guia.setAttribute("x1", lx); guia.setAttribute("x2", lx); guia.setAttribute("opacity", ".6");
+    marca.setAttribute("cx", lx); marca.setAttribute("cy", yKw(Number(melhor.potencia_kw) || 0));
     marca.setAttribute("opacity", "1");
     dica.hidden = false;
-    dica.innerHTML = `<strong>${dataHora(l.momento)}</strong>
-      <span><i style="background:var(--primary)"></i>Potência <b>${num(l.potencia_kw, 2)} kW</b></span>
+    dica.innerHTML = `<strong>${Math.round((new Date(melhor.momento) - t0) / 60000)} min de recarga</strong>
+      <span><i style="background:var(--primary)"></i>Potência <b>${num(melhor.potencia_kw, 2)} kW</b></span>
       <span><i style="background:var(--status-warning)"></i>Nominal <b>${num(nominal, 1)} kW</b></span>
-      ${l.soc == null ? "" : `<span><i style="background:var(--status-ok)"></i>Carga <b>${Math.round(l.soc * 100)}%</b></span>`}`;
-    // não deixa a dica sair pela borda do card
-    const larguraDica = dica.offsetWidth || 150;
-    const posicao = lx / W * r.width;
-    dica.style.left = `${clamp(posicao, larguraDica / 2 + 4, r.width - larguraDica / 2 - 4)}px`;
+      ${melhor.soc == null ? "" : `<span><i style="background:var(--status-ok)"></i>Carga <b>${Math.round(melhor.soc * 100)}%</b></span>`}`;
+    const meia = (dica.offsetWidth || 150) / 2;
+    dica.style.left = `${clamp(lx / W * r.width, meia + 4, r.width - meia - 4)}px`;
   };
-  captura.onpointerleave = () => {
+  $(".curva-captura", alvo).onpointerleave = () => {
     guia.setAttribute("opacity", "0");
     marca.setAttribute("opacity", "0");
     dica.hidden = true;
   };
 
-  const escolha = $(`[data-curva-ponto="${id}"]`);
-  if (escolha) escolha.onchange = ev => {
+  const escolher = $(`[data-curva-sessao="${id}"]`);
+  if (escolher) escolher.onchange = ev => {
     const p = painelAtual();
     const cards = normalizarCards(p.cards);
-    const alvoCard = cards.find(c => c.id === id);
-    if (!alvoCard) return;
-    alvoCard.config = {...alvoCard.config, carregador_id: Number(ev.target.value)};
+    const card = cards.find(c => c.id === id);
+    if (!card) return;
+    card.config = {...card.config, sessao_id: Number(ev.target.value)};
     guardarLayout(p, cards);        // a escolha é do card, e viaja com ele
     renderPainel();
   };
@@ -2023,8 +1993,45 @@ function initVoz(){
   };
   const parar = () => { try { ouvinte?.stop(); } catch {} };
 
-  botao.onclick = () => {
+  const pintarBotao = (estado, rotulo) => {
+    botao.classList.toggle("is-recording", estado === "gravando");
+    botao.classList.toggle("is-processing", estado === "abrindo");
+    botao.setAttribute("aria-pressed", String(estado === "gravando"));
+    $("span", botao).textContent = rotulo;
+  };
+
+  /* O navegador guarda a decisão por site. Enquanto a Permissions-Policy
+     bloqueava o microfone, uma tentativa podia deixar este site marcado como
+     "bloqueado" — e aí `start()` falha na hora, sem prompt, sem nada visível.
+     Perguntar antes deixa a mensagem dizer o que fazer em vez de repetir
+     "não consegui". */
+  async function estadoDaPermissao(){
+    try {
+      const p = await navigator.permissions.query({name: "microphone"});
+      return p.state;                          // granted | denied | prompt
+    } catch { return "desconhecido"; }         // Firefox e Safari não respondem
+  }
+
+  function explicarBloqueio(){
+    dizerStatus("O microfone está bloqueado para este site.", "is-error");
+    aviso("O microfone está bloqueado", "erro", {
+      detalhe: "Clique no cadeado ao lado do endereço, ponha Microfone em "
+             + "Permitir e recarregue a página.",
+      vida: 15000,
+    });
+    pintarBotao("", "Áudio");
+  }
+
+  botao.onclick = async () => {
     if (gravando) return parar();
+
+    // Retorno imediato: o clique tem que mudar alguma coisa antes de a
+    // permissão ser resolvida, senão parece que o botão não funciona.
+    pintarBotao("abrindo", "Abrindo...");
+    dizerStatus("Abrindo o microfone — aceite o pedido do navegador.", "is-processing");
+
+    const permissao = await estadoDaPermissao();
+    if (permissao === "denied") return explicarBloqueio();
 
     ouvinte = new Reconhecimento();
     ouvinte.lang = "pt-BR";
@@ -2034,9 +2041,7 @@ function initVoz(){
     ouvinte.onstart = () => {
       gravando = true;
       textoBase = campo.value ? campo.value.trim() + " " : "";
-      botao.classList.add("is-recording");
-      botao.setAttribute("aria-pressed", "true");
-      $("span", botao).textContent = "Parar";
+      pintarBotao("gravando", "Parar");
       dizerStatus("Ouvindo... fale e o texto aparece aqui embaixo.", "is-recording");
     };
 
@@ -2053,25 +2058,23 @@ function initVoz(){
     };
 
     ouvinte.onerror = ev => {
-      const motivos = {
-        "not-allowed": "Você precisa permitir o microfone no navegador.",
-        "service-not-allowed": "O navegador bloqueou o microfone nesta página.",
-        "no-speech": "Não ouvi nada. Tente falar mais perto do microfone.",
-        "audio-capture": "Não achei um microfone neste computador.",
-        network: "Sem rede para reconhecer a fala.",
-      };
-      if (ev.error !== "aborted"){
-        const motivo = motivos[ev.error] || `Falhou ao ouvir (${ev.error}).`;
-        dizerStatus(motivo, "is-error");
-        aviso("Não consegui gravar", "erro", {detalhe: motivo});
+      if (ev.error === "aborted") return;
+      if (ev.error === "not-allowed" || ev.error === "service-not-allowed"){
+        return explicarBloqueio();
       }
+      const motivos = {
+        "no-speech": "Não ouvi nada. Fale mais perto do microfone e tente de novo.",
+        "audio-capture": "Não achei um microfone neste computador.",
+        network: "O reconhecimento de fala precisa de internet e ela falhou agora.",
+      };
+      const motivo = motivos[ev.error] || `Falhou ao ouvir (${ev.error}).`;
+      dizerStatus(motivo, "is-error");
+      aviso("Não consegui gravar", "erro", {detalhe: motivo});
     };
 
     ouvinte.onend = () => {
       gravando = false;
-      botao.classList.remove("is-recording");
-      botao.setAttribute("aria-pressed", "false");
-      $("span", botao).textContent = "Áudio";
+      pintarBotao("", "Áudio");
       if (!status.classList.contains("is-error")){
         dizerStatus(campo.value.trim()
           ? "Confira o texto e envie — dá para corrigir antes."
@@ -2081,8 +2084,14 @@ function initVoz(){
       ouvinte = null;
     };
 
-    try { ouvinte.start(); }
-    catch { dizerStatus("Não consegui abrir o microfone.", "is-error"); }
+    try {
+      ouvinte.start();
+    } catch (erro){
+      pintarBotao("", "Áudio");
+      dizerStatus("Não consegui abrir o microfone.", "is-error");
+      aviso("Não consegui abrir o microfone", "erro",
+            {detalhe: erro?.message || "O navegador recusou o pedido."});
+    }
   };
 
   // fechar o chat com o microfone aberto deixaria ele ouvindo às escondidas

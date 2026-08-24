@@ -409,3 +409,18 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
   .curva-lateral { width: 100%; justify-content: flex-start; }
   .curva-escolha { max-width: none; flex: 1 1 auto; }
 }
+
+/* linha de resumo abaixo do gráfico da curva */
+.curva-resumo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  flex: 0 0 auto;
+  padding-top: 4px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.curva-resumo b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* o clique tem que mudar algo antes de a permissão ser resolvida */
+.global-ai-chat-audio.is-processing { opacity: 0.75; cursor: progress; }

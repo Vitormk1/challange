@@ -513,9 +513,10 @@ def normalizar_cards(bruto) -> list[dict]:
         bruto_config = item.get("config")
         config = {}
         if isinstance(bruto_config, dict):
-            alvo = bruto_config.get("carregador_id")
-            if isinstance(alvo, (int, float)) and not isinstance(alvo, bool):
-                config["carregador_id"] = int(alvo)
+            for chave in ("sessao_id", "carregador_id"):
+                alvo = bruto_config.get(chave)
+                if isinstance(alvo, (int, float)) and not isinstance(alvo, bool):
+                    config[chave] = int(alvo)
         saida.append({
             "id": cid,
             "grupo": grupo if grupo in GRUPOS_PERMITIDOS else "small",
