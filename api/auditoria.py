@@ -231,6 +231,22 @@ def main() -> None:
             break
     checar("login bloqueia força bruta", bloqueou, f"parou na tentativa {i + 1}")
 
+    # ------------------------------------------------------ transcrição ----
+    print("== transcrição de áudio ==")
+    r = anon.post(f"{API}/ia/transcrever", json={"audio": "AAAA"}, timeout=TEMPO)
+    checar("sem sessão: POST /ia/transcrever", r.status_code == 401, f"HTTP {r.status_code}")
+    r = op.post(f"{API}/ia/transcrever", json={"audio": ""}, timeout=TEMPO)
+    checar("áudio vazio é recusado", r.status_code == 400, f"HTTP {r.status_code}")
+    r = op.post(f"{API}/ia/transcrever",
+                json={"audio": "A" * 9_000_000}, timeout=TEMPO)
+    checar("áudio grande demais é recusado", r.status_code == 413, f"HTTP {r.status_code}")
+    r = op.post(f"{API}/ia/transcrever", json={"audio": "isto-nao-e-base64!!!"}, timeout=TEMPO)
+    checar("base64 inválido para antes de virar chamada paga",
+           r.status_code == 400, f"HTTP {r.status_code}")
+    r = op.post(f"{API}/ia/transcrever",
+                json={"audio": "aGVsbG8gd29ybGQgaXNzbyBuYW8gZWggdW0gd2F2"}, timeout=TEMPO)
+    checar("arquivo que não é WAV é recusado", r.status_code == 400, f"HTTP {r.status_code}")
+
     # ---------------------------------------------------------- logout ----
     print("== logout ==")
     temp = entrar("gerente")

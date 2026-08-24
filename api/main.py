@@ -19,6 +19,8 @@ Rodar:
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import os
 import secrets
@@ -950,6 +952,16 @@ def transcrever(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
         raise HTTPException(400, "áudio vazio")
     if len(audio) > LIMITE_AUDIO_MB * 1_400_000:      # base64 cresce ~1/3
         raise HTTPException(413, "Gravação longa demais. Fale por até um minuto.")
+
+    # Conferir aqui é barato; mandar lixo para a OpenRouter custa uma chamada
+    # e volta como 502, que faz parecer falha do serviço quando o problema é a
+    # entrada. O cabeçalho RIFF é o que separa "WAV truncado" de "não é WAV".
+    try:
+        cru = base64.b64decode(audio, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(400, "O áudio chegou corrompido. Grave de novo.")
+    if len(cru) < 1000 or cru[:4] != b"RIFF":
+        raise HTTPException(400, "Não reconheci o áudio. Grave de novo.")
 
     try:
         r = requests.post(
