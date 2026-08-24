@@ -10,14 +10,23 @@ Recarga de veículos elétricos **como ativo comercial**. Dois produtos, um sist
 > O lojista não quer vender energia. Quer saber se o carregador na frente da loja
 > traz cliente. Hoje nenhum painel do mercado responde isso.
 
-**Dossiê:** [`docs/index.html`](docs/index.html) · **Telinha da vaga:** [`docs/vaga/`](docs/vaga/) · **Painel do lojista:** [`docs/painel/`](docs/painel/)
+## No ar
 
-Publique com GitHub Pages (Settings → Pages → branch `main`, pasta `/docs`) e
-acesse em `vitormk1.github.io/challange/`.
+| | Onde | Quem serve |
+|---|---|---|
+| **Painel do lojista** | <https://praca-recarga-api.onrender.com/painel/> | a própria API |
+| **Dossiê** | `vitormk1.github.io/challange/` | GitHub Pages |
+| **Telinha da vaga** | `vitormk1.github.io/challange/vaga/` | GitHub Pages |
 
-> O GitHub Pages só publica arquivo estático — não executa Python. As telas
-> funcionam ali sozinhas, com dado de demonstração. O servidor da API precisa de
-> outra hospedagem quando entrar.
+O painel **não** fica no GitHub Pages, e isso não é detalhe de gosto. Com a
+página num domínio e a API em outro, o cookie de sessão vira cookie de
+terceiro, e Safari, Firefox, Brave e o Chrome anônimo o descartam: o login
+responde 200 e a requisição seguinte volta 401. Servindo a página pela própria
+API, o cookie é de primeira parte, `SameSite=Lax` basta e o CORS deixa de
+existir. O porquê inteiro está em [HOSPEDAGEM.md](HOSPEDAGEM.md), seção 4.
+
+O dossiê e a telinha continuam no Pages porque são estáticos de verdade — não
+têm login nem banco. A cópia do painel que ficou lá só redireciona.
 
 ---
 
@@ -25,30 +34,47 @@ acesse em `vitormk1.github.io/challange/`.
 
 ```
 docs/
-  index.html   o dossiê do projeto
-  vaga/        a telinha da vaga · serve tambem o celular pelo QR  (pronta)
-  painel/      o painel do lojista              (pronto)
+  index.html        o dossiê do projeto
+  img/              a logo, em três tamanhos (256, 180 e 32)
+  vaga/             a telinha da vaga · serve também o celular pelo QR
+  painel/
+    index.html      a página inteira: login, painel e os diálogos
+    app.js          o painel — cards, edição, avisos, ditado, gráficos
+    api.js          a conversa com a API, e o redirecionamento do Pages
+    style.css       a folha da referência (447 KB), copiada sem alterar layout
+    marca.css       a identidade preto-e-vermelho: só tokens de cor
+    painel.css      o que é nosso: redimensionar cards, avisos, balões, curva
+    login.css       a tela de entrada, com tokens próprios
+    static/         o tour guiado e a esfera da assistente, da referência
 api/
-  schema.sql   as tabelas e visões — o contrato de dados
-  db.py        pool de conexões com o PostgreSQL e aplicação do esquema
-  auth.py      senhas (scrypt), sessões e o que cada papel pode fazer
-  main.py      a API: login, dados por papel, painéis salvos e o assistente
-  seed.py      trinta dias de operação de três lojas, para demonstração
-  exportar.py  despeja o banco num JSON, para conferencia e backup
-  trocar_senha.py  troca a senha de um usuário, antes de publicar
-  protecao.py  limite de tentativas de login e cabeçalhos de segurança
-  auditoria.py troca requisições reais contra a API e diz o que passou
+  schema.sql        as tabelas e visões — o contrato de dados
+  db.py             pool de conexões com o PostgreSQL e aplicação do esquema
+  auth.py           senhas (scrypt), sessões e o que cada papel pode fazer
+  main.py           a API: login, dados por papel, painéis salvos, assistente
+                    e transcrição de áudio — e serve o painel
+  seed.py           trinta dias de operação de três lojas, para demonstração
+  exportar.py       despeja o banco num JSON, para conferência e backup
+  trocar_senha.py   troca a senha de um usuário, antes de publicar
+  protecao.py       limite de tentativas, cabeçalhos de segurança e HSTS
+  auditoria.py      dispara requisições reais contra a API e diz o que passou
 ai/
   charge_curve.py   previsão de tempo de recarga (o núcleo do produto)
+  break_even.py     a cortesia se paga? ponto de equilíbrio por segmento
+render.yaml         a configuração do serviço, versionada
 ```
+
+`style.css` é a folha da referência e continua intacta no que é estrutura. A
+repaginação para preto e vermelho acontece em `marca.css`, que entra depois
+dela e sobrescreve **só tokens de cor** — nenhuma regra de layout foi
+reescrita, e a identidade inteira cabe num arquivo que dá para ler de uma vez.
 
 ---
 
 ## Publicar
 
-O painel vive no GitHub Pages; a API precisa de um servidor que execute Python.
-O passo a passo, com a escolha de hospedagem explicada e as armadilhas de cookie
-entre domínios, está em [HOSPEDAGEM.md](HOSPEDAGEM.md).
+A API roda no Render (plano gratuito) e serve o painel junto. O passo a passo,
+a escolha de hospedagem explicada, e as armadilhas de cookie entre domínios
+que decidiram essa arquitetura estão em [HOSPEDAGEM.md](HOSPEDAGEM.md).
 
 ---
 
@@ -69,9 +95,14 @@ cp .env.example .env      # e preencha
 python api/db.py          # cria tabelas, índices e visões
 python api/seed.py        # popula com dados de demonstração e cria os acessos
 python api/exportar.py    # opcional: despeja o banco num JSON para conferir
-uvicorn main:app --port 8000 --app-dir api    # sobe a API
-python -m http.server 8765 --directory docs   # serve o painel
+uvicorn main:app --port 8000 --app-dir api    # sobe a API e o painel junto
 ```
+
+O painel abre em <http://127.0.0.1:8000/painel/>. Não é preciso um segundo
+servidor para os arquivos estáticos: a API os serve, exatamente como em
+produção — e é bom que o desenvolvimento e a produção não difiram nisso,
+porque foi uma diferença desse tipo que escondeu o problema do cookie até o
+painel estar publicado.
 
 **Nenhuma credencial vai para o repositório.** Tudo vem de variável de ambiente;
 o `.gitignore` bloqueia o `.env`. Uma senha commitada em repositório público é
@@ -107,14 +138,6 @@ direto sem precisar de junção no cliente.
 `sessoes` guarda `previsao_fim` e `previsao_custo_brl` ao lado do resultado
 real. É de propósito: sem isso o painel não teria como mostrar o próprio erro,
 e uma previsão que ninguém audita não vale nada.
-
----|---|---|
-| `sessions`, `sales` | para sempre | poucos documentos, e são o produto |
-| `telemetry` | **30 dias**, por índice TTL | ninguém precisa da potência instantânea de seis meses atrás |
-| `rollups` | para sempre | uma linha por ponto por dia, alimenta o histórico |
-
-Estimativa: **menos de 50 MB por ano** para uma loja com quatro pontos.
-
 
 ---
 
@@ -157,6 +180,42 @@ computador devolve a mesma tela.
 
 ---
 
+## Segurança
+
+`api/auditoria.py` não é lista de boas intenções: cada item dispara uma
+requisição de verdade contra o servidor que estiver de pé, e o resultado é o
+que ele respondeu.
+
+```bash
+SENHA_MAIN=... SENHA_GERENTE=... SENHA_OPERADOR=... python api/auditoria.py
+python api/auditoria.py https://praca-recarga-api.onrender.com   # contra o publicado
+```
+
+Sem as senhas no ambiente ele roda só a parte que não precisa de login — as
+outras verificações são justamente as que testam isolamento entre papéis e
+entre lojas, então vale preencher.
+
+O que está no lugar:
+
+| | |
+|---|---|
+| Senhas | `scrypt`, da biblioteca padrão — sem dependência para isso |
+| Sessão | linha no banco, cookie httpOnly, comparação com `hmac.compare_digest` |
+| Sair | o token some do banco; deixa de valer em todo lugar, não só ali |
+| Força bruta | 6 tentativas por e-mail e 30 por IP, em 5 minutos |
+| Assistente | 30 perguntas por hora, por usuário |
+| Cabeçalhos | CSP com `script-src 'self'`, `frame-ancestors 'none'`, nosniff, HSTS |
+| Documentação da API | `/docs`, `/redoc` e `/openapi.json` desligados em produção |
+
+**A CSP proíbe script de terceiro**, e isso não é enfeite: é por causa dela que
+não há biblioteca de gráfico neste projeto. Nenhum CDN carrega, então os
+gráficos são SVG escrito à mão. Foi escolha, e o custo dela está à vista.
+
+**O HSTS só vai embora sobre https.** O Render já redireciona http para https,
+mas o redirecionamento acontece depois de a primeira requisição sair em texto
+claro. Em desenvolvimento a origem é `http://127.0.0.1`, e mandar HSTS ali
+ensinaria o navegador a recusar o próprio ambiente local por um ano.
+
 ## O assistente
 
 `POST /ia/perguntar` → OpenRouter. **A chave nunca vai para o navegador**:
@@ -177,6 +236,45 @@ e o teto de cortesia — e manda pronto. Duas consequências:
 O prompt proíbe calcular ou deduzir qualquer número que não esteja no
 contexto. Sem isso o modelo pegava o teto configurado no carregador e montava
 uma justificativa financeira inventada em volta.
+
+---
+
+## Falar em vez de digitar
+
+O botão de áudio no chat grava com `MediaRecorder`, converte para WAV 16 kHz
+mono no próprio navegador e manda para `POST /ia/transcrever`, que transcreve
+pela OpenRouter.
+
+A primeira versão usava o reconhecimento de fala do navegador — grátis e
+instantâneo. Ele foi abandonado, e o motivo importa: só Chrome e derivados o
+têm, cada um conversa com um serviço diferente, e quando esse serviço não
+responde a API fica **muda** — nem `onstart`, nem `onerror`, nada. O botão
+travava em "Abrindo..." sem ter como explicar o que houve. `MediaRecorder`
+existe em Chrome, Edge, Opera, Firefox e Safari há anos, e o que ele produz é
+um arquivo: ou grava, ou dá erro com nome.
+
+A conversão para 16 kHz acontece antes de subir e corta o arquivo para um
+terço, sem perder nada que importe para voz. Áudio malformado é recusado
+localmente, antes de virar uma chamada paga.
+
+---
+
+## Toda escrita no banco dá retorno
+
+Criar, editar, excluir, salvar layout, trocar senha: cada uma mostra um aviso
+com ícone, cor e o tempo que levou. Não é enfeite — foi ele que revelou que
+"cadastrar cliente" vinha respondendo 500 desde sempre, por um campo `NOT NULL`
+que o formulário não tinha. A falha existia antes; o que faltava era alguém
+poder vê-la.
+
+Exclusão que apagaria histórico é **recusada**, com número:
+
+> Este registro tem 69 recargas e 671 leituras no histórico e não pode ser
+> excluído. Marque como inativo.
+
+As chaves estrangeiras são `RESTRICT`, não `CASCADE`. Antes disso, apagar um
+carregador levava junto 69 sessões, 671 leituras e 69 cupons, e deixava 63
+vendas órfãs — em silêncio.
 
 ---
 

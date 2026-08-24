@@ -1,9 +1,12 @@
 # Publicar a API
 
-O painel é HTML estático e vive no GitHub Pages. A API é um processo Python, e
-Pages não executa Python — por isso, publicado, o painel cai em modo
-demonstração. Este arquivo é o passo a passo para o painel publicado funcionar
-de verdade: com login, com escrita no banco e com o assistente.
+A API é um processo Python que **serve o painel junto**, na mesma origem. Este
+arquivo é o passo a passo para publicá-la, e explica por que ela acabou servindo
+a página em vez de deixá-la no GitHub Pages — a resposta está na seção 4, e não
+é preferência de arquitetura: é o que os navegadores obrigaram.
+
+Não existe modo demonstração. Publicado, o painel é o serviço real: login,
+escrita no banco, assistente.
 
 O banco não muda. O Aiven já é público, e tanto a sua máquina quanto o servidor
 falam com ele.
@@ -64,13 +67,17 @@ Abra `https://SUA-URL.onrender.com/saude`. A resposta diz o que está valendo:
 ```json
 {"ok": true, "banco": true, "ia": true,
  "origens": "https://vitormk1.github.io",
- "cookie": {"samesite": "none", "secure": true}}
+ "cookie": {"samesite": "lax", "secure": true}}
 ```
 
 - `banco: false` → a `DATABASE_URL` está errada ou faltou `?sslmode=require`
 - `ia: false` → faltou a `OPENROUTER_API_KEY`
-- `cookie.samesite` diferente de `none` → o login vai responder 200 e a sessão
-  não vai colar (ver seção 4)
+- `cookie.samesite` deve ser **`lax`**. Se estiver `none`, alguém voltou a
+  configuração para o arranjo antigo de dois domínios, e o login vai falhar em
+  boa parte dos navegadores (seção 4)
+- `origens` é resto do arranjo antigo. Com o painel na mesma origem da API não
+  há requisição entre domínios, então o CORS não é mais o que segura nada —
+  o campo fica porque é barato e documenta o que está configurado
 
 ### 3. O endereço do painel
 
@@ -128,8 +135,11 @@ Três saídas, da mais simples para a mais garantida:
 3. **Plano pago**, US$ 7/mês, sem hibernação. Só vale se o painel for ficar no
    ar de verdade depois do desafio.
 
-**Ponha um limite de gasto na OpenRouter** antes de publicar. A chave passa a
-estar num servidor público; o limite é a rede de segurança se algo escapar.
+**Sobre gasto na OpenRouter.** A chave passa a estar num servidor público, mas
+só quem tem login chega nela, e há um teto de 30 perguntas por hora por usuário
+(`LIMITE_IA`, em `api/protecao.py`). Um limite de gasto na conta da OpenRouter
+continua sendo a rede de segurança mais direta se algo escapar — a decisão de
+pôr ou não é de quem publica.
 
 ---
 
@@ -139,7 +149,7 @@ estar num servidor público; o limite é a rede de segurança se algo escapar.
 |---|---|
 | Login responde 200 e volta para a tela de login | cookie: seção 4 |
 | "Não achei o servidor em …" | `API_PUBLICADA` na seção 3, ou serviço dormindo |
-| Erro de CORS no console | `ORIGENS_PERMITIDAS` não bate com a origem exata do Pages |
+| Erro de CORS no console | não devia acontecer: o painel é da mesma origem. Se acontecer, alguém está abrindo o painel de outro endereço que não `/painel/` do próprio serviço |
 | `/saude` com `banco: false` | `DATABASE_URL`, e confira o `?sslmode=require` |
 | Primeira visita muito lenta | hibernação: seção "Antes da apresentação" |
 | 503 "O banco não respondeu agora" | pool esgotado; o plano gratuito é 1 worker, veja `render.yaml` |
