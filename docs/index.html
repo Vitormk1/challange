@@ -17,9 +17,13 @@
     --surface:#FFFFFF;
     --ink:#0C0D0F;
     --ink-2:#4A4F55;
-    /* 4,97 sobre a superficie branca. O #868D94 dava 3,14 e reprovava, e
-       este token carrega legenda, nota de rodape e ate valor em reais. */
-    --ink-3:#656C74;
+    /* Medido contra o PIOR fundo do documento, que e o realce .pull: o
+       gradiente dele ganhou o vermelho da marca na repaginacao, e esse tom
+       por cima do fundo da pagina derruba o contraste de quem escreve em
+       cima. O #656C74 passava sobre branco (4,97) e reprovava ali (4,13) —
+       medir contra a superficie mais clara foi o que me escapou. Este da
+       5,1 no realce, 6,13 no fundo e 6,57 no branco. */
+    --ink-3:#575E66;
     --rule:#E4E6E9;
     --rule-2:#CDD1D6;
     /* O acento é IDENTIDADE: títulos, links, filetes, numeração. Era âmbar,
