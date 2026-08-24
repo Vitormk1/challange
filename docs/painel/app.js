@@ -16,9 +16,9 @@
       a tela de login diz isso, e é só o que ela faz.
    ========================================================================== */
 
-import "./static/js/aiEntity.js?v=20260831a";
-import { createTourModule } from "./static/js/tour.js?v=20260831a";
-import { api, BASE, ErroApi } from "./api.js?v=20260831a";
+import "./static/js/aiEntity.js?v=20260901a";
+import { createTourModule } from "./static/js/tour.js?v=20260901a";
+import { api, BASE, ErroApi } from "./api.js?v=20260901a";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -1981,8 +1981,12 @@ const Reconhecimento = window.SpeechRecognition || window.webkitSpeechRecognitio
    SpeechRecognition do Chrome fala com um servidor do Google; quando esse
    caminho falha, ele não chama onstart nem onerror — fica em silêncio. Sem
    este relógio o botão ficava preso em "Abrindo..." e os cliques seguintes
-   não faziam nada, que foi exatamente o relato. */
-const ESPERA_FALA = 5000;
+   não faziam nada.
+
+   Doze segundos, não cinco: a primeira conexão com o serviço acontece uma
+   vez por sessão do navegador e é a mais lenta de todas. Cinco segundos
+   derrubavam uma tentativa que ainda ia dar certo. */
+const ESPERA_FALA = 12000;
 
 function initVoz(){
   const botao = $("#globalAiChatAudio");
@@ -2021,11 +2025,25 @@ function initVoz(){
     + "Microfone em Permitir e recarregue a página.";
 
   /* Pede o microfone antes de acionar o reconhecimento.
+
      O SpeechRecognition, sozinho, nem sempre faz o navegador perguntar — e
-     quando não pergunta, ele também não avisa. getUserMedia sempre resolve
-     de um jeito ou de outro: ou abre o pedido, ou devolve um erro com nome.
-     A gravação em si continua sendo do reconhecimento; esta faixa é aberta
-     e fechada na hora, só para arrancar a resposta do navegador. */
+     quando não pergunta, também não avisa. getUserMedia sempre resolve de um
+     jeito ou de outro: ou abre o pedido, ou devolve um erro com nome.
+
+     Mas isso só vale quando ainda não há permissão. Com a permissão já
+     concedida, abrir e fechar uma faixa de áudio logo antes de o
+     reconhecimento pedir o mesmo dispositivo é disputa por hardware: no
+     Windows a placa demora a soltar, e o reconhecimento fica esperando um
+     microfone que ainda está sendo devolvido — sem erro, sem onstart, em
+     silêncio. Era o que o "não respondeu" estava mostrando. Já concedido,
+     este passo é pulado inteiro. */
+  async function permissaoJaConcedida(){
+    try {
+      const p = await navigator.permissions.query({name: "microphone"});
+      return p.state === "granted";
+    } catch { return false; }        // Firefox e Safari não respondem; segue o fluxo
+  }
+
   async function garantirMicrofone(){
     if (!navigator.mediaDevices?.getUserMedia){
       return {ok: false, titulo: "Este navegador não libera o microfone aqui",
@@ -2043,6 +2061,9 @@ function initVoz(){
           () => falha(Object.assign(new Error("sem resposta"), {name: "SemResposta"})), 25000)),
       ]);
       faixa.getTracks().forEach(t => t.stop());
+      // respiro para a placa soltar o dispositivo antes de o reconhecimento
+      // pedir o mesmo microfone
+      await new Promise(pronto => setTimeout(pronto, 350));
       return {ok: true};
     } catch (erro){
       if (erro?.name === "SemResposta"){
@@ -2075,10 +2096,12 @@ function initVoz(){
     pintarBotao("abrindo", "Abrindo...");
     dizerStatus("Abrindo o microfone — aceite o pedido do navegador.", "is-processing");
 
-    const permissao = await garantirMicrofone();
-    if (!permissao.ok){
-      return soltar(permissao.titulo + ".", "is-error",
-                    {titulo: permissao.titulo, detalhe: permissao.detalhe});
+    if (!await permissaoJaConcedida()){
+      const permissao = await garantirMicrofone();
+      if (!permissao.ok){
+        return soltar(permissao.titulo + ".", "is-error",
+                      {titulo: permissao.titulo, detalhe: permissao.detalhe});
+      }
     }
 
     ouvinte = new Reconhecimento();
@@ -2138,18 +2161,23 @@ function initVoz(){
     };
 
     try {
-      ouvinte.start();
-      // se o serviço não responder, desiste em vez de travar o botão
+      // O relógio é armado ANTES de start(): armá-lo depois abre uma janela
+      // em que onstart já chamou clearTimeout de um relógio que ainda não
+      // existia, e o timeout dispararia por cima de uma gravação que estava
+      // funcionando.
       relogio = setTimeout(() => {
         parar();
         soltar("O reconhecimento de fala não respondeu.", "is-error", {
           titulo: "O reconhecimento de fala não respondeu",
-          detalhe: "O microfone abriu, mas o serviço de transcrição do navegador "
-                 + "não retornou. Isso costuma ser bloqueio de rede. Digite a "
+          detalhe: "O microfone abriu, mas o serviço de transcrição do Chrome "
+                 + "não retornou em 12 s. Ele depende de um servidor do Google; "
+                 + "rede que bloqueia esse caminho derruba o ditado. Digite a "
                  + "pergunta — o assistente responde igual.",
         });
       }, ESPERA_FALA);
+      ouvinte.start();
     } catch (erro){
+      clearTimeout(relogio); relogio = null;
       soltar("Não consegui iniciar a gravação.", "is-error",
              {titulo: "Não consegui iniciar a gravação",
               detalhe: `${erro?.name || "erro"}: ${erro?.message || ""}`.trim()});
