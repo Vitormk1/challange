@@ -940,6 +940,13 @@ def saude():
 #
 # O mount vem DEPOIS de todas as rotas: o FastAPI resolve na ordem, e um mount
 # em "/" registrado antes engoliria /auth, /dados e o resto.
+#
+# ATENÇÃO ao mexer no deploy: a partir daqui, mudança de tela mora em docs/ e
+# não em api/. O render.yaml usava `rootDir: api`, e com isso o Render pulava
+# o build quando nada dentro de api/ mudava — um commit que só mexia no painel
+# era ignorado em silêncio, com o GitHub na versão nova e o serviço na antiga.
+# Por isso o rootDir foi removido de lá. Se voltar, este arquivo deixa de ser
+# publicado junto com o painel que ele serve.
 # ==========================================================================
 if PAINEL.is_dir():
     app.mount("/painel", StaticFiles(directory=PAINEL / "painel", html=True), name="painel")

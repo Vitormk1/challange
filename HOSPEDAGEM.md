@@ -143,3 +143,4 @@ estar num servidor público; o limite é a rede de segurança se algo escapar.
 | `/saude` com `banco: false` | `DATABASE_URL`, e confira o `?sslmode=require` |
 | Primeira visita muito lenta | hibernação: seção "Antes da apresentação" |
 | 503 "O banco não respondeu agora" | pool esgotado; o plano gratuito é 1 worker, veja `render.yaml` |
+| Publiquei e o site não mudou | o Render só reconstrói quando algo muda dentro do diretório raiz do serviço. `render.yaml` **não** define `rootDir` justamente por isso — se alguém reintroduzir, mudança em `docs/` para de publicar |

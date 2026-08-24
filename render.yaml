@@ -14,11 +14,19 @@ services:
     runtime: python
     plan: free
     region: oregon          # mais perto do Aiven; ver comentário abaixo
-    rootDir: api
-    buildCommand: pip install -r ../requirements.txt
+    # Sem `rootDir`. Com ele apontando para api/, o Render pula o build quando
+    # nada dentro daquela pasta muda — e desde que o painel passou a ser
+    # servido por este processo, mudança de tela vive em docs/. Um commit que
+    # só mexia no painel era ignorado em silêncio: o GitHub tinha a versão
+    # nova, o serviço continuava com a antiga, e nada acusava.
+    buildCommand: pip install -r requirements.txt
+    # `--app-dir api` põe api/ no sys.path, que é o que faz `from db import`
+    # funcionar. O caminho do painel é calculado a partir de __file__, então
+    # não depende de onde o processo foi iniciado.
+    #
     # 1 worker de propósito: o plano gratuito tem 512 MB, e cada worker abre
     # seu próprio pool de conexões contra o Postgres.
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1 --app-dir api
     healthCheckPath: /saude
     envVars:
       - key: PYTHON_VERSION
