@@ -140,13 +140,19 @@ def main() -> None:
         # que não passa.
         checar(f"tabela fora da lista recusada: {tabela[:28]}",
                r.status_code in (400, 403, 404), f"HTTP {r.status_code}")
-    r = ger.patch(f"{API}/registros/carregadores/1",
-                  json={"nome": "ok", "senha_hash": "x", "estabelecimento_id": 3, "id": 999}, timeout=TEMPO)
+    # guarda o nome antes: auditoria que deixa lixo no banco é auditoria que
+    # ninguém roda duas vezes. A primeira versão renomeava o carregador para
+    # "ok" e ia embora — o nome ficou assim até aparecer num gráfico.
+    antes = ger.get(f"{API}/dados?estabelecimento_id=1", timeout=TEMPO).json()["carregadores"][0]
+    r = ger.patch(f"{API}/registros/carregadores/{antes['id']}",
+                  json={"nome": antes["nome"], "senha_hash": "x",
+                        "estabelecimento_id": 3, "id": 999}, timeout=TEMPO)
     if r.ok:
         volta = r.json()
         checar("campo fora da lista é descartado",
-               volta.get("estabelecimento_id") == 1 and volta.get("id") == 1,
+               volta.get("estabelecimento_id") == 1 and volta.get("id") == antes["id"],
                f"estab={volta.get('estabelecimento_id')} id={volta.get('id')}")
+        checar("auditoria não deixou lixo", volta.get("nome") == antes["nome"], volta.get("nome", ""))
     r = ger.post(f"{API}/paineis", json={"estabelecimento_id": 1, "nome": "x" * 500,
                                          "compartilhado": False}, timeout=TEMPO)
     if r.ok:

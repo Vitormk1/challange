@@ -476,7 +476,7 @@ def excluir(tabela: str, registro_id: int, u: dict = Depends(usuario_atual)):
 # A resposta devolve o layout já normalizado, e o painel adota o que voltou.
 # É assim que um card descartado fica visível em vez de "salvei e sumiu".
 CARDS_PERMITIDOS = {
-    "retorno", "teto", "horas", "pontos", "previsao",
+    "retorno", "teto", "horas", "pontos", "previsao", "curva",
     "lucro", "vendas", "sessoes", "clientes", "energia", "ticket", "cupons",
 }
 GRUPOS_PERMITIDOS = {"large", "small"}
@@ -507,13 +507,21 @@ def normalizar_cards(bruto) -> list[dict]:
             linhas = int(item.get("rows", 2))
         except (TypeError, ValueError):
             cols, linhas = 5, 2
-        config = item.get("config")
+        # `config` guarda a escolha de cada card (hoje: qual carregador o
+        # gráfico de curva mostra). Filtrar aqui evita que o jsonb vire
+        # depósito de qualquer coisa que o navegador mandar.
+        bruto_config = item.get("config")
+        config = {}
+        if isinstance(bruto_config, dict):
+            alvo = bruto_config.get("carregador_id")
+            if isinstance(alvo, (int, float)) and not isinstance(alvo, bool):
+                config["carregador_id"] = int(alvo)
         saida.append({
             "id": cid,
             "grupo": grupo if grupo in GRUPOS_PERMITIDOS else "small",
             "cols": max(MIN_COLS, min(cols, COLUNAS_GRADE)),
             "rows": max(MIN_ROWS, min(linhas, MAX_ROWS)),
-            "config": config if isinstance(config, dict) else {},
+            "config": config,
         })
     return saida
 

@@ -126,7 +126,12 @@ CABECALHOS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "same-origin",
-    "Permissions-Policy": "geolocation=(), microphone=(), camera=(), payment=()",
+    # `microphone=(self)`, não `microphone=()`. A lista vazia proíbe TODA
+    # origem, inclusive a própria página — e foi assim que o botão de ditar
+    # parou de funcionar sem dizer nada: a política bloqueava antes de o
+    # navegador sequer perguntar. `(self)` libera só esta origem, que é o
+    # necessário para o reconhecimento de fala e nada além disso.
+    "Permissions-Policy": "geolocation=(), microphone=(self), camera=(), payment=()",
 }
 
 

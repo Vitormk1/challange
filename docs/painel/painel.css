@@ -307,3 +307,105 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   .aviso, .aviso::after, .aviso-girando { transition: none; animation: none; }
 }
+
+/* ==========================================================================
+   Curva de recarga — o card detalhado
+
+   Duas grandezas em escalas diferentes: kW à esquerda, % à direita. Legenda
+   no cabeçalho e não dentro do gráfico, para não roubar área de desenho num
+   card que já é o mais denso do painel.
+   ========================================================================== */
+.curva-card {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 20px 14px;
+  border-radius: var(--radius-xl, 20px);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.curva-topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+}
+.curva-titulo p { margin: 0; }
+.curva-titulo h3 {
+  margin: 2px 0 0;
+  font-size: 1.02rem;
+  letter-spacing: -0.01em;
+}
+.curva-lateral {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.curva-legenda { display: flex; gap: 14px; flex-wrap: wrap; }
+.curva-chave {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.curva-chave i { width: 14px; height: 2px; border-radius: 2px; flex: 0 0 auto; }
+
+.curva-escolha {
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 5px 9px;
+  color: var(--text);
+  background: var(--surface-soft, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  max-width: 190px;
+}
+
+.curva-area { position: relative; flex: 1 1 auto; min-height: 0; }
+.curva-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.curva-captura { cursor: crosshair; }
+
+/* a dica segue o ponteiro; `left` vem do JS, o translate centraliza nela */
+.curva-dica {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 3px;
+  padding: 9px 11px;
+  border-radius: 11px;
+  background: var(--surface-strong, #fff);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 26px rgba(10, 32, 54, 0.18);
+  font-size: 0.76rem;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 4;
+}
+.curva-dica[hidden] { display: none; }
+.curva-dica strong { font-size: 0.72rem; color: var(--muted); font-weight: 600; }
+.curva-dica span { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.curva-dica i { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.curva-dica b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.curva-vazio {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 720px) {
+  .curva-lateral { width: 100%; justify-content: flex-start; }
+  .curva-escolha { max-width: none; flex: 1 1 auto; }
+}

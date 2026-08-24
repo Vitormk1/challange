@@ -16,9 +16,9 @@
       a tela de login diz isso, e é só o que ela faz.
    ========================================================================== */
 
-import "./static/js/aiEntity.js?v=20260828a";
-import { createTourModule } from "./static/js/tour.js?v=20260828a";
-import { api, BASE, ErroApi } from "./api.js?v=20260828a";
+import "./static/js/aiEntity.js?v=20260829a";
+import { createTourModule } from "./static/js/tour.js?v=20260829a";
+import { api, BASE, ErroApi } from "./api.js?v=20260829a";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -273,6 +273,7 @@ const CARDS = {
   horas:    {t:"Sessões por hora",        g:"Operação", tam:"large", cols:11, rows:4, min:{cols:7, rows:3}},
   pontos:   {t:"Carregadores",            g:"Operação", tam:"large", cols:9,  rows:4, min:{cols:5, rows:3}},
   previsao: {t:"Erro da previsão",        g:"Operação", tam:"large", cols:9,  rows:4, min:{cols:7, rows:3}},
+  curva:    {t:"Curva de recarga",        g:"Operação", tam:"large", cols:20, rows:5, min:{cols:9, rows:4}},
   lucro:    {t:"Lucro atribuído",         g:"Retorno",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
   vendas:   {t:"Vendas atribuídas",       g:"Retorno",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
   sessoes:  {t:"Sessões no período",      g:"Operação", tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}},
@@ -1044,7 +1045,7 @@ function renderPainel(){
           <span aria-hidden="true">⋮⋮</span>
         </button>
       </div>
-      ${corpoCard(c.id)}
+      ${corpoCard(c.id, c.config)}
     </article>`).join("");
 
   $("#dashboardGridLarge").innerHTML = grade("large");
@@ -1517,7 +1518,7 @@ function kpi(eyebrow, titulo, valor, meta, tom = ""){
 const cabecaCard = (eyebrow, titulo) =>
   `<div class="card-heading"><div><p class="eyebrow">${esc(eyebrow)}</p><h3>${esc(titulo)}</h3></div></div>`;
 
-function corpoCard(id){
+function corpoCard(id, config){
   const m = metricas(), e = loja();
   switch (id){
     case "lucro":    return kpi("Retorno","Lucro atribuído", brl(m.lucro),
@@ -1547,11 +1548,232 @@ function corpoCard(id){
     case "pontos":   return `<div class="trend-card">
                        ${cabecaCard("Agora","Carregadores")}
                        <div id="pontosAoVivo" class="lista-rolavel"></div></div>`;
+    case "curva":    return corpoCurva(id, config);
     case "teto":     return `<div class="trend-card">
                        ${cabecaCard("Cortesia","Quanto esta loja aguenta dar")}
                        <div id="tetoCard"></div></div>`;
     default: return "";
   }
+}
+
+
+/* ==========================================================================
+   Curva de recarga — o card detalhado
+
+   Mesma leitura do gráfico de clima da referência: várias séries no tempo,
+   grade leve, legenda no cabeçalho e um guia vertical que segue o ponteiro.
+   A diferença é que lá tudo é °C, e aqui potência é kW e carga é %. Duas
+   grandezas na mesma altura seriam mentira visual, então há dois eixos: kW à
+   esquerda, % à direita, cada série ancorada no seu.
+
+   Desenhado à mão em SVG, sem biblioteca. A referência usa Plotly; aqui a
+   CSP é `script-src 'self'`, então CDN não carrega — e o dossiê promete zero
+   dependência de gráfico. Um <path> e uma escala linear resolvem.
+   ========================================================================== */
+const SERIES_CURVA = {
+  potencia: {rotulo:"Potência", cor:"--primary",         traco:"", largura:2.2, eixo:"kw"},
+  nominal:  {rotulo:"Nominal",  cor:"--status-warning",  traco:"4 3", largura:1.6, eixo:"kw"},
+  carga:    {rotulo:"Carga",    cor:"--status-ok",       traco:"7 4", largura:1.8, eixo:"pct"},
+};
+
+/* A janela é de 24 horas terminando na última leitura, não o histórico
+   inteiro. Sem isso o card espremia trinta dias numa linha só: os rótulos
+   saíam "17:45, 05:39, 17:33" porque cada marca caía num dia diferente, e a
+   serrilha de centenas de sessões virava uma mancha. */
+const JANELA_CURVA = 24 * 60 * 60 * 1000;
+
+function leiturasDaCurva(config){
+  const ids = new Set(carregadoresDaLoja().map(c => c.id));
+  const todas = state.dados.leituras.filter(l => ids.has(l.carregador_id));
+  const escolhido = Number(config?.carregador_id) || todas[0]?.carregador_id;
+  const doPonto = todas
+    .filter(l => l.carregador_id === escolhido)
+    .sort((a, b) => new Date(a.momento) - new Date(b.momento));
+  if (!doPonto.length) return {escolhido, minhas: [], fim: null};
+  // termina na última leitura, e não em "agora": os dados são de demonstração
+  // e uma janela ancorada no relógio abriria o card vazio
+  const fim = new Date(doPonto[doPonto.length - 1].momento).getTime();
+  return {escolhido, fim,
+          minhas: doPonto.filter(l => new Date(l.momento).getTime() >= fim - JANELA_CURVA)};
+}
+
+/* Quebra o traço quando há um buraco no tempo. Entre uma recarga e a
+   seguinte podem passar horas sem leitura nenhuma; ligar os dois lados
+   desenharia uma reta que afirma uma potência que nunca existiu. */
+function segmentos(pontos, vaoMaximoMs = 15 * 60 * 1000){
+  const saida = [];
+  let atual = [];
+  pontos.forEach((p, i) => {
+    if (i && p.ms - pontos[i - 1].ms > vaoMaximoMs){
+      if (atual.length) saida.push(atual);
+      atual = [];
+    }
+    atual.push(p);
+  });
+  if (atual.length) saida.push(atual);
+  return saida;
+}
+
+function corpoCurva(id, config){
+  const {escolhido} = leiturasDaCurva(config);
+  const ponto = state.dados.carregadores.find(c => c.id === escolhido);
+  const opcoes = carregadoresDaLoja();
+  return `<div class="curva-card">
+    <div class="curva-topo">
+      <div class="curva-titulo">
+        <p class="eyebrow">Potência e carga · últimas 24 h</p>
+        <h3>${esc(ponto?.nome || "Sem carregador")}</h3>
+      </div>
+      <div class="curva-lateral">
+        <div class="curva-legenda">
+          ${Object.entries(SERIES_CURVA).map(([k, s]) => `
+            <span class="curva-chave"><i style="background:var(${s.cor});${s.traco ? "opacity:.85" : ""}"></i>${esc(s.rotulo)}</span>`).join("")}
+        </div>
+        ${opcoes.length > 1 ? `
+          <select class="curva-escolha" data-curva-ponto="${id}" aria-label="Carregador do gráfico">
+            ${opcoes.map(c => `<option value="${c.id}" ${c.id === escolhido ? "selected" : ""}>${esc(c.nome)}</option>`).join("")}
+          </select>` : ""}
+      </div>
+    </div>
+    <div class="curva-area">
+      <svg class="curva-svg" id="curva_${id}" role="img"
+           aria-label="Potência e carga do carregador ao longo do tempo"></svg>
+      <div class="curva-dica" id="curvaDica_${id}" hidden></div>
+    </div>
+  </div>`;
+}
+
+function desenharCurva(id, config){
+  const alvo = $(`#curva_${id}`);
+  if (!alvo) return;
+  const {escolhido, minhas} = leiturasDaCurva(config);
+  const ponto = state.dados.carregadores.find(c => c.id === escolhido);
+
+  if (minhas.length < 2){
+    alvo.innerHTML = "";
+    alvo.closest(".curva-area").classList.add("sem-dado");
+    alvo.insertAdjacentHTML("afterend",
+      `<div class="curva-vazio">Sem leituras do medidor para este carregador.</div>`);
+    return;
+  }
+  alvo.closest(".curva-area").classList.remove("sem-dado");
+  $(".curva-vazio", alvo.parentNode)?.remove();
+
+  // o viewBox acompanha o tamanho real do card, para o texto não esticar
+  const caixa = alvo.getBoundingClientRect();
+  const W = Math.max(360, Math.round(caixa.width)) || 720;
+  const H = Math.max(180, Math.round(caixa.height)) || 260;
+  const E = 44, D = 40, T = 14, B = 26;          // margens: esquerda, direita, topo, base
+  alvo.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  alvo.setAttribute("preserveAspectRatio", "none");
+
+  const t0 = new Date(minhas[0].momento).getTime();
+  const t1 = new Date(minhas[minhas.length - 1].momento).getTime();
+  const nominal = Number(ponto?.potencia_kw) || 0;
+  const kwMax = Math.max(nominal, ...minhas.map(l => Number(l.potencia_kw) || 0)) * 1.12 || 1;
+
+  const x = ms => E + (t1 === t0 ? 0.5 : (ms - t0) / (t1 - t0)) * (W - E - D);
+  const yKw = v => H - B - (v / kwMax) * (H - T - B);
+  const yPct = v => H - B - (v / 100) * (H - T - B);
+
+  const cor = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || "#888";
+  const grade = cor("--chart-grid") || "rgba(140,160,180,.25)";
+  const suave = cor("--muted") || "#8496a8";
+
+  let g = "";
+
+  // grade e eixo da esquerda (kW)
+  for (let i = 0; i <= 4; i++){
+    const v = kwMax * i / 4, py = yKw(v);
+    g += `<line x1="${E}" y1="${py.toFixed(1)}" x2="${W - D}" y2="${py.toFixed(1)}" stroke="${grade}" stroke-width="1"/>`
+       + `<text x="${E - 8}" y="${(py + 3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="${suave}">${num(v, v < 10 ? 1 : 0)}</text>`;
+  }
+  // eixo da direita (%)
+  for (let i = 0; i <= 4; i++){
+    const v = 25 * i;
+    g += `<text x="${W - D + 8}" y="${(yPct(v) + 3.5).toFixed(1)}" text-anchor="start" font-size="10" fill="${suave}">${v}%</text>`;
+  }
+  // marcas de hora, espaçadas conforme a largura disponível
+  const horas = Math.max(3, Math.min(8, Math.floor((W - E - D) / 90)));
+  for (let i = 0; i <= horas; i++){
+    const ms = t0 + (t1 - t0) * i / horas;
+    const px = x(ms);
+    g += `<line x1="${px.toFixed(1)}" y1="${T}" x2="${px.toFixed(1)}" y2="${H - B}" stroke="${grade}" stroke-width="1" opacity=".55"/>`
+       + `<text x="${px.toFixed(1)}" y="${H - B + 15}" text-anchor="middle" font-size="10" fill="${suave}">`
+       + `${new Date(ms).toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"})}</text>`;
+  }
+
+  const traco = (grupos, s) => grupos.filter(gp => gp.length > 1).map(gp =>
+    `<path d="${gp.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}"
+           fill="none" stroke="var(${s.cor})" stroke-width="${s.largura}"
+           ${s.traco ? `stroke-dasharray="${s.traco}"` : ""}
+           stroke-linejoin="round" stroke-linecap="round"/>`).join("");
+
+  const comTempo = (filtro, valor) => minhas.filter(filtro).map(l => {
+    const ms = new Date(l.momento).getTime();
+    return {ms, x: x(ms), y: valor(l)};
+  });
+
+  // a nominal é uma reta: valor constante do começo ao fim da janela
+  g += traco([[{ms:t0, x:x(t0), y:yKw(nominal)}, {ms:t1, x:x(t1), y:yKw(nominal)}]],
+             SERIES_CURVA.nominal);
+  g += traco(segmentos(comTempo(l => l.soc != null, l => yPct(Number(l.soc) * 100))),
+             SERIES_CURVA.carga);
+  g += traco(segmentos(comTempo(() => true, l => yKw(Number(l.potencia_kw) || 0))),
+             SERIES_CURVA.potencia);
+
+  // guia do ponteiro
+  g += `<line class="curva-guia" x1="0" y1="${T}" x2="0" y2="${H - B}" stroke="var(--primary)" stroke-width="1" opacity="0" stroke-dasharray="3 3"/>`
+     + `<circle class="curva-alvo" r="3.5" fill="var(--primary)" opacity="0"/>`
+     + `<rect x="${E}" y="${T}" width="${W - E - D}" height="${H - T - B}" fill="transparent" class="curva-captura"/>`;
+  alvo.innerHTML = g;
+
+  // ---- leitura pelo ponteiro ----
+  const dica = $(`#curvaDica_${id}`);
+  const guia = $(".curva-guia", alvo), marca = $(".curva-alvo", alvo);
+  const captura = $(".curva-captura", alvo);
+  captura.onpointermove = ev => {
+    const r = alvo.getBoundingClientRect();
+    const px = (ev.clientX - r.left) / r.width * W;
+    const ms = t0 + (px - E) / (W - E - D) * (t1 - t0);
+    // binária: a lista já está ordenada, e são centenas de pontos
+    let a = 0, b = minhas.length - 1;
+    while (b - a > 1){
+      const m = (a + b) >> 1;
+      (new Date(minhas[m].momento).getTime() < ms ? a = m : b = m);
+    }
+    const l = Math.abs(new Date(minhas[a].momento) - ms) < Math.abs(new Date(minhas[b].momento) - ms)
+      ? minhas[a] : minhas[b];
+    const lx = x(new Date(l.momento).getTime());
+    guia.setAttribute("x1", lx); guia.setAttribute("x2", lx); guia.setAttribute("opacity", ".65");
+    marca.setAttribute("cx", lx); marca.setAttribute("cy", yKw(Number(l.potencia_kw) || 0));
+    marca.setAttribute("opacity", "1");
+    dica.hidden = false;
+    dica.innerHTML = `<strong>${dataHora(l.momento)}</strong>
+      <span><i style="background:var(--primary)"></i>Potência <b>${num(l.potencia_kw, 2)} kW</b></span>
+      <span><i style="background:var(--status-warning)"></i>Nominal <b>${num(nominal, 1)} kW</b></span>
+      ${l.soc == null ? "" : `<span><i style="background:var(--status-ok)"></i>Carga <b>${Math.round(l.soc * 100)}%</b></span>`}`;
+    // não deixa a dica sair pela borda do card
+    const larguraDica = dica.offsetWidth || 150;
+    const posicao = lx / W * r.width;
+    dica.style.left = `${clamp(posicao, larguraDica / 2 + 4, r.width - larguraDica / 2 - 4)}px`;
+  };
+  captura.onpointerleave = () => {
+    guia.setAttribute("opacity", "0");
+    marca.setAttribute("opacity", "0");
+    dica.hidden = true;
+  };
+
+  const escolha = $(`[data-curva-ponto="${id}"]`);
+  if (escolha) escolha.onchange = ev => {
+    const p = painelAtual();
+    const cards = normalizarCards(p.cards);
+    const alvoCard = cards.find(c => c.id === id);
+    if (!alvoCard) return;
+    alvoCard.config = {...alvoCard.config, carregador_id: Number(ev.target.value)};
+    guardarLayout(p, cards);        // a escolha é do card, e viaja com ele
+    renderPainel();
+  };
 }
 
 /* ==========================================================================
@@ -1561,6 +1783,12 @@ const cor = n => getComputedStyle(document.documentElement).getPropertyValue(n).
 
 function desenharGraficos(){
   const e = loja(), ses = sessoesDaLoja();
+
+  $$("[data-dashboard-card='curva']").forEach(no => {
+    const p = painelAtual();
+    const conf = normalizarCards(p?.cards).find(c => c.id === "curva");
+    desenharCurva("curva", conf?.config);
+  });
 
   if ($("#chartRetorno")){
     const porDia = {};
