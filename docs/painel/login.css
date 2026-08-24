@@ -11,21 +11,24 @@
    borda: o seletor de tema fica logo abaixo do formulário, não no canto.
    ========================================================================== */
 .login-gate {
-  --lg-fundo: #eef4fa;
+  --lg-fundo: #F4F4F6;
   --lg-fundo-2: #ffffff;
   --lg-superficie: #ffffff;
-  --lg-texto: #0f2a44;
-  --lg-suave: #4f6478;
-  --lg-linha: #d7e3ee;
+  --lg-texto: #16161a;
+  --lg-suave: #5b5b66;
+  --lg-linha: #e2e2e7;
   --lg-campo: #ffffff;
-  --lg-primaria: #1a73ae;        /* branco por cima media 4,34 no #1f7fbe */
-  --lg-primaria-forte: #175f8f;
-  --lg-ciano: #14a5c8;
-  --lg-anel-trilho: rgba(15, 42, 68, 0.09);
-  --lg-erro: #a82a1d;
-  --lg-erro-fundo: rgba(168, 42, 29, 0.08);
-  --lg-erro-borda: rgba(168, 42, 29, 0.28);
-  --lg-ok: #16744a;
+  --lg-primaria: #b4160f;        /* vermelho da marca, fechado o bastante
+                                    para carregar texto branco */
+  --lg-primaria-forte: #8f0f09;
+  --lg-ciano: #e1251b;
+  --lg-anel-trilho: rgba(22, 22, 26, 0.09);
+  /* erro num tom mais fechado que o da marca: os dois vermelhos
+     precisam ficar distinguíveis lado a lado nesta tela */
+  --lg-erro: #8a1616;
+  --lg-erro-fundo: rgba(138, 22, 22, 0.08);
+  --lg-erro-borda: rgba(138, 22, 22, 0.28);
+  --lg-ok: #0c6b45;
   --lg-sobre-primaria: #ffffff;   /* texto por cima do azul */
   --lg-sombra: 0 18px 44px rgba(12, 40, 66, 0.1);
 
@@ -44,25 +47,24 @@
 .login-gate[hidden] { display: none; }
 
 :root[data-theme="dark"] .login-gate {
-  --lg-fundo: #050f1a;
-  --lg-fundo-2: #0b1f31;
-  --lg-superficie: #10263a;
-  --lg-texto: #f2f8fd;          /* quase branco: o texto principal do escuro */
-  --lg-suave: #a9c0d4;          /* medido em 8,1 sobre o fundo escuro */
-  --lg-linha: rgba(255, 255, 255, 0.16);
-  --lg-campo: rgba(255, 255, 255, 0.07);
-  --lg-primaria: #5ab6ef;
-  --lg-primaria-forte: #3f9ad8;
-  --lg-ciano: #46d6f2;
-  --lg-anel-trilho: rgba(255, 255, 255, 0.13);
-  --lg-erro: #ff9d8f;
-  --lg-erro-fundo: rgba(255, 157, 143, 0.14);
-  --lg-erro-borda: rgba(255, 157, 143, 0.36);
-  --lg-ok: #6fe0af;
-  /* no escuro o azul e claro demais para texto branco (3,08).
-     Texto quase preto por cima dele passa com folga e e o padrao
-     que os temas escuros modernos usam. */
-  --lg-sobre-primaria: #04121d;
+  --lg-fundo: #08080a;
+  --lg-fundo-2: #131317;
+  --lg-superficie: #1a1a20;
+  --lg-texto: #f5f5f7;
+  --lg-suave: #b0b0bc;
+  --lg-linha: rgba(255, 255, 255, 0.15);
+  --lg-campo: rgba(255, 255, 255, 0.06);
+  --lg-primaria: #ff4d42;
+  --lg-primaria-forte: #e1251b;
+  --lg-ciano: #ff6b61;
+  --lg-anel-trilho: rgba(255, 255, 255, 0.12);
+  --lg-erro: #ffa79e;
+  --lg-erro-fundo: rgba(255, 167, 158, 0.14);
+  --lg-erro-borda: rgba(255, 167, 158, 0.36);
+  --lg-ok: #5fe0ab;
+  /* no escuro o vermelho é claro demais para texto branco. Texto quase
+     preto por cima dele passa com folga, e é o padrão dos temas escuros. */
+  --lg-sobre-primaria: #140403;
   --lg-sombra: 0 18px 44px rgba(0, 0, 0, 0.4);
 }
 

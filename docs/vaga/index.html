@@ -22,19 +22,27 @@
      moldura e em tela cheia sem duplicar uma linha de estilo.
   ------------------------------------------------------------------ */
   :root{
-    --page:#F2F3F5;
-    --page-2:#DDE1E5;
+    --page:#F1F1F3;
+    --page-2:#1A1A1E;
     --page-ink:#5A6067;
     --ground:#08090B;
     --ink:#F2F3F5;
     --ink-2:#A2A8AE;
-    --ink-3:#666D74;
+    /* 4,78 sobre o fundo da tela. O #666D74 anterior dava 3,8 e reprovava:
+       esta tela é lida em pé, a alguns metros, na vaga. */
+    --ink-3:#767D85;
     --rule:#1B1F23;
+    /* Âmbar e verde ficam onde estão: aqui eles são semáforo — âmbar é
+       "carregando", verde é "cheio". Trocar o âmbar pelo vermelho da marca
+       faria a tela dizer "deu errado" justamente enquanto tudo vai bem.
+       O vermelho entra onde é identidade, não onde é estado. */
     --amber:#FFB020;
     --done:#5BD08A;
+    --marca:#E1251B;
+    --marca-clara:#FF4D42;
   }
   @media (prefers-color-scheme: dark){
-    :root{--page:#0A0B0D;--page-2:#181B1F;--page-ink:#6E757C}
+    :root{--page:#08080A;--page-2:#141418;--page-ink:#6E757C}
   }
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -55,7 +63,7 @@
     text-transform:uppercase;color:var(--page-ink);text-align:center;margin:0;
   }
   .caption a{color:var(--page-ink)}
-  .caption a:hover{color:var(--amber)}
+  .caption a:hover{color:var(--marca-clara)}
 
   /* ---------- a tela ---------- */
   .screen{

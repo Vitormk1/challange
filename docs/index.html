@@ -14,12 +14,19 @@
     --surface:#FFFFFF;
     --ink:#0C0D0F;
     --ink-2:#4A4F55;
-    --ink-3:#868D94;
+    /* 4,97 sobre a superficie branca. O #868D94 dava 3,14 e reprovava, e
+       este token carrega legenda, nota de rodape e ate valor em reais. */
+    --ink-3:#656C74;
     --rule:#E4E6E9;
     --rule-2:#CDD1D6;
-    --accent:#B45A00;
-    --accent-soft:#FBF1E4;
-    --glow:rgba(180,90,0,.10);
+    /* O acento é IDENTIDADE: títulos, links, filetes, numeração. Era âmbar,
+       agora é o vermelho da marca. O que ele NÃO é: sinal de resultado. As
+       colunas de ganho usavam este mesmo token, e em vermelho um "+R$ 13,51"
+       passaria a parecer prejuízo — por isso o ganho ganhou token próprio. */
+    --accent:#B4160F;
+    --accent-soft:#FDEBEA;
+    --ganho:#0C6B45;
+    --glow:rgba(180,22,15,.10);
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
@@ -27,19 +34,20 @@
       --surface:#101214;
       --ink:#EDEEF0;
       --ink-2:#A2A8AE;
-      --ink-3:#6E757C;
+      --ink-3:#828992;
       --rule:#1C2024;
       --rule-2:#2B3138;
-      --accent:#FFB020;
-      --accent-soft:#231806;
-      --glow:rgba(255,176,32,.09);
+      --accent:#FF4D42;
+      --accent-soft:#2A0906;
+      --ganho:#5FE0AB;
+      --glow:rgba(255,77,66,.09);
     }
   }
   :root[data-theme="dark"]{
     --ground:#0A0B0D; --surface:#101214;
-    --ink:#EDEEF0; --ink-2:#A2A8AE; --ink-3:#6E757C;
+    --ink:#EDEEF0; --ink-2:#A2A8AE; --ink-3:#828992;
     --rule:#1C2024; --rule-2:#2B3138;
-    --accent:#FFB020; --accent-soft:#231806; --glow:rgba(255,176,32,.09);
+    --accent:#FF4D42; --accent-soft:#2A0906; --ganho:#5FE0AB; --glow:rgba(255,77,66,.10);
   }
 
   *{box-sizing:border-box}
@@ -290,10 +298,10 @@
       <table>
         <thead><tr><th>Segmento</th><th>Margem</th><th>Ticket</th><th>Lucro</th><th>Energia</th><th>Saldo</th></tr></thead>
         <tbody>
-          <tr><td><strong>Academia</strong></td><td class="num">15%</td><td class="num">R$ 130</td><td class="num">R$ 19,50</td><td class="num">R$ 5,99</td><td class="num" style="color:var(--accent)">+ R$ 13,51</td></tr>
-          <tr><td><strong>Pet shop e serviços</strong></td><td class="num">12%</td><td class="num">R$ 150</td><td class="num">R$ 18,00</td><td class="num">R$ 7,19</td><td class="num" style="color:var(--accent)">+ R$ 10,81</td></tr>
-          <tr><td><strong>Restaurante</strong></td><td class="num">8%</td><td class="num">R$ 120</td><td class="num">R$ 9,60</td><td class="num">R$ 7,19</td><td class="num" style="color:var(--accent)">+ R$ 2,41</td></tr>
-          <tr><td><strong>Farmácia</strong></td><td class="num">5,5%</td><td class="num">R$ 45</td><td class="num">R$ 2,48</td><td class="num">R$ 1,20</td><td class="num" style="color:var(--accent)">+ R$ 1,28</td></tr>
+          <tr><td><strong>Academia</strong></td><td class="num">15%</td><td class="num">R$ 130</td><td class="num">R$ 19,50</td><td class="num">R$ 5,99</td><td class="num" style="color:var(--ganho)">+ R$ 13,51</td></tr>
+          <tr><td><strong>Pet shop e serviços</strong></td><td class="num">12%</td><td class="num">R$ 150</td><td class="num">R$ 18,00</td><td class="num">R$ 7,19</td><td class="num" style="color:var(--ganho)">+ R$ 10,81</td></tr>
+          <tr><td><strong>Restaurante</strong></td><td class="num">8%</td><td class="num">R$ 120</td><td class="num">R$ 9,60</td><td class="num">R$ 7,19</td><td class="num" style="color:var(--ganho)">+ R$ 2,41</td></tr>
+          <tr><td><strong>Farmácia</strong></td><td class="num">5,5%</td><td class="num">R$ 45</td><td class="num">R$ 2,48</td><td class="num">R$ 1,20</td><td class="num" style="color:var(--ganho)">+ R$ 1,28</td></tr>
           <tr><td>Café e padaria</td><td class="num">9%</td><td class="num">R$ 35</td><td class="num">R$ 3,15</td><td class="num">R$ 3,19</td><td class="num">− R$ 0,04</td></tr>
           <tr><td>Supermercado</td><td class="num">2,9%</td><td class="num">R$ 60</td><td class="num">R$ 1,74</td><td class="num">R$ 3,59</td><td class="num">− R$ 1,85</td></tr>
         </tbody>
@@ -392,9 +400,9 @@
       <table>
         <thead><tr><th>Carga atual</th><th>Até 80%</th><th>Até encher</th><th>Conta simples diz</th><th>Erro</th></tr></thead>
         <tbody>
-          <tr><td class="num">10%</td><td class="num">5h26</td><td class="num">7h40</td><td class="num">6h59</td><td class="num" style="color:var(--accent)">41 min</td></tr>
-          <tr><td class="num">50%</td><td class="num">2h20</td><td class="num">4h33</td><td class="num">3h53</td><td class="num" style="color:var(--accent)">40 min</td></tr>
-          <tr><td class="num">85%</td><td class="num">—</td><td class="num">1h50</td><td class="num">1h10</td><td class="num" style="color:var(--accent)">40 min</td></tr>
+          <tr><td class="num">10%</td><td class="num">5h26</td><td class="num">7h40</td><td class="num">6h59</td><td class="num" style="color:var(--ganho)">41 min</td></tr>
+          <tr><td class="num">50%</td><td class="num">2h20</td><td class="num">4h33</td><td class="num">3h53</td><td class="num" style="color:var(--ganho)">40 min</td></tr>
+          <tr><td class="num">85%</td><td class="num">—</td><td class="num">1h50</td><td class="num">1h10</td><td class="num" style="color:var(--ganho)">40 min</td></tr>
         </tbody>
       </table>
     </div>

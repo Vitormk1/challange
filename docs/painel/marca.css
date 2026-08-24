@@ -1,0 +1,227 @@
+/* ==========================================================================
+   Identidade — preto e vermelho
+
+   A referência é azul-marinho e ciano. Este arquivo troca só os tokens de
+   cor; nenhuma regra de layout é reescrita, então tudo que já funcionava
+   continua funcionando e a repaginação cabe num arquivo que dá para ler.
+
+   O problema que essa troca cria, e como ele foi resolvido:
+
+   Vermelho já era a cor de "deu errado" neste painel. Promovê-lo a cor da
+   marca faria o botão de salvar parecer um alerta, e o de excluir parecer o
+   botão comum. Então o vermelho ficou reservado a três coisas — a marca, a
+   ação principal e a série principal dos gráficos — e o resto da interface
+   virou preto e grafite. Assim sobra espaço para o vermelho de alarme ainda
+   significar alarme.
+
+   Destrutivo continua distinguível por FORMA, não só por matiz: ação
+   principal é preenchida, exclusão é contornada e vazia. Quem não separa os
+   dois vermelhos separa cheio de vazio.
+
+   O vermelho abaixo é aproximado ao da GoodWe. Se você tiver o hexadecimal
+   exato da marca, é trocar --marca-vermelho e --marca-vermelho-forte aqui.
+   ========================================================================== */
+:root {
+  --marca-vermelho: #E1251B;        /* identidade, linhas, acentos */
+  --marca-vermelho-forte: #B4160F;  /* fundo de botão: carrega texto branco */
+  --marca-vermelho-claro: #FDEBEA;  /* fundo suave */
+  --marca-preto: #0D0D0F;
+  --marca-grafite: #17171B;
+  --marca-carvao: #232329;
+
+  /* ---- superfícies ---- */
+  --bg-app: #F4F4F6;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  --bg-soft: #ECECEF;
+  --header-bg: #FAFAFB;
+  --table-header-bg: #F0F0F3;
+  --table-row-hover: #F7F7F9;
+  --table-bg: #FFFFFF;
+  --table-row-border: #E7E7EB;
+  --table-row-selected: #FDEBEA;
+
+  /* ---- menu lateral: preto com a linha ativa em vermelho ---- */
+  --sidebar-bg: var(--marca-preto);
+  --sidebar-bg-secondary: var(--marca-grafite);
+  --sidebar-hover: #26262C;
+  --sidebar-active: #32323A;
+  --sidebar-active-line: var(--marca-vermelho);
+
+  /* ---- texto e linhas ---- */
+  --text-primary: #16161A;
+  --text-secondary: #5B5B66;         /* medido em 5,6 sobre o fundo do app */
+  --text-muted: #74747F;
+  --text-on-dark: #F7F7F8;
+  --text-on-dark-secondary: #C2C2CB;
+  --border-default: #E2E2E7;
+  --border-strong: #C9C9D1;
+  --table-header-text: #4C4C56;
+  --table-cell-muted: #63636D;
+
+  /* ---- ação principal ---- */
+  --primary: var(--marca-vermelho-forte);
+  --primary-hover: #8F0F09;
+  --primary-soft: var(--marca-vermelho-claro);
+  --accent-cyan: var(--marca-vermelho);
+  --text-on-primary: #FFFFFF;
+  --primary-accessible-text: #9E120C;
+  --primary-action-bg: var(--marca-vermelho-forte);
+  --primary-action-hover: #8F0F09;
+
+  /* ---- estados ----
+     Verde e âmbar ficam: são o outro lado do semáforo, e trocá-los por tons
+     de vermelho apagaria a diferença entre "deu certo" e "deu errado".
+     Crítico vai para um vermelho mais escuro e fechado que o da marca, para
+     os dois não se confundirem lado a lado. */
+  --success: #128A5A;
+  --success-soft: #E3F5EC;
+  --success-accessible-text: #0C6B45;
+  --warning: #B5760A;
+  --warning-soft: #FDF2DC;
+  --warning-accessible-text: #7C5006;
+  --danger: #9B1C1C;
+  --danger-soft: #FBE7E7;
+  --danger-accessible-text: #8A1616;
+  --status-alarm-bg: #FBE7E7;
+  --status-alarm-text: #8A1616;
+  --status-alarm-border: #9B1C1C;
+  --status-alarm-contrast-text: #8A1616;
+  --info: #44444E;                   /* neutro: informativo não disputa com a marca */
+  --info-soft: #EDEDF1;
+  --info-accessible-text: #3A3A44;
+
+  /* ---- apoio ---- */
+  --bg-overlay: rgba(13, 13, 15, 0.5);
+  --bg-surface-translucent: rgba(255, 255, 255, 0.96);
+  --bg-surface-subtle: rgba(255, 255, 255, 0.86);
+  --focus-ring: rgba(225, 37, 27, 0.26);
+  --scrollbar-thumb: rgba(35, 35, 41, 0.42);
+  --shadow-color: rgba(13, 13, 15, 0.14);
+  --shadow-color-soft: rgba(13, 13, 15, 0.08);
+  --inactive-soft: rgba(116, 116, 127, 0.14);
+  --chart-grid: rgba(91, 91, 102, 0.18);
+  --tooltip-bg: var(--marca-preto);
+  --tooltip-text: #F7F7F8;
+
+  /* A esfera pensa em vermelho, e não em azul. Parada continua clara: um
+     ponto vermelho pulsando o tempo todo no canto vira alarme falso. */
+  --ai-orb-halo-cyan: rgba(225, 37, 27, 0.18);
+  --ai-orb-surface-cyan: rgba(225, 37, 27, 0.16);
+  --ai-orb-thinking-core: rgba(225, 37, 27, 0.98);
+  --ai-orb-thinking-mid: rgba(180, 22, 15, 0.86);
+  --ai-orb-thinking-soft: rgba(225, 37, 27, 0.3);
+  --ai-orb-shadow-cyan: rgba(225, 37, 27, 0.3);
+}
+
+/* ==========================================================================
+   Escuro: preto de verdade, com o vermelho clareado para aguentar o fundo
+   ========================================================================== */
+:root[data-theme="dark"] {
+  --marca-vermelho: #FF4D42;
+  --marca-vermelho-forte: #E1251B;
+  --marca-vermelho-claro: rgba(255, 77, 66, 0.16);
+
+  --bg-app: #08080A;
+  --bg-surface: #131317;
+  --bg-elevated: #1A1A20;
+  --bg-soft: #0F0F12;
+  --header-bg: #111115;
+  --table-header-bg: #1B1B21;
+  --table-row-hover: #1E1E25;
+  --table-bg: #131317;
+  --table-row-border: #26262E;
+  --table-row-selected: rgba(255, 77, 66, 0.12);
+
+  --sidebar-bg: #000000;
+  --sidebar-bg-secondary: #0C0C0F;
+  --sidebar-hover: #1D1D23;
+  --sidebar-active: #2A2A32;
+  --sidebar-active-line: var(--marca-vermelho);
+
+  --text-primary: #F5F5F7;
+  --text-secondary: #B0B0BC;
+  --text-muted: #85858F;
+  --text-on-dark: #FFFFFF;
+  --text-on-dark-secondary: #C6C6D0;
+  --border-default: #2C2C35;
+  --border-strong: #3E3E4A;
+  --table-header-text: #B6B6C2;
+  --table-cell-muted: #9A9AA6;
+
+  --primary: var(--marca-vermelho);
+  --primary-hover: #FF6B61;
+  --primary-soft: var(--marca-vermelho-claro);
+  --accent-cyan: var(--marca-vermelho);
+  /* Branco, e não texto escuro. Eu tinha suposto que sobre vermelho claro o
+     texto quase preto ganharia, como acontece sobre azul claro — medido, dá
+     4,27 e reprova. Branco sobre #D01E15 dá 5,41, e ainda fica igual ao tema
+     claro, o que é uma coisa a menos para divergir. */
+  --text-on-primary: #FFFFFF;
+  --primary-accessible-text: #FF7A70;
+  --primary-action-bg: #D01E15;
+  --primary-action-hover: #E1251B;
+
+  --success: #34C98A;
+  --success-soft: rgba(52, 201, 138, 0.16);
+  --success-accessible-text: #5FE0AB;
+  --warning: #F0B64B;
+  --warning-soft: rgba(240, 182, 75, 0.16);
+  --warning-accessible-text: #F5CC80;
+  --danger: #FF8A7E;
+  --danger-soft: rgba(255, 138, 126, 0.16);
+  --danger-accessible-text: #FFA79E;
+  --status-alarm-bg: rgba(255, 138, 126, 0.18);
+  --status-alarm-text: #FFA79E;
+  --status-alarm-border: #FF8A7E;
+  --status-alarm-contrast-text: #FFA79E;
+  --info: #9E9EAC;
+  --info-soft: rgba(158, 158, 172, 0.15);
+  --info-accessible-text: #B5B5C2;
+
+  --bg-overlay: rgba(0, 0, 0, 0.72);
+  --bg-surface-translucent: rgba(19, 19, 23, 0.96);
+  --bg-surface-subtle: rgba(26, 26, 32, 0.9);
+  --focus-ring: rgba(255, 77, 66, 0.3);
+  --scrollbar-thumb: rgba(255, 77, 66, 0.4);
+  --shadow-color: rgba(0, 0, 0, 0.6);
+  --shadow-color-soft: rgba(0, 0, 0, 0.4);
+  --inactive-soft: rgba(133, 133, 143, 0.16);
+  --chart-grid: rgba(176, 176, 188, 0.16);
+  --tooltip-bg: #1A1A20;
+  --tooltip-text: #F5F5F7;
+
+  --ai-orb-halo-cyan: rgba(255, 77, 66, 0.2);
+  --ai-orb-surface-cyan: rgba(255, 77, 66, 0.18);
+  --ai-orb-thinking-core: rgba(255, 77, 66, 0.98);
+  --ai-orb-thinking-mid: rgba(225, 37, 27, 0.86);
+  --ai-orb-thinking-soft: rgba(255, 77, 66, 0.32);
+  --ai-orb-shadow-cyan: rgba(255, 77, 66, 0.32);
+}
+
+/* --------------------------------------------------------------------------
+   Destrutivo separado por forma, não por matiz.
+   O botão de excluir fica vazio e contornado; o de ação principal, cheio.
+   Quem não distingue os dois vermelhos distingue cheio de vazio.
+   -------------------------------------------------------------------------- */
+.ghost-button.danger-outline,
+.editor-delete-button {
+  color: var(--danger-accessible-text);
+  background: transparent;
+  border: 1px solid var(--danger);
+}
+.ghost-button.danger-outline:hover:not(:disabled),
+.editor-delete-button:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+/* A marca no topo do menu ganha o vermelho; o resto do menu fica preto. */
+.brand-mark {
+  background: var(--marca-vermelho) !important;
+  color: #fff !important;
+}
+
+/* Linha do item ativo: era ciano, agora é a cor da marca. */
+.nav-item.active::before,
+.nav-item.active::after { background: var(--marca-vermelho); }
