@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Praça de Recarga — painel do lojista
+   Smart Charge — painel do lojista
 
    O CSS, o tour e a esfera de IA vêm do painel de referência sem alteração;
    o que é nosso é o conteúdo e as regras.
@@ -16,9 +16,9 @@
       a tela de login diz isso, e é só o que ela faz.
    ========================================================================== */
 
-import "./static/js/aiEntity.js";
-import { createTourModule } from "./static/js/tour.js";
-import { api, BASE, ErroApi } from "./api.js";
+import "./static/js/aiEntity.js?v=20260826a";
+import { createTourModule } from "./static/js/tour.js?v=20260826a";
+import { api, BASE, ErroApi } from "./api.js?v=20260826a";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -95,6 +95,7 @@ const SECOES = {
   financeiro:  { eyebrow:"Negócio", titulo:"Financeiro" },
   estabelecimentos:{ eyebrow:"Cadastros", titulo:"Estabelecimentos", tabela:"estabelecimentos" },
   paineis:     { eyebrow:"Cadastros", titulo:"Painéis salvos", tabela:"paineis" },
+  perfil:      { eyebrow:"Sua conta", titulo:"Perfil e configurações" },
 };
 
 const chip = (texto, tom) => `<span class="machine-monitor-badge is-${tom}">${esc(texto)}</span>`;
@@ -262,20 +263,25 @@ function erroPrevisao(s){
 /* ==========================================================================
    biblioteca de cards
    ========================================================================== */
+/* `min` é o menor tamanho em que o card ainda diz alguma coisa. Um gráfico de
+   linha espremido em 4 colunas vira um risco; um KPI de duas linhas de texto
+   aguenta bem menos espaço. Sem esse piso por card, redimensionar quebra
+   justamente os cards que mais importam. */
 const CARDS = {
-  retorno:  {t:"Lucro atribuído × custo", g:"Retorno",  tam:"large", cols:11, rows:4, financeiro:true},
-  teto:     {t:"Teto de cortesia",        g:"Retorno",  tam:"large", cols:9,  rows:4, financeiro:true},
-  horas:    {t:"Sessões por hora",        g:"Operação", tam:"large", cols:11, rows:4},
-  pontos:   {t:"Carregadores",            g:"Operação", tam:"large", cols:9,  rows:4},
-  previsao: {t:"Erro da previsão",        g:"Operação", tam:"large", cols:9,  rows:4},
-  lucro:    {t:"Lucro atribuído",         g:"Retorno",  tam:"small", cols:5,  rows:2, financeiro:true},
-  vendas:   {t:"Vendas atribuídas",       g:"Retorno",  tam:"small", cols:5,  rows:2, financeiro:true},
-  sessoes:  {t:"Sessões no período",      g:"Operação", tam:"small", cols:5,  rows:2},
-  clientes: {t:"Clientes únicos",         g:"Público",  tam:"small", cols:5,  rows:2},
-  energia:  {t:"Energia entregue",        g:"Operação", tam:"small", cols:5,  rows:2},
-  ticket:   {t:"Ticket de quem carrega",  g:"Público",  tam:"small", cols:5,  rows:2, financeiro:true},
-  cupons:   {t:"Cupons usados",           g:"Público",  tam:"small", cols:5,  rows:2},
+  retorno:  {t:"Lucro atribuído × custo", g:"Retorno",  tam:"large", cols:11, rows:4, min:{cols:7, rows:3}, financeiro:true},
+  teto:     {t:"Teto de cortesia",        g:"Retorno",  tam:"large", cols:9,  rows:4, min:{cols:5, rows:3}, financeiro:true},
+  horas:    {t:"Sessões por hora",        g:"Operação", tam:"large", cols:11, rows:4, min:{cols:7, rows:3}},
+  pontos:   {t:"Carregadores",            g:"Operação", tam:"large", cols:9,  rows:4, min:{cols:5, rows:3}},
+  previsao: {t:"Erro da previsão",        g:"Operação", tam:"large", cols:9,  rows:4, min:{cols:7, rows:3}},
+  lucro:    {t:"Lucro atribuído",         g:"Retorno",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
+  vendas:   {t:"Vendas atribuídas",       g:"Retorno",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
+  sessoes:  {t:"Sessões no período",      g:"Operação", tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}},
+  clientes: {t:"Clientes únicos",         g:"Público",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}},
+  energia:  {t:"Energia entregue",        g:"Operação", tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}},
+  ticket:   {t:"Ticket de quem carrega",  g:"Público",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
+  cupons:   {t:"Cupons usados",           g:"Público",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}},
 };
+const minimoDoCard = id => CARDS[id]?.min || {cols: MIN_COLS, rows: MIN_ROWS};
 const cardVisivel = id => CARDS[id] && (!CARDS[id].financeiro || pode("ver_financeiro"));
 
 const layoutPadrao = () => (pode("ver_financeiro")
@@ -292,8 +298,8 @@ function normalizarCards(cards){
     .map(c => ({
       id: c.id,
       grupo: c.grupo || CARDS[c.id].tam,
-      cols: clamp(Number(c.cols) || CARDS[c.id].cols, MIN_COLS, COLUNAS),
-      rows: clamp(Number(c.rows) || CARDS[c.id].rows, MIN_ROWS, MAX_ROWS),
+      cols: clamp(Number(c.cols) || CARDS[c.id].cols, minimoDoCard(c.id).cols, COLUNAS),
+      rows: clamp(Number(c.rows) || CARDS[c.id].rows, minimoDoCard(c.id).rows, MAX_ROWS),
       config: c.config && typeof c.config === "object" ? c.config : {},
     }));
 }
@@ -313,6 +319,9 @@ function salvarPrefs(){
     estabelecimento: state.estabelecimentoId,
     tabelas: Object.fromEntries(Object.entries(state.tabela)
       .map(([k, v]) => [k, {busca: v.busca, ordem: v.ordem}])),
+    foto: state.prefs.foto,
+    autoRefresh: Boolean(state.prefs.autoRefresh),
+    autoRefreshMs: Number(state.prefs.autoRefreshMs) || 300000,
   };
   // uma escrita por rajada: arrastar card dispara muitas mudanças seguidas
   clearTimeout(prefsPendentes);
@@ -370,7 +379,6 @@ function mostrarLogin(mensagem = "", tipo = "erro"){
   esconderCarregando();
   $("#loginGate").hidden = false;
   statusLogin(mensagem, mensagem ? tipo : "");
-  pintarAnel(0, "vazio");
   $("#loginEmail").focus();
 }
 /* A mensagem tem que dizer o que fazer, não só que deu errado. */
@@ -391,49 +399,9 @@ function explicarFalha(erro){
   if (erro.status >= 500) return "O servidor respondeu com erro. Veja o terminal onde a API está rodando.";
   return erro.message || "Não consegui entrar.";
 }
-/* ---------- o anel de carga ----------
-   Único elemento animado da porta de login, e ele responde ao que a pessoa
-   digita: enche conforme o formulário fica válido. Não é enfeite — é a barra
-   de progresso do próprio formulário, então dá para ver que falta alguma
-   coisa antes de tentar enviar. E a leitura é a de uma bateria carregando,
-   que é exatamente o produto.
-
-   327 é o perímetro do círculo de raio 52 (2·π·52); o traço é desenhado
-   encurtando o vão. */
-const ANEL_PERIMETRO = 327;
-
-function pintarAnel(pct, estado){
-  const anel = $("#loginAnel");
-  if (!anel) return;
-  const valor = clamp(pct, 0, 100);
-  $("#loginAnelNivel").style.strokeDashoffset = String(ANEL_PERIMETRO * (1 - valor / 100));
-  $("#loginAnelPct").textContent = `${Math.round(valor)}%`;
-  anel.dataset.estado = estado ?? (valor >= 100 ? "cheio" : valor > 0 ? "carregando-form" : "vazio");
-}
-
-/* Quanto do formulário já está pronto. O e-mail vale mais que a senha porque
-   é o campo que costuma sair errado — e é o único que dá para conferir aqui
-   sem falar com o servidor. */
-function progressoDoLogin(){
-  const email = $("#loginEmail").value.trim();
-  const senha = $("#loginSenha").value;
-  let pct = 0;
-  if (email) pct += 20;
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) pct += 35;
-  if (senha) pct += 15;
-  if (senha.length >= 6) pct += 30;
-  return pct;
-}
-
 function initLogin(){
   const form = $("#loginForm"), botao = $("#loginButton");
   const email = $("#loginEmail"), senha = $("#loginSenha");
-
-  const atualizar = () => pintarAnel(progressoDoLogin());
-  email.addEventListener("input", atualizar);
-  senha.addEventListener("input", atualizar);
-  // o preenchimento automático do navegador não dispara "input"
-  setTimeout(atualizar, 300);
 
   const olho = $("#loginSenhaToggle");
   olho.onclick = () => {
@@ -449,8 +417,6 @@ function initLogin(){
     const usuario = email.value.trim(), chave = senha.value;
     if (!usuario || !chave){
       statusLogin("Preencha o e-mail e a senha.", "erro");
-      pintarAnel(progressoDoLogin(), "erro");
-      setTimeout(atualizar, 700);
       (usuario ? senha : email).focus();
       return;
     }
@@ -458,17 +424,18 @@ function initLogin(){
     botao.disabled = true;
     botao.classList.add("is-carregando");
     statusLogin("");
-    pintarAnel(100, "carregando");
     try {
       const sessao = await api.entrar(usuario, chave);
-      pintarAnel(100, "cheio");
-      senha.value = "";
-      $("#loginGate").hidden = true;
+      // A porta só fecha depois que o painel montou. Fechá-la antes deixava
+      // a pessoa numa tela vazia quando o /dados falhava — a mensagem de erro
+      // ia para um elemento já escondido, e parecia que "não carregou nada".
+      statusLogin("Carregando seus dados...", "ok");
       await entrarNoPainel(sessao);
+      senha.value = "";
+      statusLogin("");
+      $("#loginGate").hidden = true;
     } catch (erro){
       statusLogin(explicarFalha(erro), "erro");
-      pintarAnel(progressoDoLogin(), "erro");
-      setTimeout(atualizar, 900);
       senha.select();
       console.error("login:", erro);
     } finally {
@@ -538,7 +505,7 @@ function initSidebar(){
   };
   atalho.onclick = e => { e.stopPropagation(); abrirMenu(!menu.classList.contains("is-open")); };
   menu.addEventListener("click", e => e.stopPropagation());
-  $("#collapsedProfileMenuProfile").onclick = () => { abrirMenu(false); setSection("estabelecimentos"); };
+  $("#collapsedProfileMenuProfile").onclick = () => { abrirMenu(false); setSection("perfil"); };
   document.addEventListener("click", e => { if (!atalho.contains(e.target)) abrirMenu(false); });
 
   const trigger = $("#clientDropdownTrigger"), lista = $("#clientDropdownMenu");
@@ -624,7 +591,7 @@ function initTema(){
 function aplicarPapel(){
   const u = state.usuario;
   $("#profileName").textContent = u?.nome || "";
-  $("#profileAvatar").textContent = iniciais(u?.nome);
+  pintarAvatar($("#profileAvatar"), u);
   const rotulo = {main:"Desenvolvedor", gerente:"Gerente", operador:"Operador"}[u?.papel] || "";
   $("#floatingRefreshText").innerHTML = `<span class="perfil-papel">${esc(rotulo)}</span>`;
 
@@ -670,6 +637,7 @@ function renderSecaoAtual(){
   const s = state.section;
   if (s === "painel") renderPainel();
   else if (s === "financeiro") renderFinanceiro();
+  else if (s === "perfil") renderPerfil();
   else if (TABELAS[s]) renderTabela(s);
 }
 
@@ -980,10 +948,6 @@ function renderPainel(){
         </button>
       </div>
       ${corpoCard(c.id)}
-      <button class="card-resize-handle" type="button" data-redimensionar="${c.id}"
-              aria-label="Redimensionar ${esc(CARDS[c.id].t)}">
-        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M15 9v6H9v-2h4V9h2ZM7 11v2H5v-2h2Zm4-4v2H9V7h2Z"/></svg>
-      </button>
     </article>`).join("");
 
   $("#dashboardGridLarge").innerHTML = grade("large");
@@ -1093,54 +1057,104 @@ function ligarArrasto(p, cards){
   });
 }
 
-/* Arrastar o canto do card muda quantas colunas e linhas ele ocupa. A conta
-   converte pixel em célula da grade de 20 colunas, e não o contrário — assim
-   o card sempre pousa alinhado com os vizinhos. */
+/* ---------- redimensionar como janela ----------
+   A referência não usa alça: o card inteiro é a alça. Chegando a 8px de
+   qualquer borda, o cursor vira seta de redimensionar e arrastar dali muda o
+   tamanho — inclusive pelo lado esquerdo e pelo topo, que crescem o card para
+   o lado contrário do arrasto.
+
+   A conta converte pixel em célula da grade de 20 colunas, e não o contrário:
+   assim o card sempre pousa alinhado com os vizinhos. E cada card tem um
+   tamanho mínimo próprio (CARDS[id].min), que é o que impede um gráfico de
+   ser espremido até virar um risco. */
+const BORDA = 8;
+
+function modoDeRedimensionar(card, ev){
+  const r = card.getBoundingClientRect();
+  const x = ev.clientX - r.left, y = ev.clientY - r.top;
+  const oeste = x <= BORDA, leste = x >= r.width - BORDA;
+  const norte = y <= BORDA, sul = y >= r.height - BORDA;
+  return (norte ? "n" : sul ? "s" : "") + (oeste ? "w" : leste ? "e" : "");
+}
+const cursorDoModo = modo => ({
+  n:"ns-resize", s:"ns-resize", e:"ew-resize", w:"ew-resize",
+  ne:"nesw-resize", sw:"nesw-resize", nw:"nwse-resize", se:"nwse-resize",
+}[modo] || "");
+
 function ligarRedimensionar(p, cards){
-  $$("#dashboardCanvas [data-redimensionar]").forEach(punho => {
-    const card = punho.closest("[data-dashboard-card]");
-    const conf = cards.find(c => c.id === card.dataset.dashboardCard);
+  const porId = new Map(cards.map(c => [c.id, c]));
+  let arrasto = null;
+
+  $$("#dashboardCanvas [data-dashboard-card]").forEach(card => {
+    const conf = porId.get(card.dataset.dashboardCard);
     if (!conf) return;
 
-    punho.onpointerdown = ev => {
-      if (!state.paineis.editando) return;
+    // fora do arrasto, o cursor avisa que dali dá para redimensionar
+    card.onpointermove = ev => {
+      if (arrasto || !state.paineis.editando || ev.pointerType === "touch") return;
+      card.style.cursor = cursorDoModo(modoDeRedimensionar(card, ev));
+    };
+    card.onpointerleave = () => { if (!arrasto) card.style.cursor = ""; };
+
+    card.onpointerdown = ev => {
+      if (!state.paineis.editando || ev.button !== 0) return;
+      // clique em botão do card (remover, mover, link) não é redimensionar
+      if (ev.target.closest("button, a, input, select")) return;
+      const modo = modoDeRedimensionar(card, ev);
+      if (!modo) return;
       ev.preventDefault();
-      punho.setPointerCapture(ev.pointerId);
+
       const grade = card.parentNode;
       const estilo = getComputedStyle(grade);
-      const gap = parseFloat(estilo.columnGap) || 18;
-      const larguraCol = (grade.clientWidth - gap * (COLUNAS - 1)) / COLUNAS;
+      const vao = parseFloat(estilo.columnGap) || 18;
+      const larguraCol = (grade.clientWidth - vao * (COLUNAS - 1)) / COLUNAS;
       const alturaLinha = parseFloat(estilo.gridAutoRows) || 76;
-      const esq = card.getBoundingClientRect().left;
-      const topo = card.getBoundingClientRect().top;
+      const minimo = minimoDoCard(conf.id);
 
+      arrasto = {modo, x: ev.clientX, y: ev.clientY, cols: conf.cols, rows: conf.rows};
+      try { card.setPointerCapture(ev.pointerId); } catch {}
       card.classList.add("is-resizing");
       document.body.classList.add("dashboard-card-resizing");
+      card.style.cursor = cursorDoModo(modo);
+
       const medida = document.createElement("span");
       medida.className = "card-resize-medida";
+      medida.textContent = `${conf.cols} × ${conf.rows}`;
       card.append(medida);
 
       const mover = e => {
-        const cols = clamp(Math.round((e.clientX - esq + gap) / (larguraCol + gap)), MIN_COLS, COLUNAS);
-        const rows = clamp(Math.round((e.clientY - topo + gap) / (alturaLinha + gap)), MIN_ROWS, MAX_ROWS);
+        // oeste e norte crescem para o lado contrário do arrasto
+        const dirCol = arrasto.modo.includes("w") ? -1 : arrasto.modo.includes("e") ? 1 : 0;
+        const dirLin = arrasto.modo.includes("n") ? -1 : arrasto.modo.includes("s") ? 1 : 0;
+        const dCols = dirCol * (e.clientX - arrasto.x) / (larguraCol + vao);
+        const dLins = dirLin * (e.clientY - arrasto.y) / (alturaLinha + vao);
+        const cols = clamp(Math.round(arrasto.cols + dCols), minimo.cols, COLUNAS);
+        const rows = clamp(Math.round(arrasto.rows + dLins), minimo.rows, MAX_ROWS);
+        if (cols === conf.cols && rows === conf.rows) return;
         conf.cols = cols; conf.rows = rows;
         card.style.gridColumn = `span ${cols}`;
         card.style.gridRow = `span ${rows}`;
         card.style.setProperty("--dashboard-card-col-span", String(cols));
         card.style.setProperty("--dashboard-card-row-span", String(rows));
         medida.textContent = `${cols} × ${rows}`;
-      };
-      const soltar = () => {
-        punho.onpointermove = null; punho.onpointerup = null;
-        card.classList.remove("is-resizing");
-        document.body.classList.remove("dashboard-card-resizing");
-        medida.remove();
-        guardarLayout(p, lerCards());
+        // o SVG se estica sozinho pelo viewBox, mas as barras e os rótulos
+        // são calculados em pixel: sem redesenhar, o gráfico fica errado
         desenharGraficos();
       };
-      punho.onpointermove = mover;
-      punho.onpointerup = soltar;
-      punho.onpointercancel = soltar;
+      const soltar = () => {
+        card.onpointermove = null; card.onpointerup = null; card.onpointercancel = null;
+        card.classList.remove("is-resizing");
+        document.body.classList.remove("dashboard-card-resizing");
+        card.style.cursor = "";
+        medida.remove();
+        arrasto = null;
+        guardarLayout(p, lerCards());
+        desenharGraficos();
+        ligarRedimensionar(p, cards);   // religa o cursor de hover
+      };
+      card.onpointermove = mover;
+      card.onpointerup = soltar;
+      card.onpointercancel = soltar;
     };
   });
 }
@@ -1642,6 +1656,240 @@ function saudarAssistente(){
     : "Pergunte sobre as recargas, os carregadores e os clientes. O financeiro é com o gerente.",
     "assistant");
 }
+
+/* ==========================================================================
+   perfil, configurações e atualização automática
+   ========================================================================== */
+/* A foto vive dentro de `usuarios.preferencias`, como data URI de 128px. Não
+   é o ideal para um produto grande — imagem em banco não escala —, mas evita
+   inventar armazenamento de arquivo só para um avatar, e o corte no navegador
+   garante que o que chega ao servidor já é pequeno. */
+function pintarAvatar(no, u){
+  if (!no) return;
+  const foto = state.prefs?.foto;
+  if (foto){
+    no.innerHTML = `<img src="${esc(foto)}" alt="">`;
+    no.classList.add("tem-foto");
+  } else {
+    no.textContent = iniciais(u?.nome);
+    no.classList.remove("tem-foto");
+  }
+}
+
+let perfilCarregado = null;
+
+async function renderPerfil(){
+  const alvo = $("#profileDetails");
+  if (!alvo) return;
+  alvo.innerHTML = `<div class="table-inline-state"><div><strong>Carregando...</strong></div></div>`;
+  try {
+    perfilCarregado = await api.perfil();
+  } catch (erro){ return avisarErro(erro, "carregar o perfil"); }
+
+  const u = perfilCarregado.usuario;
+  const papel = {main:"Desenvolvedor", gerente:"Gerente", operador:"Operador"}[u.papel] || u.papel;
+  $("#profilePanelName").textContent = u.nome;
+  $("#profilePanelMeta").textContent = `${papel} · ${u.email}`;
+  pintarAvatar($("#profileAvatarLarge"), u);
+
+  const linha = (rotulo, valor) => `<dt>${esc(rotulo)}</dt><dd>${valor}</dd>`;
+  const lojas = perfilCarregado.estabelecimentos;
+  alvo.innerHTML = [
+    linha("Papel", esc(papel)),
+    linha("E-mail", esc(u.email)),
+    linha(lojas.length > 1 ? "Estabelecimentos" : "Estabelecimento",
+          lojas.map(l => esc(l.nome)).join("<br>") || "<span class='table-cell-muted'>nenhum</span>"),
+    linha("Último acesso", dataHora(u.ultimo_acesso)),
+    linha("Conta criada em", dataHora(u.criado_em)),
+    linha("Sessões abertas", `${perfilCarregado.sessoes_abertas}`),
+    linha("Pode editar dados", pode("editar_dados") ? "sim" : "não"),
+    linha("Vê o financeiro", pode("ver_financeiro") ? "sim" : "não"),
+    linha("Troca de estabelecimento", pode("trocar_estabelecimento") ? "sim" : "não"),
+  ].join("");
+
+  const n = perfilCarregado.sessoes_abertas;
+  $("#profileSessoesTexto").textContent = n > 1
+    ? `Você tem ${n} sessões abertas. Encerrar derruba as outras e mantém esta.`
+    : "Esta é a sua única sessão aberta.";
+  $("#profileEncerrarOutras").disabled = n <= 1;
+}
+
+function statusPerfil(no, texto, tipo = ""){
+  const el = $(no);
+  el.textContent = texto;
+  el.classList.toggle("is-error", tipo === "erro");
+  el.classList.toggle("is-ok", tipo === "ok");
+}
+
+/* Redesenha a imagem num canvas de 128px, cortada em quadrado pelo centro.
+   Enviar o arquivo original encheria a coluna jsonb com megabytes. */
+function reduzirImagem(arquivo, lado = 128){
+  return new Promise((ok, falha) => {
+    const leitor = new FileReader();
+    leitor.onerror = () => falha(new Error("não consegui ler o arquivo"));
+    leitor.onload = () => {
+      const img = new Image();
+      img.onerror = () => falha(new Error("arquivo não é uma imagem válida"));
+      img.onload = () => {
+        const corte = Math.min(img.width, img.height);
+        const tela = document.createElement("canvas");
+        tela.width = tela.height = lado;
+        tela.getContext("2d").drawImage(
+          img, (img.width - corte) / 2, (img.height - corte) / 2, corte, corte, 0, 0, lado, lado);
+        ok(tela.toDataURL("image/webp", 0.82));
+      };
+      img.src = leitor.result;
+    };
+    leitor.readAsDataURL(arquivo);
+  });
+}
+
+function initPerfil(){
+  const modal = $("#profileSettingsModal");
+  const abrir = ab => {
+    modal.classList.toggle("is-open", ab);
+    modal.setAttribute("aria-hidden", String(!ab));
+    if (ab){
+      statusPerfil("#profileSettingsStatus", "");
+      $("#novoNome").value = state.usuario?.nome || "";
+    }
+  };
+  $("#profileSettingsButton").onclick = () => abrir(true);
+  $("#profileSettingsClose").onclick = () => abrir(false);
+  modal.onclick = ev => { if (ev.target === modal) abrir(false); };
+
+  // sanfonas do modal, como na referência
+  $$("[data-collapse-toggle]", modal).forEach(b => b.onclick = () => {
+    const cartao = b.closest("[data-collapsible]");
+    const aberto = cartao.classList.toggle("is-open");
+    b.setAttribute("aria-expanded", String(aberto));
+    $(".collapse-icon", b).textContent = aberto ? "−" : "+";
+  });
+
+  // ---- nome ----
+  $("#formNome").onsubmit = async ev => {
+    ev.preventDefault();
+    const botao = $("button[type=submit]", ev.target);
+    botao.disabled = true;
+    try {
+      const r = await api.trocarNome($("#novoNome").value.trim(), $("#nomeSenhaAtual").value);
+      state.usuario.nome = r.nome;
+      $("#nomeSenhaAtual").value = "";
+      aplicarPapel();
+      renderPerfil();
+      statusPerfil("#profileSettingsStatus", "Nome atualizado.", "ok");
+      toast("Nome atualizado.");
+    } catch (erro){
+      statusPerfil("#profileSettingsStatus", erro.message || "Não consegui salvar.", "erro");
+    } finally { botao.disabled = false; }
+  };
+
+  // ---- senha ----
+  $("#formSenha").onsubmit = async ev => {
+    ev.preventDefault();
+    const nova = $("#senhaNova").value;
+    if (nova !== $("#senhaConfirma").value){
+      statusPerfil("#profileSettingsStatus", "As duas senhas novas não batem.", "erro");
+      return;
+    }
+    const botao = $("button[type=submit]", ev.target);
+    botao.disabled = true;
+    try {
+      const r = await api.trocarSenha($("#senhaAtual").value, nova);
+      ev.target.reset();
+      renderPerfil();
+      statusPerfil("#profileSettingsStatus",
+        r.outras_sessoes_encerradas
+          ? `Senha trocada. ${r.outras_sessoes_encerradas} outra(s) sessão(ões) encerrada(s).`
+          : "Senha trocada.", "ok");
+      toast("Senha trocada.");
+    } catch (erro){
+      statusPerfil("#profileSettingsStatus", erro.message || "Não consegui trocar.", "erro");
+    } finally { botao.disabled = false; }
+  };
+
+  // ---- foto ----
+  let fotoNova = null;
+  $("#fotoArquivo").onchange = async ev => {
+    const arquivo = ev.target.files?.[0];
+    if (!arquivo) return;
+    try {
+      fotoNova = await reduzirImagem(arquivo);
+      $("#fotoPreviaImg").src = fotoNova;
+      $("#fotoPrevia").hidden = false;
+      $("#fotoAplicar").disabled = false;
+      statusPerfil("#profileSettingsStatus", "");
+    } catch (erro){
+      statusPerfil("#profileSettingsStatus", erro.message, "erro");
+    }
+  };
+  $("#formFoto").onsubmit = async ev => {
+    ev.preventDefault();
+    if (!fotoNova) return;
+    state.prefs.foto = fotoNova;
+    await guardarFoto();
+    statusPerfil("#profileSettingsStatus", "Foto aplicada.", "ok");
+  };
+  $("#fotoRemover").onclick = async () => {
+    delete state.prefs.foto;
+    fotoNova = null;
+    $("#fotoPrevia").hidden = true;
+    $("#fotoArquivo").value = "";
+    $("#fotoAplicar").disabled = true;
+    await guardarFoto();
+    statusPerfil("#profileSettingsStatus", "Foto removida.", "ok");
+  };
+  async function guardarFoto(){
+    pintarAvatar($("#profileAvatar"), state.usuario);
+    pintarAvatar($("#profileAvatarLarge"), state.usuario);
+    try { await api.preferencias(state.prefs); }
+    catch (erro){ avisarErro(erro, "salvar a foto"); }
+  }
+
+  // ---- atualização automática ----
+  $("#autoRefreshEnabled").onchange = ev => {
+    state.prefs.autoRefresh = ev.target.checked;
+    $("#autoRefreshIntervalField").hidden = !ev.target.checked;
+    aplicarAutoRefresh();
+    salvarPrefs();
+  };
+  $("#autoRefreshInterval").onchange = ev => {
+    state.prefs.autoRefreshMs = Number(ev.target.value);
+    aplicarAutoRefresh();
+    salvarPrefs();
+  };
+
+  // ---- encerrar outras sessões ----
+  $("#profileEncerrarOutras").onclick = async () => {
+    statusPerfil("#profileStatus", "Para encerrar as outras, troque a senha em Configurações — "
+      + "é o que garante que quem está do outro lado não volte a entrar.", "");
+    $("#profileSettingsButton").click();
+  };
+}
+
+/* Atualização automática: busca os dados de novo sem recarregar a página.
+   Não roda com a aba escondida — atualizar o que ninguém está olhando só
+   gasta o plano gratuito do servidor. */
+let relogioAuto = null;
+function aplicarAutoRefresh(){
+  clearInterval(relogioAuto);
+  relogioAuto = null;
+  const ligado = Boolean(state.prefs.autoRefresh);
+  const intervalo = Number(state.prefs.autoRefreshMs) || 300000;
+  const campo = $("#autoRefreshEnabled");
+  if (campo){
+    campo.checked = ligado;
+    $("#autoRefreshIntervalField").hidden = !ligado;
+    $("#autoRefreshInterval").value = String(intervalo);
+  }
+  if (!ligado) return;
+  relogioAuto = setInterval(async () => {
+    if (document.hidden || state.paineis.editando || editorCtx) return;
+    try { await carregarDados(); renderTudo(); }
+    catch (erro){ if (erro instanceof ErroApi && erro.semSessao) mostrarLogin("Sua sessão expirou."); }
+  }, intervalo);
+}
+
 /* ==========================================================================
    dados
    ========================================================================== */
@@ -1657,11 +1905,6 @@ const tour = createTourModule({
 });
 
 function renderTudo(){
-  const meta = (sel, v) => { const n = $(sel); if (n) n.textContent = v || ""; };
-  meta("#carregadoresNavMeta", carregadoresDaLoja().length);
-  meta("#sessoesNavMeta", sessoesDaLoja().length);
-  meta("#clientesNavMeta", daLoja(state.dados.clientes).length);
-  meta("#vendasNavMeta", daLoja(state.dados.vendas).length);
   renderSecaoAtual();
 }
 
@@ -1687,8 +1930,9 @@ async function entrarNoPainel(sessao){
   const preferida = state.prefs.estabelecimento;
   state.estabelecimentoId = lojas.some(l => l.id === preferida) ? preferida : lojas[0]?.id ?? null;
   if (!state.estabelecimentoId){
-    toast("Seu usuário não está ligado a nenhuma loja.", "error");
-    return;
+    // erro de verdade, para o login mostrar em vez de abrir um painel vazio
+    throw new ErroApi(409, "Seu usuário não está ligado a nenhuma loja. "
+                         + "Peça ao gerente para vincular seu acesso.");
   }
   state.paineis.ativo = state.prefs.painelAtivo?.[state.estabelecimentoId] ?? null;
 
@@ -1696,6 +1940,7 @@ async function entrarNoPainel(sessao){
   renderEstabelecimentos();
   saudarAssistente();
 
+  aplicarAutoRefresh();
   const secao = state.prefs.secao;
   setSection(SECOES[secao] && podeVer(secao) ? secao : "painel");
   renderTudo();
@@ -1739,6 +1984,7 @@ async function iniciar(){
   initLogin();
   initLogout();
   initAssistente();
+  initPerfil();
   ligarPainelUI();
 
   $("#editorClose").onclick = fecharEditor;

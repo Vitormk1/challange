@@ -1,4 +1,4 @@
-# Praça de Recarga
+# Smart Charge
 
 Challenge FIAP · GoodWe · 2026
 

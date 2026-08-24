@@ -72,6 +72,10 @@ export const api = {
 
   preferencias: corpo => pedir("/preferencias", {metodo:"PATCH", corpo}),
 
+  perfil:      () => pedir("/perfil"),
+  trocarNome:  (nome, senha_atual) => pedir("/perfil/nome", {metodo:"POST", corpo:{nome, senha_atual}}),
+  trocarSenha: (senha_atual, nova) => pedir("/perfil/senha", {metodo:"POST", corpo:{senha_atual, nova}}),
+
   perguntar: (pergunta, estabelecimento_id, historico) =>
     pedir("/ia/perguntar", {metodo:"POST", corpo:{pergunta, estabelecimento_id, historico}}),
 };

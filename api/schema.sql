@@ -1,5 +1,5 @@
 -- ===========================================================================
--- Praça de Recarga — esquema do banco
+-- Smart Charge — esquema do banco
 -- PostgreSQL 18 (Aiven)
 --
 -- Regra de modelagem: o painel do lojista precisa responder "o carregador me

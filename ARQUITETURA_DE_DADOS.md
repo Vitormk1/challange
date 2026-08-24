@@ -1,4 +1,4 @@
-# Arquitetura de Dados — Praça de Recarga
+# Arquitetura de Dados — Smart Charge
 
 Este arquivo documenta **tudo que existe entre o painel e o banco**: as tabelas do Postgres, o que
 cada uma guarda, quem lê e quem escreve nelas, e os fluxos completos — de "o motorista encosta na
@@ -41,17 +41,13 @@ número mudou sozinho".
    │  carregadores · clientes · sessoes · leituras · cupons · vendas · paineis   │
    │  vw_sessoes_detalhe · vw_resumo_diario                                      │
    └────────────────────────────────────────────────────────────────────────────┘
-                                     ▲
-                                     │  api/exportar.py (uma vez, sob demanda)
-                                     ▼
-   docs/painel/dados.json  →  modo demonstração no GitHub Pages (só leitura)
 ```
 
 | Processo | O que faz | Escreve em | Lê de |
 |---|---|---|---|
 | `api/main.py` | **O backend do painel.** Login, dados por papel, CRUD, painéis, assistente | todas | todas |
 | `api/seed.py` | 30 dias de operação de três lojas, para demonstração | todas (TRUNCATE + INSERT) | — |
-| `api/exportar.py` | Despeja o banco em `docs/painel/dados.json` | nenhuma | todas |
+| `api/exportar.py` | Despeja o banco num JSON, para conferência e backup | nenhuma | todas |
 | `api/db.py` | Pool de conexões e aplicação do `schema.sql` | DDL | — |
 
 **Diferença deliberada em relação ao BMS:** lá o dashboard é, para a maioria das tabelas, um
@@ -331,16 +327,7 @@ carregador e montava uma justificativa financeira inventada em volta.
 
 ---
 
-## 10. Modo demonstração
-
-O GitHub Pages serve arquivo estático e não executa Python. Quando `/auth/eu` não responde (erro de
-rede, não 401), o painel entra em **demonstração**: lê `docs/painel/dados.json`, mostra uma faixa
-dizendo o que é, e grava layout no `localStorage`. É o que mantém a versão publicada navegável sem
-fingir que tem servidor.
-
----
-
-## 11. Onde olhar quando algo não bate
+## 10. Onde olhar quando algo não bate
 
 - **"Salvei um campo e não aconteceu nada"** → seção 4. Confira se ele está em `CAMPOS_EDITAVEIS`
   daquela tabela. Chave fora da lista é descartada em silêncio, por projeto.

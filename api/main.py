@@ -32,7 +32,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from psycopg import sql
 
-from auth import (conferir_senha, novo_token, permissoes, pode,
+from auth import (conferir_senha, criar_hash, novo_token, permissoes, pode,
                   secoes_bloqueadas, validade)
 from db import conectar
 
@@ -44,7 +44,7 @@ KM_KWH = 10.4
 AMORT = 1.11          # equipamento por sessão: R$6.000 em 5 anos, 3 sessões/dia
 COMPRAM, UPLIFT, NOVOS = 0.90, 0.12, 0.20
 
-app = FastAPI(title="Praça de Recarga")
+app = FastAPI(title="Smart Charge")
 
 app.add_middleware(
     CORSMiddleware,
@@ -545,6 +545,67 @@ def excluir_painel(painel_id: int, u: dict = Depends(usuario_atual)):
     return {"ok": True, "id": painel_id}
 
 
+# ---------------------------------------------------------------- perfil ---
+@app.get("/perfil")
+def perfil(u: dict = Depends(usuario_atual)):
+    """Quem é a pessoa, e a que ela tem acesso."""
+    dados_usuario = consultar(
+        "SELECT id, nome, email, papel, ultimo_acesso, criado_em FROM usuarios WHERE id = %s",
+        (u["id"],))[0]
+    lojas = consultar(
+        "SELECT e.nome, e.segmento FROM estabelecimentos e WHERE e.id = ANY(%s) ORDER BY e.nome",
+        (lojas_do_usuario(u),))
+    return {"usuario": dados_usuario, "estabelecimentos": lojas,
+            "permissoes": u["permissoes"],
+            "sessoes_abertas": consultar(
+                "SELECT count(*) AS n FROM sessoes_web WHERE usuario_id = %s AND expira_em > now()",
+                (u["id"],))[0]["n"]}
+
+
+@app.post("/perfil/nome")
+def trocar_nome(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
+    """Trocar o nome exige a senha atual.
+
+    Parece exagero para um campo de exibição, mas é o nome que aparece ao lado
+    das ações de quem mexeu no quê. Deixar trocar sem senha é deixar quem
+    pegou a máquina destravada se passar por outra pessoa.
+    """
+    nome = str(corpo.get("nome", "")).strip()
+    if not 2 <= len(nome) <= 80:
+        raise HTTPException(400, "O nome precisa ter entre 2 e 80 caracteres.")
+    atual = consultar("SELECT senha_hash FROM usuarios WHERE id = %s", (u["id"],))[0]
+    if not conferir_senha(str(corpo.get("senha_atual", "")), atual["senha_hash"]):
+        raise HTTPException(403, "Senha atual incorreta.")
+    with conectar() as con, con.cursor() as cur:
+        cur.execute("UPDATE usuarios SET nome = %s WHERE id = %s RETURNING nome",
+                    (nome, u["id"]))
+        novo_nome = cur.fetchone()["nome"]
+        con.commit()
+    return {"nome": novo_nome}
+
+
+@app.post("/perfil/senha")
+def trocar_senha_propria(corpo: dict = Body(...), u: dict = Depends(usuario_atual),
+                         praca_sessao: str | None = Cookie(default=None)):
+    nova = str(corpo.get("nova", ""))
+    if len(nova) < 8:
+        raise HTTPException(400, "A senha nova precisa de pelo menos 8 caracteres.")
+    atual = consultar("SELECT senha_hash FROM usuarios WHERE id = %s", (u["id"],))[0]
+    if not conferir_senha(str(corpo.get("senha_atual", "")), atual["senha_hash"]):
+        raise HTTPException(403, "Senha atual incorreta.")
+    if conferir_senha(nova, atual["senha_hash"]):
+        raise HTTPException(400, "A senha nova é igual à atual.")
+    with conectar() as con, con.cursor() as cur:
+        cur.execute("UPDATE usuarios SET senha_hash = %s WHERE id = %s", (criar_hash(nova), u["id"]))
+        # trocar senha derruba as outras sessões, e mantém esta: é o
+        # comportamento que a pessoa espera quando troca por desconfiança
+        cur.execute("DELETE FROM sessoes_web WHERE usuario_id = %s AND token IS DISTINCT FROM %s",
+                    (u["id"], praca_sessao))
+        derrubadas = cur.rowcount
+        con.commit()
+    return {"ok": True, "outras_sessoes_encerradas": derrubadas}
+
+
 # ----------------------------------------------------------- preferências ---
 @app.patch("/preferencias")
 def salvar_preferencias(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
@@ -680,7 +741,7 @@ def contexto_da_loja(estabelecimento_id: int, papel: str) -> dict:
     return ctx
 
 
-INSTRUCOES = """Você é a assistente do painel Praça de Recarga.
+INSTRUCOES = """Você é a assistente do painel Smart Charge.
 
 O QUE É O PRODUTO
 A loja instala um carregador de carro elétrico para atrair cliente. Cada
@@ -712,18 +773,36 @@ OS PAPÉIS
 - operador: vê tudo da loja menos o financeiro, e não altera nada.
 
 COMO RESPONDER
-- Português do Brasil, direto, no máximo cinco frases. Sem saudação.
-- Use SOMENTE números que estejam literalmente no CONTEXTO. É proibido
-  calcular, estimar, deduzir ou completar um número que não esteja lá —
-  inclusive fazendo contas com números de outros campos.
-- Se o dado não está no contexto, diga que não está no painel e pare. Uma
-  resposta curta que admite não ter o número é certa; uma conta inventada
-  para parecer completa é errada.
+- Português do Brasil, direto, no máximo cinco frases.
+- Você conversa normalmente. Cumprimento ("oi", "olá", "bom dia") se responde
+  com um cumprimento e uma oferta curta do que você sabe olhar — não com uma
+  recusa. Pergunta sobre COMO o produto funciona se responde com o que está
+  escrito acima, que é conhecimento seu e não depende de dado nenhum.
+- A regra rígida vale só para NÚMERO. Use somente números que estejam
+  literalmente no CONTEXTO. É proibido calcular, estimar, deduzir ou
+  completar um número que não esteja lá, inclusive fazendo conta com números
+  de outros campos.
+- Se falta o número, diga qual número falta — não diga que "não há contexto".
+  Quem pergunta não sabe o que é contexto.
 - Se o contexto trouxer "financeiro_indisponivel", obedeça: nada de margem,
   lucro, saldo, custo ou teto de cortesia, nem por dedução. Diga que essa
   parte é do gerente, sem rodeio e sem pedir desculpa.
 - Formato brasileiro: R$ 1.234,56 e 11,9 kWh — vírgula decimal, ponto de
-  milhar. Diga a autonomia em km quando ajudar a entender."""
+  milhar. Diga a autonomia em km quando ajudar a entender.
+
+EXEMPLOS DO TOM CERTO
+Pergunta: "olá"
+Resposta: "Olá! Posso olhar o retorno, a energia entregue, os carregadores e
+os clientes desta loja. O que você quer saber?"
+
+Pergunta: "como funciona o cupom?"
+Resposta: "No fim da recarga a tela mostra um código de desconto. A pessoa
+digita esse código no caixa, e é ele que liga a compra àquela recarga — é
+assim que a venda entra como atribuída."
+
+Pergunta: "quantos carros passaram no mês passado?"
+Resposta: "O painel me mostra o total do período todo, não separado por mês.
+Posso dizer o total de sessões e de clientes únicos, se ajudar."""
 
 
 @app.post("/ia/perguntar")
@@ -753,7 +832,7 @@ def perguntar(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
             OPENROUTER_URL, timeout=45,
             headers={"Authorization": f"Bearer {chave}",
                      "Content-Type": "application/json",
-                     "X-Title": "Praca de Recarga"},
+                     "X-Title": "Smart Charge"},
             json={"model": os.environ.get("OPENROUTER_MODEL", MODELO_PADRAO),
                   "messages": mensagens,
                   "max_tokens": 400,
