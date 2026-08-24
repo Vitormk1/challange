@@ -1,11 +1,10 @@
-"""Despeja o Postgres em docs/painel/dados.json.
+"""Despeja o banco num JSON, para conferência e backup rápido.
 
-O GitHub Pages só serve arquivo estático — não roda Python. Então o painel lê
-um JSON gerado aqui. Quando existir uma API de verdade, só a origem dos dados
-muda no painel; o formato continua o mesmo.
+O painel NÃO usa este arquivo: ele fala com a API. Isto aqui existe para
+olhar o conteúdo do banco sem abrir um cliente SQL, e para ter um retrato
+antes de rodar o seed de novo.
 
-A tabela `usuarios` fica de fora de propósito: é conta e senha, não é coisa
-que o lojista precisa ver nem editar.
+A tabela `usuarios` fica de fora de propósito: é conta e senha.
 
     python api/exportar.py
 """
@@ -19,7 +18,7 @@ from decimal import Decimal
 
 from db import conectar
 
-SAIDA = pathlib.Path(__file__).resolve().parents[1] / "docs" / "painel" / "dados.json"
+SAIDA = pathlib.Path(__file__).resolve().parents[1] / "dados" / "despejo.json"
 
 # Leituras são o volume: 5 em 5 minutos por sessão. Só as mais recentes vão
 # para o JSON — o resto continua no banco, que é onde tem que ficar.
@@ -60,7 +59,7 @@ def exportar() -> None:
     )
     tamanho = SAIDA.stat().st_size / 1024
     resumo = "  ".join(f"{k}: {len(v)}" for k, v in dados.items())
-    print(f"{SAIDA.relative_to(SAIDA.parents[2])}  ({tamanho:.0f} KB)")
+    print(f"{SAIDA}  ({tamanho:.0f} KB)")
     print(resumo)
 
 

@@ -34,7 +34,7 @@ api/
   auth.py      senhas (scrypt), sessões e o que cada papel pode fazer
   main.py      a API: login, dados por papel, painéis salvos e o assistente
   seed.py      trinta dias de operação de três lojas, para demonstração
-  exportar.py  despeja o banco em docs/painel/dados.json (modo demonstração)
+  exportar.py  despeja o banco num JSON, para conferencia e backup
   trocar_senha.py  troca a senha de um usuário, antes de publicar
 ai/
   charge_curve.py   previsão de tempo de recarga (o núcleo do produto)
@@ -66,7 +66,7 @@ pip install -r requirements.txt
 cp .env.example .env      # e preencha
 python api/db.py          # cria tabelas, índices e visões
 python api/seed.py        # popula com dados de demonstração e cria os acessos
-python api/exportar.py    # gera docs/painel/dados.json para o modo demonstração
+python api/exportar.py    # opcional: despeja o banco num JSON para conferir
 uvicorn main:app --port 8000 --app-dir api    # sobe a API
 python -m http.server 8765 --directory docs   # serve o painel
 ```

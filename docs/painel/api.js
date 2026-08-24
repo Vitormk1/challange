@@ -6,19 +6,15 @@
    lê-lo, o que é o objetivo. Se um script de terceiro entrar na página, ele
    não tem como levar a sessão embora.
 
-   Quando o servidor não responde, o painel não quebra: cai no modo
-   demonstração, que lê o dados.json exportado do banco. É o que faz a versão
-   publicada no GitHub Pages continuar navegável, já que Pages serve arquivo
-   estático e não executa Python.
+   O servidor é obrigatório: sem ele não há login, não há dado e não há
+   assistente. Quando não responde, o painel diz isso na tela de login em vez
+   de inventar um estado alternativo.
    ========================================================================== */
 
 const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 
-/* Onde a API mora, publicada. Quando o serviço subir no Render, é esta linha
-   que muda — e só ela. Enquanto estiver vazia, a versão publicada roda em
-   modo demonstração, que é o comportamento correto: melhor dizer "isto é
-   demonstração" do que tentar falar com um servidor que não existe. */
-const API_PUBLICADA = "";
+/* Onde a API mora. É a única linha que muda se o serviço trocar de endereço. */
+const API_PUBLICADA = "https://praca-recarga-api.onrender.com";
 
 export const BASE = (() => {
   // ?api=... na URL vence tudo, e fica gravado: serve para apontar o painel
@@ -30,7 +26,7 @@ export const BASE = (() => {
   }
   try { const salvo = localStorage.getItem("pr.api"); if (salvo) return salvo; } catch {}
   if (local) return "http://127.0.0.1:8000";
-  return API_PUBLICADA;   // vazio => sem servidor => modo demonstração
+  return API_PUBLICADA;
 })();
 
 export class ErroApi extends Error {
@@ -40,7 +36,6 @@ export class ErroApi extends Error {
 }
 
 async function pedir(caminho, {metodo = "GET", corpo} = {}){
-  if (!BASE) throw new ErroApi(0, "sem servidor configurado");
   let r;
   try {
     r = await fetch(`${BASE}${caminho}`, {

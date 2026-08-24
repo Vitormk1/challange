@@ -126,19 +126,6 @@ body.somente-leitura [data-criar] { display: none; }
 body.loja-unica .client-dropdown-arrow { display: none; }
 body.loja-unica .client-dropdown-trigger { cursor: default; }
 
-/* -------- modo demonstração (sem servidor) -------- */
-.faixa-demo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 14px;
-  font-size: 0.8rem;
-  color: var(--muted, #5b7089);
-  background: var(--surface-soft, rgba(36, 141, 209, 0.06));
-  border-bottom: 1px solid var(--line, rgba(15, 42, 68, 0.1));
-}
-.faixa-demo strong { color: var(--text, #0f2a44); }
-
 /* -------- lista de carregadores dentro do card -------- */
 .linha-ponto {
   display: flex;

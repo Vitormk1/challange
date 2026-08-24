@@ -12,9 +12,8 @@
    2. O que a pessoa arruma fica no banco. Layout dos cards com tamanho,
       tema, barra lateral, seção aberta, busca de cada tabela. Entrar em
       outro computador tem que devolver a mesma tela.
-   3. Sem servidor, vira demonstração. O GitHub Pages não executa Python;
-      nesse caso o painel lê o dados.json e avisa que está em demonstração,
-      em vez de mostrar erro.
+   3. O servidor é obrigatório. Sem ele não há login, dado nem assistente —
+      a tela de login diz isso, e é só o que ela faz.
    ========================================================================== */
 
 import "./static/js/aiEntity.js";
@@ -61,7 +60,6 @@ const state = {
   usuario: null,
   permissoes: {},
   secoesBloqueadas: new Set(),
-  demo: false,
   dados: { estabelecimentos:[], carregadores:[], clientes:[], sessoes:[], vendas:[],
            cupons:[], leituras:[], paineis:[], usuarios_da_loja:[] },
   paineis: { ativo:null, editando:false, menuAberto:false, criando:false, bibliotecaAberta:false },
@@ -316,7 +314,6 @@ function salvarPrefs(){
     tabelas: Object.fromEntries(Object.entries(state.tabela)
       .map(([k, v]) => [k, {busca: v.busca, ordem: v.ordem}])),
   };
-  if (state.demo){ gravar("pr.prefs", state.prefs); return; }
   // uma escrita por rajada: arrastar card dispara muitas mudanças seguidas
   clearTimeout(prefsPendentes);
   prefsPendentes = setTimeout(() => api.preferencias(state.prefs).catch(() => {}), 600);
@@ -380,10 +377,15 @@ function mostrarLogin(mensagem = "", tipo = "erro"){
 function explicarFalha(erro){
   if (!(erro instanceof ErroApi)) return "Não consegui entrar. Tente de novo.";
   if (erro.semRede){
-    return BASE.startsWith("http")
-      ? `Não achei o servidor em ${BASE}. Suba a API: uvicorn main:app --port 8000 --app-dir api`
-      : "Esta página está publicada sem servidor, então o login não funciona aqui. "
-        + "Abra o painel na máquina onde a API está rodando.";
+    // O navegador não distingue "servidor fora do ar" de "CORS recusou": nos
+    // dois casos o fetch falha sem status. Então a mensagem cobre os dois, em
+    // vez de acusar o errado — foi o que aconteceu ao testar 127.0.0.1 contra
+    // a API publicada, que só libera a origem do GitHub Pages.
+    const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+    return `Não consegui falar com ${BASE}. Ou o servidor está fora do ar, `
+      + (local
+         ? "ou ele não libera esta origem: confira ORIGENS_PERMITIDAS."
+         : "ou ele está acordando — o plano gratuito hiberna. Tente de novo em um minuto.");
   }
   if (erro.status === 401) return "E-mail ou senha incorretos.";
   if (erro.status >= 500) return "O servidor respondeu com erro. Veja o terminal onde a API está rodando.";
@@ -483,7 +485,6 @@ function initLogout(){
   };
   $("#collapsedProfileMenuLogout").onclick = () => {
     $("#collapsedProfileMenu").classList.remove("is-open");
-    if (state.demo){ toast("Em demonstração não existe sessão para encerrar."); return; }
     abrir(true);
   };
   $("#logoutFechar").onclick = () => abrir(false);
@@ -622,9 +623,9 @@ function initTema(){
    ========================================================================== */
 function aplicarPapel(){
   const u = state.usuario;
-  $("#profileName").textContent = u?.nome || "Demonstração";
-  $("#profileAvatar").textContent = iniciais(u?.nome || "Demo");
-  const rotulo = {main:"Desenvolvedor", gerente:"Gerente", operador:"Operador"}[u?.papel] || "Demonstração";
+  $("#profileName").textContent = u?.nome || "";
+  $("#profileAvatar").textContent = iniciais(u?.nome);
+  const rotulo = {main:"Desenvolvedor", gerente:"Gerente", operador:"Operador"}[u?.papel] || "";
   $("#floatingRefreshText").innerHTML = `<span class="perfil-papel">${esc(rotulo)}</span>`;
 
   document.body.classList.toggle("somente-leitura", somenteLeitura());
@@ -650,7 +651,7 @@ function setSection(secao){
   $("#dashboardManagerToggle").hidden = secao !== "painel";
 
   const cfg = TABELAS[secao];
-  const podeCriar = cfg?.novo && pode("editar_dados") && !state.demo
+  const podeCriar = cfg?.novo && pode("editar_dados")
                  && (!cfg.soMain || state.usuario?.papel === "main");
   $("#topbarActions").innerHTML = podeCriar
     ? `<button class="primary-button" type="button" data-criar="${secao}">${esc(cfg.novo)}</button>` : "";
@@ -703,7 +704,7 @@ function renderTabela(secao){
   const filtradas = termo ? todas.filter(l => JSON.stringify(l).toLowerCase().includes(termo)) : todas;
   const linhas = ordenar(filtradas, cfg, u.ordem ?? cfg.ordemPadrao ?? null);
   const marcadas = linhas.filter(l => u.selecionados.has(l.id)).length;
-  const editavel = Boolean(cfg.campos) && pode("editar_dados") && !state.demo
+  const editavel = Boolean(cfg.campos) && pode("editar_dados")
                 && (!cfg.soMain || state.usuario?.papel === "main");
   const ordem = u.ordem ?? cfg.ordemPadrao ?? null;
 
@@ -719,9 +720,7 @@ function renderTabela(secao){
   const aviso = !editavel && cfg.campos ? `
     <div class="aviso-somente-leitura">
       <span aria-hidden="true">🔒</span>
-      <span>${state.demo
-        ? "Modo demonstração: os dados são de exemplo e não podem ser alterados."
-        : "Seu papel vê estes registros, mas não altera. Quem edita é o gerente."}</span>
+      <span>Seu papel vê estes registros, mas não altera. Quem edita é o gerente.</span>
     </div>` : "";
 
   alvo.innerHTML = `${aviso}
@@ -823,7 +822,7 @@ function campoHtml(c, valor){
 }
 function abrirEditor({secao, ids}){
   const cfg = TABELAS[secao];
-  if (!cfg?.campos || !pode("editar_dados") || state.demo) return fecharEditor();
+  if (!cfg?.campos || !pode("editar_dados")) return fecharEditor();
   editorCtx = {secao, ids};
   const criando = ids.length === 0;
   const registros = cfg.linhas().filter(l => ids.includes(l.id));
@@ -944,7 +943,7 @@ function painelAtual(){
 }
 /* O compartilhado é da loja: operador vê, mas não mexe. O particular é dele. */
 function podeEditarPainel(p){
-  if (!p || state.demo) return Boolean(p) && state.demo;
+  if (!p) return false;
   return p.compartilhado ? pode("editar_painel_compartilhado") : p.usuario_id === state.usuario?.id;
 }
 
@@ -1018,7 +1017,6 @@ function aplicarSpans(cards){
 let gravacaoPendente = null;
 function guardarLayout(p, cards){
   p.cards = cards;
-  if (state.demo){ gravar("pr.demo.paineis", state.dados.paineis); return; }
   clearTimeout(gravacaoPendente);
   gravacaoPendente = setTimeout(async () => {
     try {
@@ -1197,7 +1195,7 @@ function renderWorkspaces({animar = false} = {}){
 
   const podeCompartilhado = pode("editar_painel_compartilhado") && vagas.compartilhado > 0;
   const podeParticular = vagas.particular > 0;
-  const podeCriar = !state.demo && (podeCompartilhado || podeParticular);
+  const podeCriar = podeCompartilhado || podeParticular;
 
   const criar = state.paineis.criando
     ? `<form class="dashboard-workspaces-create-form" id="painelCriarForm" style="--stagger-index:${lista.length}">
@@ -1617,9 +1615,7 @@ function initAssistente(){
     $("#globalAiChatStatus").lastElementChild.textContent = "Consultando os dados desta loja...";
 
     try {
-      const r = state.demo
-        ? {resposta: responderLocal(texto)}
-        : await api.perguntar(texto, state.estabelecimentoId, state.conversa.slice(0, -1));
+      const r = await api.perguntar(texto, state.estabelecimentoId, state.conversa.slice(0, -1));
       dizer(r.resposta, "assistant");
       state.conversa.push({papel:"assistant", texto:r.resposta});
     } catch (erro){
@@ -1646,57 +1642,12 @@ function saudarAssistente(){
     : "Pergunte sobre as recargas, os carregadores e os clientes. O financeiro é com o gerente.",
     "assistant");
 }
-/* Modo demonstração: sem servidor não há chave, então responde do que está na
-   tela. Continua sem inventar número. */
-function responderLocal(pergunta){
-  const p = pergunta.toLowerCase(), m = metricas(), e = loja();
-  const r = tetoCortesia(Number(e.margem_liquida_pct||0), Number(e.ticket_medio_brl||0), Number(e.tarifa_kwh_brl||0.789));
-  if (/cortesia|teto|gr[áa]tis/.test(p))
-    return r.kwh > 0.4
-      ? `Com margem de ${num(e.margem_liquida_pct,1)}% e ticket de ${brl(e.ticket_medio_brl)}, cada visita gera ${brl(r.lucro)}. Tirando ${brl(AMORT)} do equipamento, o teto que se paga é ${num(r.kwh,1)} kWh — cerca de ${Math.round(r.kwh*KM_KWH)} km.`
-      : `Aqui a cortesia não se paga: cada visita gera ${brl(r.lucro)}, menos que os ${brl(AMORT)} do equipamento por sessão.`;
-  if (/carregador|vaga|ponto|tomada/.test(p)){
-    const cs = carregadoresDaLoja();
-    return `São ${cs.length} carregadores: ${cs.filter(c=>c.modo==="cortesia").length} em cortesia e ${cs.filter(c=>c.modo==="pago").length} cobrando por kWh.`;
-  }
-  if (/venda|lucro|retorno|dinheiro/.test(p))
-    return `${brl(m.receita)} em vendas com cupom viraram ${brl(m.lucro)} de lucro; a energia custou ${brl(m.custoEnergia)} e o equipamento ${brl(m.custoEquip)} — saldo de ${brl(m.saldo)}.`;
-  if (/energia|kwh|consumo/.test(p))
-    return `${num(m.energia,0)} kWh em ${m.ses.length} sessões, cerca de ${Math.round(m.energia*KM_KWH)} km devolvidos.`;
-  return `Estou em modo demonstração e respondo do que está na tela. Com o servidor no ar, a IA lê o banco e responde qualquer pergunta sobre a loja.`;
-}
-
 /* ==========================================================================
    dados
    ========================================================================== */
 async function carregarDados(){
-  if (state.demo) return carregarDemo();
-  const d = await api.dados(state.estabelecimentoId);
-  Object.assign(state.dados, d);
+  Object.assign(state.dados, await api.dados(state.estabelecimentoId));
 }
-async function carregarDemo(){
-  const r = await fetch(`./dados.json?t=${Date.now()}`);
-  const d = await r.json();
-  const estabs = d.estabelecimentos || [];
-  if (!state.estabelecimentoId) state.estabelecimentoId = estabs[0]?.id ?? null;
-  const carregadores = (d.carregadores||[]).filter(c => c.estabelecimento_id === state.estabelecimentoId);
-  const ids = new Set(carregadores.map(c => c.id));
-  const sessoes = (d.sessoes||[]).filter(s => ids.has(s.carregador_id));
-  const sessoesIds = new Set(sessoes.map(s => s.id));
-  const salvos = ler("pr.demo.paineis", null);
-  state.dados = {
-    estabelecimentos: estabs,
-    carregadores,
-    sessoes,
-    clientes: (d.clientes||[]).filter(c => c.estabelecimento_id === state.estabelecimentoId),
-    vendas:   (d.vendas||[]).filter(v => v.estabelecimento_id === state.estabelecimentoId),
-    cupons:   (d.cupons||[]).filter(c => sessoesIds.has(c.sessao_id)),
-    leituras: (d.leituras||[]).filter(l => ids.has(l.carregador_id)),
-    paineis:  (salvos || (d.paineis||[]).filter(p => p.estabelecimento_id === state.estabelecimentoId && p.compartilhado)),
-    usuarios_da_loja: [],
-  };
-}
-
 /* ==========================================================================
    arranque
    ========================================================================== */
@@ -1753,37 +1704,6 @@ async function entrarNoPainel(sessao){
   esconderCarregando();
 }
 
-/* Sem servidor, o painel vira demonstração em vez de morrer na tela de erro. */
-async function entrarEmDemonstracao(){
-  state.demo = true;
-  state.usuario = {nome:"Demonstração", papel:"gerente"};
-  state.permissoes = {trocar_estabelecimento:true, editar_dados:false,
-                      ver_financeiro:true, editar_painel_compartilhado:false};
-  state.secoesBloqueadas = new Set();
-  document.body.classList.remove("sem-sessao");
-  $("#loginGate").hidden = true;
-
-  aplicarPrefs(ler("pr.prefs", {}));
-  aplicarPapel();
-  $("#profileName").textContent = "Demonstração";
-  $("#floatingRefreshText").innerHTML = `<span class="perfil-papel">Somente leitura</span>`;
-
-  await carregarDemo();
-  renderEstabelecimentos();
-  saudarAssistente();
-
-  const faixa = document.createElement("div");
-  faixa.className = "faixa-demo";
-  faixa.innerHTML = `<span aria-hidden="true">◈</span><span><strong>Modo demonstração.</strong>
-    Dados de exemplo, sem login e sem gravação — o servidor da API não respondeu.</span>`;
-  $(".main-panel").prepend(faixa);
-
-  setSection("painel");
-  renderTudo();
-  document.body.classList.remove("primary-loading");
-  esconderCarregando();
-}
-
 function ligarPainelUI(){
   $("#dashboardManagerToggle").onclick = () =>
     state.paineis.menuAberto ? fecharMenuPaineis() : abrirMenuPaineis();
@@ -1806,7 +1726,6 @@ function ligarPainelUI(){
   $("#dashboardManagerEditbarTitleInput").onchange = async ev => {
     const p = painelAtual(); if (!p || !podeEditarPainel(p)) return;
     const nome = ev.target.value.trim() || "Painel";
-    if (state.demo){ p.nome = nome; gravar("pr.demo.paineis", state.dados.paineis); renderWorkspaces(); return; }
     try { await api.alterarPainel(p.id, {nome}); p.nome = nome; renderWorkspaces(); }
     catch (erro){ avisarErro(erro, "renomear o painel"); ev.target.value = p.nome; }
   };
@@ -1843,11 +1762,15 @@ async function iniciar(){
     fecharEditor();
   });
 
+  // Restos de versões antigas que guardavam painel no navegador; sem eles
+  // uma pessoa poderia ficar presa vendo dado que não veio do servidor.
+  try { localStorage.removeItem("pr.demo.paineis"); localStorage.removeItem("pr.prefs"); } catch {}
+
   try {
     await entrarNoPainel(await api.eu());
   } catch (erro){
-    if (erro instanceof ErroApi && erro.semRede) await entrarEmDemonstracao();
-    else mostrarLogin();
+    // 401 é o caso normal de quem ainda não entrou: login limpo, sem alarme.
+    mostrarLogin(erro instanceof ErroApi && erro.semSessao ? "" : explicarFalha(erro));
   }
 }
 
