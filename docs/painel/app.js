@@ -16,9 +16,9 @@
       a tela de login diz isso, e é só o que ela faz.
    ========================================================================== */
 
-import "./static/js/aiEntity.js?v=20260901a";
-import { createTourModule } from "./static/js/tour.js?v=20260901a";
-import { api, BASE, ErroApi } from "./api.js?v=20260901a";
+import "./static/js/aiEntity.js?v=20260902a";
+import { createTourModule } from "./static/js/tour.js?v=20260902a";
+import { api, BASE, ErroApi } from "./api.js?v=20260902a";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -1964,38 +1964,83 @@ function saudarAssistente(){
 /* ==========================================================================
    Ditar em vez de digitar
 
-   Usa o reconhecimento de fala do próprio navegador (Web Speech API), não um
-   serviço de transcrição. Três motivos: não sobe áudio para lugar nenhum, não
-   custa por minuto, e o texto aparece enquanto a pessoa fala em vez de depois
-   de mandar o arquivo e esperar.
+   Grava no navegador e transcreve no servidor. A primeira versão usava o
+   reconhecimento de fala do próprio navegador — grátis e instantâneo, mas só
+   Chrome e derivados têm, cada um conversa com um serviço diferente, e quando
+   esse serviço não responde a API fica muda: nem `onstart`, nem `onerror`,
+   nada. Era o que travava o botão em "Abrindo..." sem explicação possível.
 
-   O preço é que Chrome e Edge têm, e Firefox não. Onde não tem, o botão
-   simplesmente não aparece — melhor do que um botão que falha ao ser clicado.
+   `MediaRecorder` existe em Chrome, Edge, Opera, Firefox e Safari há anos, e
+   o que ele produz é um arquivo — ou grava, ou dá erro. A transcrição passou
+   a sair do mesmo lugar de onde já sai o resto do assistente.
 
-   O texto cai no campo, não no envio: a pessoa lê, corrige o que a máquina
-   entendeu errado, e só então manda. Era o pedido.
+   O áudio é convertido para WAV 16 kHz mono aqui mesmo: é o formato que o
+   modelo aceita, e reamostrar antes de subir corta o arquivo para um terço
+   sem perder nada da fala.
    ========================================================================== */
-const Reconhecimento = window.SpeechRecognition || window.webkitSpeechRecognition;
+const GRAVACAO_MAXIMA = 60000;      // um minuto: o suficiente para uma pergunta
 
-/* Quanto esperamos o serviço de fala responder antes de desistir. O
-   SpeechRecognition do Chrome fala com um servidor do Google; quando esse
-   caminho falha, ele não chama onstart nem onerror — fica em silêncio. Sem
-   este relógio o botão ficava preso em "Abrindo..." e os cliques seguintes
-   não faziam nada.
+/* WAV de 16 bits a partir das amostras já reamostradas. São 44 bytes de
+   cabeçalho e os dados crus — não vale trazer biblioteca para isso. */
+function paraWav(amostras, taxa){
+  const buffer = new ArrayBuffer(44 + amostras.length * 2);
+  const v = new DataView(buffer);
+  const texto = (pos, txt) => [...txt].forEach((c, i) => v.setUint8(pos + i, c.charCodeAt(0)));
+  texto(0, "RIFF");
+  v.setUint32(4, 36 + amostras.length * 2, true);
+  texto(8, "WAVEfmt ");
+  v.setUint32(16, 16, true);          // tamanho do bloco fmt
+  v.setUint16(20, 1, true);           // PCM
+  v.setUint16(22, 1, true);           // mono
+  v.setUint32(24, taxa, true);
+  v.setUint32(28, taxa * 2, true);    // bytes por segundo
+  v.setUint16(32, 2, true);           // alinhamento
+  v.setUint16(34, 16, true);          // bits por amostra
+  texto(36, "data");
+  v.setUint32(40, amostras.length * 2, true);
+  amostras.forEach((a, i) => {
+    const n = Math.max(-1, Math.min(1, a));
+    v.setInt16(44 + i * 2, n < 0 ? n * 0x8000 : n * 0x7fff, true);
+  });
+  return buffer;
+}
 
-   Doze segundos, não cinco: a primeira conexão com o serviço acontece uma
-   vez por sessão do navegador e é a mais lenta de todas. Cinco segundos
-   derrubavam uma tentativa que ainda ia dar certo. */
-const ESPERA_FALA = 12000;
+/* Mistura os canais e reamostra para 16 kHz — taxa de fala, um terço do
+   tamanho de 48 kHz e nenhuma perda que importe para voz. */
+async function prepararAudio(blob){
+  const contexto = new (window.AudioContext || window.webkitAudioContext)();
+  const decodificado = await contexto.decodeAudioData(await blob.arrayBuffer());
+  const canais = Array.from({length: decodificado.numberOfChannels},
+                            (_, i) => decodificado.getChannelData(i));
+  const mono = canais.length === 1 ? canais[0]
+    : canais[0].map((_, i) => canais.reduce((soma, c) => soma + c[i], 0) / canais.length);
+
+  const destino = 16000;
+  const passo = decodificado.sampleRate / destino;
+  const saida = new Float32Array(Math.floor(mono.length / passo));
+  for (let i = 0; i < saida.length; i++) saida[i] = mono[Math.floor(i * passo)];
+  contexto.close();
+
+  const bytes = new Uint8Array(paraWav(saida, destino));
+  let bruto = "";
+  // em pedaços: String.fromCharCode com centenas de milhares de argumentos
+  // estoura a pilha de chamada
+  for (let i = 0; i < bytes.length; i += 8192){
+    bruto += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+  }
+  return {base64: btoa(bruto), segundos: saida.length / destino};
+}
 
 function initVoz(){
   const botao = $("#globalAiChatAudio");
   const campo = $("#globalAiChatInput");
   const status = $("#globalAiChatStatus");
-  if (!botao || !Reconhecimento) return;      // sem suporte, sem botão
+  const temGravador = typeof MediaRecorder !== "undefined"
+                   && Boolean(navigator.mediaDevices?.getUserMedia);
+  if (!botao || !temGravador) return;      // sem gravador, sem botão
   botao.hidden = false;
 
-  let ouvinte = null, gravando = false, textoBase = "", relogio = null;
+  let gravador = null, faixa = null, pedacos = [], relogio = null, contador = null;
 
   const dizerStatus = (texto, estado = "") => {
     status.classList.remove("is-recording", "is-processing", "is-error");
@@ -2004,188 +2049,131 @@ function initVoz(){
   };
   const pintarBotao = (estado, rotulo) => {
     botao.classList.toggle("is-recording", estado === "gravando");
-    botao.classList.toggle("is-processing", estado === "abrindo");
+    botao.classList.toggle("is-processing", estado === "abrindo" || estado === "enviando");
+    botao.disabled = estado === "enviando";
     botao.setAttribute("aria-pressed", String(estado === "gravando"));
     $("span", botao).textContent = rotulo;
   };
-  /* Volta ao repouso aconteça o que acontecer. Um botão travado num estado
-     intermediário é pior que um botão que falha: parece que o clique nem
-     chegou. */
-  const soltar = (texto, estado = "", detalheAviso = null) => {
-    clearTimeout(relogio); relogio = null;
-    gravando = false;
+  /* Volta ao repouso e solta o microfone aconteça o que acontecer. Botão
+     travado num estado intermediário é pior que botão que falha. */
+  const soltar = (texto, estado = "", aviso_ = null) => {
+    clearTimeout(relogio); clearInterval(contador);
+    relogio = contador = null;
+    faixa?.getTracks().forEach(t => t.stop());
+    faixa = null; gravador = null; pedacos = [];
     pintarBotao("", "Áudio");
     if (texto) dizerStatus(texto, estado);
-    if (detalheAviso) aviso(detalheAviso.titulo, "erro",
-                            {detalhe: detalheAviso.detalhe, vida: 15000});
+    if (aviso_) aviso(aviso_.titulo, "erro", {detalhe: aviso_.detalhe, vida: 12000});
   };
-  const parar = () => { try { ouvinte?.stop(); } catch {} };
 
   const AJUDA_DESBLOQUEIO = "Clique no cadeado ao lado do endereço, ponha "
     + "Microfone em Permitir e recarregue a página.";
 
-  /* Pede o microfone antes de acionar o reconhecimento.
-
-     O SpeechRecognition, sozinho, nem sempre faz o navegador perguntar — e
-     quando não pergunta, também não avisa. getUserMedia sempre resolve de um
-     jeito ou de outro: ou abre o pedido, ou devolve um erro com nome.
-
-     Mas isso só vale quando ainda não há permissão. Com a permissão já
-     concedida, abrir e fechar uma faixa de áudio logo antes de o
-     reconhecimento pedir o mesmo dispositivo é disputa por hardware: no
-     Windows a placa demora a soltar, e o reconhecimento fica esperando um
-     microfone que ainda está sendo devolvido — sem erro, sem onstart, em
-     silêncio. Era o que o "não respondeu" estava mostrando. Já concedido,
-     este passo é pulado inteiro. */
-  async function permissaoJaConcedida(){
-    try {
-      const p = await navigator.permissions.query({name: "microphone"});
-      return p.state === "granted";
-    } catch { return false; }        // Firefox e Safari não respondem; segue o fluxo
+  function explicarFalhaDoMicrofone(erro){
+    const nome = erro?.name || "";
+    if (nome === "NotAllowedError" || nome === "SecurityError")
+      return {titulo: "O microfone está bloqueado", detalhe: AJUDA_DESBLOQUEIO};
+    if (nome === "NotFoundError" || nome === "DevicesNotFoundError")
+      return {titulo: "Nenhum microfone encontrado",
+              detalhe: "Este computador não tem microfone disponível, ou ele está "
+                     + "desativado nas configurações do sistema."};
+    if (nome === "NotReadableError" || nome === "TrackStartError")
+      return {titulo: "O microfone está ocupado",
+              detalhe: "Outro programa está usando o microfone. Feche-o e tente de novo."};
+    return {titulo: "Não consegui abrir o microfone",
+            detalhe: `${nome || "erro"}: ${erro?.message || ""}`.trim()};
   }
 
-  async function garantirMicrofone(){
-    if (!navigator.mediaDevices?.getUserMedia){
-      return {ok: false, titulo: "Este navegador não libera o microfone aqui",
-              detalhe: "Microfone só funciona em página HTTPS. Abra o painel "
-                     + "pelo endereço https e tente de novo."};
-    }
-    try {
-      // Prazo longo de propósito: aqui pode haver uma pessoa decidindo se
-      // clica em Permitir, e cortar isso em cinco segundos seria pior que
-      // esperar. O que este prazo evita é o outro caso — o navegador não
-      // abrir pedido nenhum e nunca voltar, que deixava o botão preso.
-      const faixa = await Promise.race([
-        navigator.mediaDevices.getUserMedia({audio: true}),
-        new Promise((_, falha) => setTimeout(
-          () => falha(Object.assign(new Error("sem resposta"), {name: "SemResposta"})), 25000)),
-      ]);
-      faixa.getTracks().forEach(t => t.stop());
-      // respiro para a placa soltar o dispositivo antes de o reconhecimento
-      // pedir o mesmo microfone
-      await new Promise(pronto => setTimeout(pronto, 350));
-      return {ok: true};
-    } catch (erro){
-      if (erro?.name === "SemResposta"){
-        return {ok: false, titulo: "O navegador não abriu o pedido de microfone",
-                detalhe: "Confira o cadeado ao lado do endereço: se Microfone "
-                       + "estiver em Bloquear, ponha em Permitir e recarregue."};
-      }
-      const nome = erro?.name || "";
-      if (nome === "NotAllowedError" || nome === "SecurityError"){
-        return {ok: false, titulo: "O microfone está bloqueado", detalhe: AJUDA_DESBLOQUEIO};
-      }
-      if (nome === "NotFoundError" || nome === "DevicesNotFoundError"){
-        return {ok: false, titulo: "Nenhum microfone encontrado",
-                detalhe: "Este computador não tem microfone disponível, ou ele "
-                       + "está desativado nas configurações do sistema."};
-      }
-      if (nome === "NotReadableError" || nome === "TrackStartError"){
-        return {ok: false, titulo: "O microfone está ocupado",
-                detalhe: "Outro programa está usando o microfone. Feche-o e tente de novo."};
-      }
-      return {ok: false, titulo: "Não consegui abrir o microfone",
-              detalhe: `${nome || "erro desconhecido"}: ${erro?.message || ""}`.trim()};
-    }
-  }
-
-  botao.onclick = async () => {
-    if (gravando) return parar();
-
-    // o clique muda a tela na hora, antes de qualquer espera
+  async function comecar(){
     pintarBotao("abrindo", "Abrindo...");
     dizerStatus("Abrindo o microfone — aceite o pedido do navegador.", "is-processing");
-
-    if (!await permissaoJaConcedida()){
-      const permissao = await garantirMicrofone();
-      if (!permissao.ok){
-        return soltar(permissao.titulo + ".", "is-error",
-                      {titulo: permissao.titulo, detalhe: permissao.detalhe});
-      }
-    }
-
-    ouvinte = new Reconhecimento();
-    ouvinte.lang = "pt-BR";
-    ouvinte.continuous = true;
-    ouvinte.interimResults = true;            // texto aparecendo enquanto fala
-
-    ouvinte.onstart = () => {
-      clearTimeout(relogio); relogio = null;
-      gravando = true;
-      textoBase = campo.value ? campo.value.trim() + " " : "";
-      pintarBotao("gravando", "Parar");
-      dizerStatus("Ouvindo... fale e o texto aparece aqui embaixo.", "is-recording");
-    };
-
-    ouvinte.onresult = ev => {
-      let firme = "", provisorio = "";
-      for (let i = ev.resultIndex; i < ev.results.length; i++){
-        const trecho = ev.results[i][0].transcript;
-        if (ev.results[i].isFinal) firme += trecho;
-        else provisorio += trecho;
-      }
-      if (firme) textoBase += firme;
-      campo.value = (textoBase + provisorio).replace(/\s+/g, " ").trimStart();
-      campo.scrollTop = campo.scrollHeight;
-    };
-
-    ouvinte.onerror = ev => {
-      if (ev.error === "aborted") return;
-      if (ev.error === "not-allowed" || ev.error === "service-not-allowed"){
-        return soltar("O microfone está bloqueado para este site.", "is-error",
-                      {titulo: "O microfone está bloqueado", detalhe: AJUDA_DESBLOQUEIO});
-      }
-      const motivos = {
-        "no-speech": "Não ouvi nada. Fale mais perto do microfone e tente de novo.",
-        "audio-capture": "Não achei um microfone neste computador.",
-        network: "O reconhecimento de fala do navegador precisa de internet, "
-               + "e a conexão com ele falhou.",
-        "language-not-supported": "Este navegador não reconhece português falado.",
-      };
-      const motivo = motivos[ev.error] || `Falhou ao ouvir (${ev.error}).`;
-      soltar(motivo, "is-error", {titulo: "Não consegui gravar", detalhe: motivo});
-    };
-
-    ouvinte.onend = () => {
-      if (!gravando) return;                  // já tratado por erro ou desistência
-      clearTimeout(relogio); relogio = null;
-      gravando = false;
-      pintarBotao("", "Áudio");
-      if (!status.classList.contains("is-error")){
-        dizerStatus(campo.value.trim()
-          ? "Confira o texto e envie — dá para corrigir antes."
-          : "Pronta para responder sobre esta tela.");
-      }
-      campo.focus();
-      ouvinte = null;
-    };
-
     try {
-      // O relógio é armado ANTES de start(): armá-lo depois abre uma janela
-      // em que onstart já chamou clearTimeout de um relógio que ainda não
-      // existia, e o timeout dispararia por cima de uma gravação que estava
-      // funcionando.
-      relogio = setTimeout(() => {
-        parar();
-        soltar("O reconhecimento de fala não respondeu.", "is-error", {
-          titulo: "O reconhecimento de fala não respondeu",
-          detalhe: "O microfone abriu, mas o serviço de transcrição do Chrome "
-                 + "não retornou em 12 s. Ele depende de um servidor do Google; "
-                 + "rede que bloqueia esse caminho derruba o ditado. Digite a "
-                 + "pergunta — o assistente responde igual.",
-        });
-      }, ESPERA_FALA);
-      ouvinte.start();
+      faixa = await navigator.mediaDevices.getUserMedia({audio: true});
     } catch (erro){
-      clearTimeout(relogio); relogio = null;
-      soltar("Não consegui iniciar a gravação.", "is-error",
-             {titulo: "Não consegui iniciar a gravação",
-              detalhe: `${erro?.name || "erro"}: ${erro?.message || ""}`.trim()});
+      const motivo = explicarFalhaDoMicrofone(erro);
+      return soltar(motivo.titulo + ".", "is-error", motivo);
     }
+
+    // cada navegador prefere um contêiner; o primeiro que ele aceitar serve,
+    // porque a conversão para WAV acontece depois de qualquer jeito
+    const tipo = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"]
+      .find(t => MediaRecorder.isTypeSupported?.(t));
+    try {
+      gravador = new MediaRecorder(faixa, tipo ? {mimeType: tipo} : undefined);
+    } catch (erro){
+      return soltar("Este navegador não conseguiu gravar.", "is-error",
+                    {titulo: "Não consegui gravar",
+                     detalhe: `${erro?.name || "erro"}: ${erro?.message || ""}`.trim()});
+    }
+
+    pedacos = [];
+    gravador.ondataavailable = ev => { if (ev.data?.size) pedacos.push(ev.data); };
+    gravador.onerror = ev => soltar("A gravação falhou.", "is-error",
+      {titulo: "A gravação falhou", detalhe: ev?.error?.message || "erro do gravador"});
+    gravador.onstop = enviar;
+    gravador.start();
+
+    const inicio = Date.now();
+    pintarBotao("gravando", "Parar");
+    dizerStatus("Gravando... clique em Parar quando terminar.", "is-recording");
+    contador = setInterval(() => {
+      const seg = Math.round((Date.now() - inicio) / 1000);
+      $("span", botao).textContent = `Parar ${seg}s`;
+    }, 500);
+    // não deixa uma gravação esquecida virar um arquivo gigante
+    relogio = setTimeout(() => { if (gravador?.state === "recording") gravador.stop(); },
+                         GRAVACAO_MAXIMA);
+  }
+
+  async function enviar(){
+    clearTimeout(relogio); clearInterval(contador);
+    relogio = contador = null;
+    faixa?.getTracks().forEach(t => t.stop());
+    faixa = null;
+
+    const blob = new Blob(pedacos, {type: pedacos[0]?.type || "audio/webm"});
+    pedacos = [];
+    if (blob.size < 1200){
+      return soltar("Não ouvi nada. Fale mais perto do microfone.", "is-error");
+    }
+
+    pintarBotao("enviando", "Transcrevendo...");
+    dizerStatus("Transcrevendo o que você falou...", "is-processing");
+    try {
+      const {base64, segundos} = await prepararAudio(blob);
+      if (segundos < 0.4) return soltar("Gravação curta demais.", "is-error");
+      const r = await api.transcrever(base64);
+      const texto = (r.texto || "").trim();
+      if (!texto){
+        return soltar("Não entendi o que foi falado. Tente de novo.", "is-error");
+      }
+      campo.value = (campo.value.trim() ? campo.value.trim() + " " : "") + texto;
+      campo.focus();
+      campo.setSelectionRange(campo.value.length, campo.value.length);
+      soltar("Confira o texto e envie — dá para corrigir antes.", "");
+    } catch (erro){
+      if (erro instanceof ErroApi && erro.semSessao){
+        soltar("");
+        return mostrarLogin("Sua sessão expirou. Entre de novo.", "erro");
+      }
+      soltar("Não consegui transcrever.", "is-error", {
+        titulo: "Não consegui transcrever",
+        detalhe: erro instanceof ErroApi ? erro.message
+               : "Falha ao preparar o áudio neste navegador.",
+      });
+    }
+  }
+
+  botao.onclick = () => {
+    if (gravador?.state === "recording") return gravador.stop();   // onstop chama enviar
+    if (!gravador) comecar();
   };
 
-  // fechar o chat com o microfone aberto deixaria ele ouvindo às escondidas
-  $("#globalAiChatClose").addEventListener("click", parar);
+  // fechar o chat com o microfone aberto deixaria ele gravando às escondidas
+  $("#globalAiChatClose").addEventListener("click", () => {
+    if (gravador?.state === "recording"){ gravador.onstop = null; gravador.stop(); }
+    soltar("");
+  });
 }
 
 /* A barra do topo é atalho para o mesmo chat: manda a pergunta e abre a

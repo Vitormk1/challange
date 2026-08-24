@@ -91,4 +91,5 @@ export const api = {
 
   perguntar: (pergunta, estabelecimento_id, historico) =>
     pedir("/ia/perguntar", {metodo:"POST", corpo:{pergunta, estabelecimento_id, historico}}),
+  transcrever: audio => pedir("/ia/transcrever", {metodo:"POST", corpo:{audio}}),
 };

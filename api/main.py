@@ -922,6 +922,61 @@ def perguntar(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
     return {"resposta": texto, "modelo": dados_resp.get("model")}
 
 
+# Transcrever no servidor, e não no navegador.
+#
+# A primeira versão usava o reconhecimento de fala do próprio navegador. Ele é
+# grátis e imediato, mas: só Chrome e derivados têm, cada um fala com um
+# serviço diferente, e quando esse serviço não responde a API fica em silêncio
+# — sem erro, sem nada. Na máquina do usuário travava em "abrindo" e nunca
+# voltava, em rede nenhuma bloqueada aparentemente.
+#
+# Gravar com MediaRecorder e mandar o áudio para cá tira o navegador da
+# equação: o que precisa existir é gravação, que Chrome, Edge, Opera, Firefox
+# e Safari têm há anos. E a transcrição passa a depender do mesmo lugar de que
+# o resto do assistente já depende.
+MODELO_AUDIO = os.environ.get("OPENROUTER_MODELO_AUDIO", "google/gemini-2.5-flash")
+LIMITE_AUDIO_MB = 6
+
+
+@app.post("/ia/transcrever")
+def transcrever(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
+    chave = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if not chave:
+        raise HTTPException(503, "OPENROUTER_API_KEY não configurada no servidor")
+    limitar_ia(u["id"])          # transcrever custa como perguntar
+
+    audio = str(corpo.get("audio", ""))
+    if not audio:
+        raise HTTPException(400, "áudio vazio")
+    if len(audio) > LIMITE_AUDIO_MB * 1_400_000:      # base64 cresce ~1/3
+        raise HTTPException(413, "Gravação longa demais. Fale por até um minuto.")
+
+    try:
+        r = requests.post(
+            OPENROUTER_URL, timeout=90,
+            headers={"Authorization": f"Bearer {chave}",
+                     "Content-Type": "application/json",
+                     "X-Title": "Smart Charge"},
+            json={"model": MODELO_AUDIO, "max_tokens": 400, "temperature": 0,
+                  "messages": [{"role": "user", "content": [
+                      {"type": "text", "text":
+                       "Transcreva este áudio em português do Brasil. Responda só "
+                       "com o texto falado, sem aspas, sem comentário e sem "
+                       "descrever ruído. Se não houver fala, responda vazio."},
+                      {"type": "input_audio",
+                       "input_audio": {"data": audio, "format": "wav"}}]}]},
+        )
+        r.raise_for_status()
+        dados_resp = r.json()
+    except requests.RequestException as erro:
+        raise HTTPException(502, f"a transcrição falhou: {erro}")
+
+    escolha = (dados_resp.get("choices") or [{}])[0]
+    texto = (escolha.get("message") or {}).get("content", "")
+    texto = (texto if isinstance(texto, str) else "").strip().strip('"')
+    return {"texto": texto}
+
+
 @app.get("/saude")
 def saude():
     """Sonda do Render, e conferência rápida do que subiu configurado."""
