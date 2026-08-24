@@ -250,10 +250,26 @@
   border-color: var(--danger);
 }
 
-/* A marca no topo do menu ganha o vermelho; o resto do menu fica preto. */
+/* --------------------------------------------------------------------------
+   A marca no topo do menu
+
+   Era um quadrado vermelho com um raio branco desenhado dentro. Agora é a
+   logo, que já vem vermelha e recortada — então o quadrado sai: fundo
+   colorido por baixo de uma logo da mesma cor esconde a logo.
+
+   O menu é preto, e vermelho sobre preto dá 3,6 — acima do mínimo de 3 que
+   vale para elemento gráfico. O nome "Smart Charge" ao lado continua branco
+   e é ele que carrega a leitura.
+   -------------------------------------------------------------------------- */
 .brand-mark {
-  background: var(--marca-vermelho) !important;
-  color: #fff !important;
+  background: none !important;
+  color: var(--marca-vermelho) !important;
+}
+.brand-mark img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  display: block;
 }
 
 /* Linha do item ativo: era ciano, agora é a cor da marca. */
@@ -311,16 +327,50 @@
 /* --------------------------------------------------------------------------
    Os selos "Compartilhado" e "Privado" no popup de painéis
 
-   A referência dá uma cor só para os dois temas, e no claro isso reprovava:
-   o texto do selo media 4,12 sobre o próprio fundo do selo. São dois tokens
-   que já existem e já são cientes do tema — é só usá-los em vez de um
-   hexadecimal fixo.
+   Aqui os tokens cientes do tema seriam ERRADOS, e eu já errei assim uma vez.
+
+   O popup "Ver painéis" é escuro nos DOIS temas — rgba(24,23,23,0.97). Ele
+   não acompanha o tema da página, é uma superfície própria. Então um token
+   que escurece o texto quando a página está clara escurece texto que está
+   sobre preto: eu tinha posto --primary-accessible-text aqui, e medido
+   contra o fundo da página em vez do fundo do popup. Dava 1,88.
+
+   Cor fixa, clara, escolhida contra o fundo real do popup: 8,33 e 8,99.
    -------------------------------------------------------------------------- */
 .dashboard-workspaces-visibility-badge.is-shared {
-  color: var(--primary-accessible-text);
-  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: #FFA79E;
+  background: rgba(180, 22, 15, 0.18);
 }
 .dashboard-workspaces-visibility-badge.is-private {
-  color: var(--warning-accessible-text);
-  background: color-mix(in srgb, var(--warning) 16%, transparent);
+  color: #F5CC80;
+  background: rgba(181, 118, 10, 0.18);
+}
+
+/* --------------------------------------------------------------------------
+   Vermelho de TEXTO e vermelho de PREENCHIMENTO são coisas diferentes
+
+   No tema escuro, --danger é #FF8A7E: um salmão claro, feito para ser lido
+   SOBRE fundo escuro. A referência usa esse mesmo token como FUNDO de botão
+   com texto branco — e aí dá 2,29. O botão "Sair" da confirmação de logout
+   estava assim: branco sobre salmão, ilegível.
+
+   Os pontinhos de estado continuam usando --danger, e ali está certo: são
+   gráficos sem texto por cima, e claro sobre escuro é o que se quer.
+
+   Só o que carrega texto ganha o preenchimento fechado. Um valor só serve
+   aos dois temas, porque branco sobre #8A1616 dá 9,5 em qualquer fundo.
+   -------------------------------------------------------------------------- */
+:root { --danger-fill: #8A1616; }
+:root[data-theme="dark"] { --danger-fill: #8A1616; }
+
+.danger-button,
+.danger-button:hover,
+.danger-button:focus-visible,
+.primary-button.is-save-error,
+.ghost-button.is-save-error,
+#profileSettingsApply.is-save-error,
+.center-status-toast.error {
+  background: var(--danger-fill);
+  border-color: var(--danger-fill);
+  color: #FFFFFF;
 }

@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Smart Charge — Vaga</title>
+<link rel="icon" type="image/png" sizes="32x32" href="../img/logo-32.png?v=20260904g">
+<link rel="icon" type="image/png" sizes="256x256" href="../img/logo.png?v=20260904g">
+<link rel="apple-touch-icon" href="../img/logo-180.png?v=20260904g">
 <meta name="description" content="A telinha ao lado do carregador: tempo e custo previstos em tempo real.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -80,8 +83,10 @@
     display:flex;justify-content:space-between;align-items:center;gap:2cqw;
     padding:3.4cqh 3.4cqw;border-bottom:1px solid var(--rule);flex-shrink:0;
   }
-  .who{display:flex;align-items:baseline;gap:1.6cqw;min-width:0}
+  .who{display:flex;align-items:center;gap:1.6cqw;min-width:0}
   .who .spot{font-size:clamp(13px,3.1cqh,30px);font-weight:600;letter-spacing:-.02em;white-space:nowrap}
+  /* a logo acompanha o texto: altura em cqh, como todo o resto desta tela */
+  .who .marca{width:auto;height:clamp(14px,3.4cqh,26px);flex-shrink:0}
   .who .store{font-family:"JetBrains Mono",monospace;font-size:clamp(8px,1.7cqh,14px);color:var(--ink-3);letter-spacing:.14em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .state{display:flex;align-items:center;gap:1cqw;flex-shrink:0}
   .dot{width:clamp(7px,1.5cqh,13px);aspect-ratio:1;border-radius:50%;background:var(--amber)}
@@ -131,6 +136,7 @@
   <div class="screen" id="screen">
     <header>
       <div class="who">
+        <img class="marca" src="../img/logo.png?v=20260904g" alt="" width="24" height="24" decoding="async">
         <span class="spot" id="spot">Vaga 1</span>
         <span class="store" id="store">Mercado Bom Preço</span>
       </div>

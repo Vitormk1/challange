@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Smart Charge</title>
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260904g">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260904g">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260904g">
 <meta name="description" content="Recarga de carro elétrico como ativo comercial. Challenge FIAP · GoodWe 2026.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -72,6 +75,9 @@
   }
 
   /* ---------- hero ---------- */
+  /* sem margem: o .hero e flex com gap proprio, e uma margem aqui somaria
+     por cima dele e abriria um buraco que o resto da pagina nao tem */
+  .hero-logo{display:block;width:clamp(64px,9vw,104px);height:auto}
   .hero{padding:16vh 0 12vh;display:flex;flex-direction:column;gap:34px}
   .hero h1{
     font-size:clamp(2.6rem,8vw,4.6rem);font-weight:700;letter-spacing:-.045em;
@@ -176,7 +182,8 @@
   <!-- ============================================================ -->
   <div class="hero">
     <span class="tag">Challenge FIAP · GoodWe · 2026</span>
-    <h1>Praça de<br>Recarga</h1>
+    <img class="hero-logo" src="./img/logo.png?v=20260904g" alt="" width="96" height="96" decoding="async">
+    <h1>Smart<br>Charge</h1>
     <div class="beam"></div>
     <p class="lede">O carregador na frente da loja traz cliente? Hoje ninguém sabe responder. A gente responde.</p>
   </div>

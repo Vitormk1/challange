@@ -4,14 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Smart Charge — Painel</title>
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260904g">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260904g">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260904g">
 <meta name="description" content="Painel do lojista: retorno, carregadores, sessões, clientes e vendas atribuídas.">
-<link rel="stylesheet" href="./style.css?v=20260904d">
+<link rel="stylesheet" href="./style.css?v=20260904g">
 <!-- marca.css vem depois do style.css: ele só troca os tokens de cor, e
      precisa vencer os valores originais da referência -->
-<link rel="stylesheet" href="./marca.css?v=20260904d">
-<link rel="stylesheet" href="./static/css/tour.css?v=20260904d">
-<link rel="stylesheet" href="./painel.css?v=20260904d">
-<link rel="stylesheet" href="./login.css?v=20260904d">
+<link rel="stylesheet" href="./marca.css?v=20260904g">
+<link rel="stylesheet" href="./static/css/tour.css?v=20260904g">
+<link rel="stylesheet" href="./painel.css?v=20260904g">
+<link rel="stylesheet" href="./login.css?v=20260904g">
 </head>
 <body class="primary-loading sem-sessao">
 
@@ -44,7 +47,7 @@
     <!-- marca: o anel enche conforme a pessoa preenche o formulário -->
     <div class="login-marca">
       <span class="login-selo" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2Z"/></svg>
+        <img src="./img/logo.png?v=20260904g" alt="" width="60" height="60" decoding="async">
       </span>
       <h1>Smart Charge</h1>
     </div>
@@ -93,7 +96,7 @@
   <aside class="sidebar">
     <button class="brand brand-button" id="brandReloadButton" type="button" aria-label="Recarregar painel">
       <div class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2Z"/></svg>
+        <img src="./img/logo.png?v=20260904g" alt="" width="26" height="26" decoding="async">
       </div>
       <h1>Smart Charge</h1>
     </button>
@@ -525,6 +528,6 @@
 
 <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
 
-<script type="module" src="./app.js?v=20260904d"></script>
+<script type="module" src="./app.js?v=20260904g"></script>
 </body>
 </html>
