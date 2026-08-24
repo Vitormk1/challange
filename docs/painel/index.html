@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Smart Charge — Painel</title>
 <meta name="description" content="Painel do lojista: retorno, carregadores, sessões, clientes e vendas atribuídas.">
-<link rel="stylesheet" href="./style.css?v=20260827a">
-<link rel="stylesheet" href="./static/css/tour.css?v=20260827a">
-<link rel="stylesheet" href="./painel.css?v=20260827a">
-<link rel="stylesheet" href="./login.css?v=20260827a">
+<link rel="stylesheet" href="./style.css?v=20260828a">
+<link rel="stylesheet" href="./static/css/tour.css?v=20260828a">
+<link rel="stylesheet" href="./painel.css?v=20260828a">
+<link rel="stylesheet" href="./login.css?v=20260828a">
 </head>
 <body class="primary-loading sem-sessao">
 
@@ -199,6 +199,20 @@
           <h2 id="activeSectionTitle">Painel</h2>
         </div>
       </div>
+      <form class="global-ai-command" id="globalAiCommandForm" role="search"
+            aria-label="Perguntar à assistente" hidden>
+        <div class="global-ai-command-field">
+          <label class="sr-only" for="globalAiCommandInput">Pergunte à assistente</label>
+          <input id="globalAiCommandInput" type="search" autocomplete="off"
+                 placeholder="Pergunte alguma coisa sobre esta loja...">
+          <button class="global-ai-command-submit" type="submit" aria-label="Enviar para a assistente">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 5v5a4 4 0 0 1-4 4H5"></path>
+              <path d="m10 9-5 5 5 5"></path>
+            </svg>
+          </button>
+        </div>
+      </form>
       <div class="topbar-side">
         <div class="topbar-actions" id="topbarActions"></div>
         <button class="icon-button tour-launch-button" id="tourLaunchButton" type="button" aria-label="Abrir tour guiado">?</button>
@@ -378,6 +392,14 @@
     <label class="sr-only" for="globalAiChatInput">Mensagem para o assistente</label>
     <textarea id="globalAiChatInput" rows="2" placeholder="Pergunte sobre o retorno, os carregadores ou a cortesia."></textarea>
     <div class="global-ai-chat-actions">
+      <button class="global-ai-chat-audio" id="globalAiChatAudio" type="button" hidden
+              aria-label="Gravar mensagem por áudio" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="8.5" y="3" width="7" height="12" rx="3.5"></rect>
+          <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"></path>
+        </svg>
+        <span>Áudio</span>
+      </button>
       <button class="primary-button global-ai-chat-submit" type="submit">Enviar</button>
     </div>
   </form>
@@ -500,6 +522,6 @@
 
 <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
 
-<script type="module" src="./app.js?v=20260827a"></script>
+<script type="module" src="./app.js?v=20260828a"></script>
 </body>
 </html>

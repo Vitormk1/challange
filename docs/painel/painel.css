@@ -11,7 +11,8 @@
 /* A esfera fica no mesmo canto do botão "+" de adicionar card. Em edição,
    quem manda ali é o "+". */
 body.editando-painel .global-ai-launcher,
-body.editando-painel .global-ai-chat { display: none !important; }
+body.editando-painel .global-ai-chat,
+body.editando-painel .global-ai-command { display: none !important; }
 
 /* O conteúdo do card grande tem que caber no espaço que a grade deu a ele.
    Sem isto, o card cresce pela altura do próprio conteúdo e invade o grupo
@@ -180,18 +181,30 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
    ========================================================================== */
 .toast-stack {
   position: fixed;
+  /* `top: auto` não é decoração: o style.css da referência declara
+     `.toast-stack { top: 18px }`, e sobrescrever só o `bottom` deixava os
+     dois valendo. Com top e bottom ao mesmo tempo o elemento estica de cima
+     a baixo da tela, e o aviso dentro dele esticava junto — era a faixa que
+     ocupava a lateral inteira. */
+  top: auto;
+  left: auto;
   right: 20px;
   bottom: 20px;
+  width: auto;
+  height: auto;
   z-index: 13000;
   display: grid;
   gap: 10px;
   justify-items: end;
+  align-content: end;
   pointer-events: none;
 }
 
 .aviso {
   --av-cor: var(--primary, #248dd1);
   position: relative;
+  align-self: end;
+  height: auto;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: start;
@@ -288,7 +301,7 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
 @keyframes aviso-tempo { to { transform: scaleX(0); } }
 
 @media (max-width: 640px) {
-  .toast-stack { right: 12px; left: 12px; bottom: 12px; justify-items: stretch; }
+  .toast-stack { top: auto; right: 12px; left: 12px; bottom: 12px; justify-items: stretch; }
   .aviso { width: auto; }
 }
 @media (prefers-reduced-motion: reduce) {

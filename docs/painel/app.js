@@ -16,9 +16,9 @@
       a tela de login diz isso, e é só o que ela faz.
    ========================================================================== */
 
-import "./static/js/aiEntity.js?v=20260827a";
-import { createTourModule } from "./static/js/tour.js?v=20260827a";
-import { api, BASE, ErroApi } from "./api.js?v=20260827a";
+import "./static/js/aiEntity.js?v=20260828a";
+import { createTourModule } from "./static/js/tour.js?v=20260828a";
+import { api, BASE, ErroApi } from "./api.js?v=20260828a";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -1704,10 +1704,12 @@ function dizer(texto, de){
   $("#globalAiChatMessages").scrollTop = $("#globalAiChatMessages").scrollHeight;
   return el;
 }
+let abrirChat = () => {};
+
 function initAssistente(){
   const chat = $("#globalAiChat"), lancador = $("#globalAiLauncher");
   lancador.hidden = false;
-  const abrir = ab => {
+  const abrir = abrirChat = ab => {
     chat.classList.toggle("is-open", ab);
     chat.setAttribute("aria-hidden", String(!ab));
     lancador.setAttribute("aria-expanded", String(ab));
@@ -1758,6 +1760,123 @@ function saudarAssistente(){
     ? "Pergunte sobre o retorno, o teto de cortesia, os carregadores ou os clientes desta loja."
     : "Pergunte sobre as recargas, os carregadores e os clientes. O financeiro é com o gerente.",
     "assistant");
+}
+
+
+/* ==========================================================================
+   Ditar em vez de digitar
+
+   Usa o reconhecimento de fala do próprio navegador (Web Speech API), não um
+   serviço de transcrição. Três motivos: não sobe áudio para lugar nenhum, não
+   custa por minuto, e o texto aparece enquanto a pessoa fala em vez de depois
+   de mandar o arquivo e esperar.
+
+   O preço é que Chrome e Edge têm, e Firefox não. Onde não tem, o botão
+   simplesmente não aparece — melhor do que um botão que falha ao ser clicado.
+
+   O texto cai no campo, não no envio: a pessoa lê, corrige o que a máquina
+   entendeu errado, e só então manda. Era o pedido.
+   ========================================================================== */
+const Reconhecimento = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function initVoz(){
+  const botao = $("#globalAiChatAudio");
+  const campo = $("#globalAiChatInput");
+  const status = $("#globalAiChatStatus");
+  if (!botao || !Reconhecimento) return;      // sem suporte, sem botão
+  botao.hidden = false;
+
+  let ouvinte = null, gravando = false, textoBase = "";
+
+  const dizerStatus = (texto, estado = "") => {
+    status.classList.remove("is-recording", "is-processing", "is-error");
+    if (estado) status.classList.add(estado);
+    status.lastElementChild.textContent = texto;
+  };
+  const parar = () => { try { ouvinte?.stop(); } catch {} };
+
+  botao.onclick = () => {
+    if (gravando) return parar();
+
+    ouvinte = new Reconhecimento();
+    ouvinte.lang = "pt-BR";
+    ouvinte.continuous = true;
+    ouvinte.interimResults = true;            // texto aparecendo enquanto fala
+
+    ouvinte.onstart = () => {
+      gravando = true;
+      textoBase = campo.value ? campo.value.trim() + " " : "";
+      botao.classList.add("is-recording");
+      botao.setAttribute("aria-pressed", "true");
+      $("span", botao).textContent = "Parar";
+      dizerStatus("Ouvindo... fale e o texto aparece aqui embaixo.", "is-recording");
+    };
+
+    ouvinte.onresult = ev => {
+      let firme = "", provisorio = "";
+      for (let i = ev.resultIndex; i < ev.results.length; i++){
+        const trecho = ev.results[i][0].transcript;
+        if (ev.results[i].isFinal) firme += trecho;
+        else provisorio += trecho;
+      }
+      if (firme) textoBase += firme;
+      campo.value = (textoBase + provisorio).replace(/\s+/g, " ").trimStart();
+      campo.scrollTop = campo.scrollHeight;
+    };
+
+    ouvinte.onerror = ev => {
+      const motivos = {
+        "not-allowed": "Você precisa permitir o microfone no navegador.",
+        "service-not-allowed": "O navegador bloqueou o microfone nesta página.",
+        "no-speech": "Não ouvi nada. Tente falar mais perto do microfone.",
+        "audio-capture": "Não achei um microfone neste computador.",
+        network: "Sem rede para reconhecer a fala.",
+      };
+      if (ev.error !== "aborted"){
+        const motivo = motivos[ev.error] || `Falhou ao ouvir (${ev.error}).`;
+        dizerStatus(motivo, "is-error");
+        aviso("Não consegui gravar", "erro", {detalhe: motivo});
+      }
+    };
+
+    ouvinte.onend = () => {
+      gravando = false;
+      botao.classList.remove("is-recording");
+      botao.setAttribute("aria-pressed", "false");
+      $("span", botao).textContent = "Áudio";
+      if (!status.classList.contains("is-error")){
+        dizerStatus(campo.value.trim()
+          ? "Confira o texto e envie — dá para corrigir antes."
+          : "Pronta para responder sobre esta tela.");
+      }
+      campo.focus();
+      ouvinte = null;
+    };
+
+    try { ouvinte.start(); }
+    catch { dizerStatus("Não consegui abrir o microfone.", "is-error"); }
+  };
+
+  // fechar o chat com o microfone aberto deixaria ele ouvindo às escondidas
+  $("#globalAiChatClose").addEventListener("click", parar);
+}
+
+/* A barra do topo é atalho para o mesmo chat: manda a pergunta e abre a
+   conversa já esperando a resposta, em vez de ser uma segunda IA. */
+function initBarraDeComando(){
+  const form = $("#globalAiCommandForm"), campo = $("#globalAiCommandInput");
+  if (!form) return;
+  form.hidden = false;
+  form.onsubmit = ev => {
+    ev.preventDefault();
+    const texto = campo.value.trim();
+    if (!texto) return;
+    campo.value = "";
+    campo.blur();
+    abrirChat(true);
+    $("#globalAiChatInput").value = texto;
+    $("#globalAiChatForm").requestSubmit();
+  };
 }
 
 /* ==========================================================================
@@ -2116,6 +2235,8 @@ async function iniciar(){
   initLogin();
   initLogout();
   initAssistente();
+  initVoz();
+  initBarraDeComando();
   initPerfil();
   ligarPainelUI();
 
