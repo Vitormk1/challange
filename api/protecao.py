@@ -134,10 +134,29 @@ CABECALHOS = {
     "Permissions-Policy": "geolocation=(), microphone=(self), camera=(), payment=()",
 }
 
+# HSTS: o navegador passa a recusar http nesta origem por um ano, sem nem
+# tentar. O Render já responde 301 de http para https, mas o 301 acontece
+# DEPOIS de a primeira requisição sair em texto claro — e é essa primeira que
+# um atacante na mesma rede intercepta. O HSTS elimina essa primeira.
+#
+# Só vai embora em resposta que chegou por https, olhando o x-forwarded-proto
+# que o Render põe. Em desenvolvimento a origem é http://127.0.0.1, e mandar
+# HSTS ali ensinaria o navegador a recusar o próprio ambiente local por um
+# ano — um estrago demorado de desfazer, porque quem limpa é o usuário nas
+# configurações do navegador, não o servidor.
+#
+# Sem `preload`: entrar na lista de pré-carga é um compromisso que se pede
+# fácil e se desfaz devagar, e este endereço ainda é um subdomínio temporário
+# do Render.
+HSTS = "max-age=31536000; includeSubDomains"
+
 
 class CabecalhosDeSeguranca(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         resposta = await call_next(request)
         for nome, valor in CABECALHOS.items():
             resposta.headers.setdefault(nome, valor)
+        protocolo = request.headers.get("x-forwarded-proto", request.url.scheme)
+        if protocolo == "https":
+            resposta.headers.setdefault("Strict-Transport-Security", HSTS)
         return resposta

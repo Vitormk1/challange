@@ -219,6 +219,16 @@ def main() -> None:
            "frame-ancestors 'none'" in cab.get("content-security-policy", ""))
     checar("painel é servido pela própria API", r.status_code == 200, f"HTTP {r.status_code}")
 
+    # HSTS só existe sobre https: em http local ele não deve aparecer, porque
+    # ensinaria o navegador a recusar 127.0.0.1 por um ano.
+    hsts = cab.get("strict-transport-security", "")
+    if API.startswith("https://"):
+        checar("HSTS presente e com prazo longo",
+               "max-age=" in hsts and int(hsts.split("max-age=")[1].split(";")[0]) >= 15552000,
+               hsts or "ausente")
+    else:
+        checar("HSTS ausente em http (correto para o local)", not hsts, hsts or "ausente")
+
     # e-mail descartável: o limite por conta é o que trava, e não vale gastar
     # o balde de um usuário real no meio da auditoria
     bloqueou = False
