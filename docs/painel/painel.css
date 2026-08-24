@@ -424,3 +424,68 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
 
 /* o clique tem que mudar algo antes de a permissão ser resolvida */
 .global-ai-chat-audio.is-processing { opacity: 0.75; cursor: progress; }
+
+/* ==========================================================================
+   Balões da conversa
+
+   O style.css da referência não estiliza .global-ai-chat-message — eram
+   textos soltos um embaixo do outro, sem nada dizendo quem falou o quê.
+
+   Lado e cor carregam a mesma informação, de propósito: quem só vê a
+   posição entende, quem não distingue as cores também. A ponta quadrada de
+   cada balão aponta para o lado de quem falou.
+   ========================================================================== */
+.global-ai-chat-message {
+  --balao-fundo: var(--surface-strong, #fff);
+  --balao-borda: var(--line, rgba(15, 42, 68, 0.1));
+  max-width: 86%;
+  padding: 9px 13px;
+  border-radius: 16px;
+  background: var(--balao-fundo);
+  border: 1px solid var(--balao-borda);
+  box-shadow: 0 1px 2px rgba(10, 32, 54, 0.06);
+  animation: balao-entra 0.2s ease;
+}
+.global-ai-chat-message p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--text, #0f2a44);
+  /* pergunta colada de outro lugar não pode estourar a largura do balão */
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* minhas mensagens: à direita, fundo claro */
+.global-ai-chat-message.is-user {
+  align-self: flex-end;
+  border-bottom-right-radius: 5px;
+}
+
+/* respostas da assistente: à esquerda, azul do painel */
+.global-ai-chat-message.is-assistant {
+  --balao-fundo: color-mix(in srgb, var(--primary, #248dd1) 11%, var(--surface-strong, #fff));
+  --balao-borda: color-mix(in srgb, var(--primary, #248dd1) 26%, transparent);
+  align-self: flex-start;
+  border-bottom-left-radius: 5px;
+}
+
+:root[data-theme="dark"] .global-ai-chat-message {
+  /* branco puro num painel escuro cega; o que importa é o contraste entre os
+     dois lados, e não o branco literal */
+  --balao-fundo: rgba(255, 255, 255, 0.09);
+  --balao-borda: rgba(255, 255, 255, 0.14);
+  box-shadow: none;
+}
+:root[data-theme="dark"] .global-ai-chat-message.is-assistant {
+  --balao-fundo: color-mix(in srgb, var(--primary, #46a9e8) 24%, transparent);
+  --balao-borda: color-mix(in srgb, var(--primary, #46a9e8) 38%, transparent);
+}
+
+@keyframes balao-entra {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .global-ai-chat-message { animation: none; }
+}
