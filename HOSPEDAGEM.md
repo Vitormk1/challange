@@ -72,30 +72,35 @@ Abra `https://SUA-URL.onrender.com/saude`. A resposta diz o que está valendo:
 - `cookie.samesite` diferente de `none` → o login vai responder 200 e a sessão
   não vai colar (ver seção 4)
 
-### 3. Apontar o painel para a API
+### 3. O endereço do painel
 
-Em [`docs/painel/api.js`](docs/painel/api.js), uma linha:
+**O painel é servido pela própria API**, em `https://SUA-URL.onrender.com/painel/`.
+É esse o endereço para compartilhar.
+
+Em [`docs/painel/api.js`](docs/painel/api.js) uma linha guarda esse endereço, e
+é a única que muda se o serviço trocar de host:
 
 ```js
 const API_PUBLICADA = "https://praca-recarga-api.onrender.com";
 ```
 
-Commit e push. O Pages republica sozinho.
+A cópia que fica no GitHub Pages redireciona para lá.
 
-### 4. Por que o cookie precisa de atenção
+### 4. Por que o painel não fica no GitHub Pages
 
-O painel fica em `vitormk1.github.io` e a API em `onrender.com` — **domínios
-diferentes**. Um cookie `SameSite=Lax` não é enviado nesse caso: o login
-responderia 200, o cookie seria descartado pelo navegador, e a próxima
-requisição voltaria 401. Parece bug de senha, e não é.
+Essa foi a primeira tentativa, e ela falha em boa parte dos navegadores.
 
-Por isso o `render.yaml` traz `COOKIE_SAMESITE=none` e `COOKIE_SEGURO=1` — e
-`None` só é aceito junto com `Secure`, ou seja, só em HTTPS. Em
-desenvolvimento, tudo em `localhost`, o padrão continua `lax`, que não exige
-HTTPS.
+Com o painel em `github.io` e a API em `onrender.com`, o cookie de sessão é um
+**cookie de terceiro**. Safari, Firefox, Brave e o modo anônimo do Chrome
+descartam cookie de terceiro por padrão: o login responde 200, o navegador joga
+o cookie fora, e a requisição seguinte volta 401. Na tela isso aparece como
+"e-mail ou senha incorretos" logo depois de um login que deu certo — e não há
+configuração do lado de quem usa que resolva.
 
-`ORIGENS_PERMITIDAS` precisa ser **exatamente** a origem do Pages, sem barra no
-fim: `https://vitormk1.github.io`.
+`SameSite=None; Secure` é o que permite cookie de terceiro *quando o navegador
+aceita*. Como a maioria não aceita mais, a saída é não depender disso: mesma
+origem para a página e para a API. O cookie volta a ser de primeira parte,
+`SameSite=Lax` basta, e o CORS deixa de existir.
 
 ### 5. Trocar as senhas
 

@@ -16,9 +16,9 @@
       a tela de login diz isso, e é só o que ela faz.
    ========================================================================== */
 
-import "./static/js/aiEntity.js?v=20260826a";
-import { createTourModule } from "./static/js/tour.js?v=20260826a";
-import { api, BASE, ErroApi } from "./api.js?v=20260826a";
+import "./static/js/aiEntity.js?v=20260827a";
+import { createTourModule } from "./static/js/tour.js?v=20260827a";
+import { api, BASE, ErroApi } from "./api.js?v=20260827a";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -325,7 +325,13 @@ function salvarPrefs(){
   };
   // uma escrita por rajada: arrastar card dispara muitas mudanças seguidas
   clearTimeout(prefsPendentes);
-  prefsPendentes = setTimeout(() => api.preferencias(state.prefs).catch(() => {}), 600);
+  prefsPendentes = setTimeout(() => api.preferencias(state.prefs).catch(erro => {
+    // preferência é estado de tela: falhar não impede de trabalhar, mas
+    // sumir na próxima vez sem nunca ter avisado é pior
+    if (erro instanceof ErroApi && erro.semSessao) return;
+    aviso("Não consegui guardar suas preferências", "atencao",
+          {detalhe: "Tema, seção e buscas podem não voltar no próximo acesso."});
+  }), 600);
 }
 function aplicarPrefs(p){
   state.prefs = p && typeof p === "object" ? p : {};
@@ -347,19 +353,102 @@ function aplicarPrefs(p){
 /* ==========================================================================
    toast
    ========================================================================== */
-function toast(msg, tipo = "success"){
+/* ==========================================================================
+   Avisos
+
+   Toda ação que toca o banco termina em um aviso. Não é enfeite: sem ele a
+   pessoa clica em "salvar", nada visível muda, e ela não sabe se gravou, se
+   falhou, ou se o clique nem chegou. E como a rede aqui leva segundos, o
+   silêncio é o estado mais comum — daí o aviso "salvando" que vira o
+   resultado no mesmo lugar, em vez de dois avisos empilhados.
+   ========================================================================== */
+const ICONES = {
+  ok:       '<svg viewBox="0 0 24 24"><path d="M20 6.5 9.5 17 4 11.5"/></svg>',
+  erro:     '<svg viewBox="0 0 24 24"><path d="M12 7.5v6"/><path d="M12 16.8h.01"/><circle cx="12" cy="12" r="9"/></svg>',
+  atencao:  '<svg viewBox="0 0 24 24"><path d="M12 3.5 21 19H3L12 3.5Z"/><path d="M12 10v4"/><path d="M12 16.6h.01"/></svg>',
+  info:     '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.6h.01"/></svg>',
+  andando:  '<svg viewBox="0 0 24 24" class="aviso-girando"><path d="M12 3a9 9 0 1 0 9 9"/></svg>',
+};
+
+let sequenciaAviso = 0;
+
+/* Devolve um controle: `.ok()`, `.erro()`, `.fecha()`. Serve tanto para um
+   aviso simples quanto para "salvando..." que depois vira o resultado. */
+function aviso(texto, tipo = "ok", {detalhe = "", vida} = {}){
+  const pilha = $("#toastStack");
+  if (!pilha) return { ok(){}, erro(){}, fecha(){} };
+
   const el = document.createElement("div");
-  el.className = `toast is-${tipo}`;
-  el.innerHTML = `<span>${esc(msg)}</span>`;
-  $("#toastStack").append(el);
-  const vida = tipo === "error" ? 8000 : 3600;   // recusa explicada precisa de tempo de leitura
-  setTimeout(() => { el.classList.add("is-leaving"); setTimeout(() => el.remove(), 400); }, vida);
+  el.className = `aviso is-${tipo}`;
+  el.id = `aviso-${++sequenciaAviso}`;
+  el.setAttribute("role", tipo === "erro" ? "alert" : "status");
+
+  const pintar = (t, texto, detalhe) => {
+    el.className = `aviso is-${t}`;
+    el.innerHTML = `
+      <span class="aviso-icone" aria-hidden="true">${ICONES[t] || ICONES.info}</span>
+      <span class="aviso-copy">
+        <strong>${esc(texto)}</strong>
+        ${detalhe ? `<small>${esc(detalhe)}</small>` : ""}
+      </span>
+      ${t === "andando" ? "" : '<button class="aviso-fechar" type="button" aria-label="Fechar aviso">×</button>'}`;
+    const fechar = $(".aviso-fechar", el);
+    if (fechar) fechar.onclick = () => sair();
+  };
+
+  let relogio = null;
+  const sair = () => {
+    clearTimeout(relogio);
+    el.classList.add("is-saindo");
+    setTimeout(() => el.remove(), 260);
+  };
+  const agendar = ms => { clearTimeout(relogio); if (ms) relogio = setTimeout(sair, ms); };
+
+  pintar(tipo, texto, detalhe);
+  pilha.append(el);
+  requestAnimationFrame(() => el.classList.add("is-visivel"));
+  // erro fica mais tempo: costuma ser uma frase que explica o que fazer
+  agendar(vida ?? (tipo === "andando" ? 0 : tipo === "erro" ? 9000 : 4000));
+
+  return {
+    ok(t, d){ pintar("ok", t, d); agendar(4000); },
+    erro(t, d){ pintar("erro", t, d); el.setAttribute("role", "alert"); agendar(9000); },
+    info(t, d){ pintar("info", t, d); agendar(5000); },
+    fecha: sair,
+  };
+}
+
+/* Embrulha uma operação de banco: mostra "andando", depois o resultado. É por
+   onde passa toda escrita, para nenhuma ficar sem resposta na tela. */
+async function comAviso(rotulo, tarefa, {sucesso, detalhe} = {}){
+  const a = aviso(rotulo, "andando");
+  try {
+    const r = await tarefa();
+    a.ok(typeof sucesso === "function" ? sucesso(r) : (sucesso || "Pronto."), detalhe);
+    return r;
+  } catch (erro){
+    if (erro instanceof ErroApi && erro.semSessao){
+      a.fecha();
+      mostrarLogin("Sua sessão expirou. Entre de novo.");
+      throw erro;
+    }
+    a.erro("Não deu certo", erro instanceof ErroApi ? erro.message : String(erro?.message || erro));
+    console.error(rotulo, erro);
+    throw erro;
+  }
+}
+
+/* compatibilidade com as chamadas antigas */
+function toast(msg, tipo = "success"){
+  aviso(msg, tipo === "error" ? "erro" : tipo === "warning" ? "atencao" : "ok");
 }
 /* Erro do servidor vira frase, e sessão caída volta para o login em vez de
    deixar a pessoa clicando em algo que não vai funcionar. */
 function avisarErro(erro, oQue){
   if (erro instanceof ErroApi && erro.semSessao){ mostrarLogin("Sua sessão expirou. Entre de novo.", "erro"); return; }
-  toast(erro instanceof ErroApi ? erro.message : `Não consegui ${oQue}.`, "error");
+  aviso(`Não consegui ${oQue}`,
+        "erro",
+        {detalhe: erro instanceof ErroApi ? erro.message : "Erro inesperado. Veja o console."});
   console.error(oQue, erro);
 }
 
@@ -549,11 +638,14 @@ async function trocarEstabelecimento(id){
   state.paineis.editando = false;
   Object.values(state.tabela).forEach(u => u.selecionados.clear());
   fecharEditor();
-  await carregarDados();
+  try {
+    await comAviso("Trocando de estabelecimento...", () => carregarDados(),
+      {sucesso: () => `Agora vendo ${loja().nome}`,
+       detalhe: "Painéis, tabelas e financeiro passaram a ser desta loja."});
+  } catch { return; }
   renderEstabelecimentos();
   renderTudo();
   salvarPrefs();
-  toast(`Agora vendo ${loja().nome}.`);
 }
 
 /* ==========================================================================
@@ -663,6 +755,7 @@ function ordenar(linhas, cfg, ordem){
 
 function renderTabela(secao){
   const cfg0 = TABELAS[secao], u = ui(secao);
+  const rotuloSecao = SECOES[secao].titulo.toLowerCase();
   // coluna marcada com `so` só existe para quem tem aquela permissão
   const cfg = {...cfg0, colunas: cfg0.colunas.filter(c => !c.so || pode(c.so))};
   const alvo = $(`#screen-${secao}`);
@@ -753,7 +846,11 @@ function renderTabela(secao){
     renderTabela(secao); salvarPrefs();
   });
   $("[data-recarregar]", alvo).onclick = async () => {
-    await carregarDados(); renderTudo(); toast("Dados atualizados.");
+    try {
+      await comAviso("Buscando dados...", () => carregarDados(),
+        {sucesso: "Dados atualizados", detalhe: `${cfg.linhas().length} registro(s) em ${rotuloSecao}.`});
+      renderTudo();
+    } catch { /* comAviso já mostrou */ }
   };
   const todasCb = $("[data-marcar-todas]", alvo);
   if (todasCb) todasCb.onchange = ev => {
@@ -847,28 +944,29 @@ async function salvarEditor(ev){
   if (faltando){ toast(`${faltando.r} é obrigatório.`, "error"); return; }
 
   const botao = $("#editorSave");
+  const rotulo = SECOES[secao].titulo.toLowerCase();
   botao.disabled = true;
   try {
     if (!ids.length){
-      const criado = await api.criar(tabela, {...campos, estabelecimento_id: state.estabelecimentoId});
+      const criado = await comAviso(`Criando em ${rotulo}...`,
+        () => api.criar(tabela, {...campos, estabelecimento_id: state.estabelecimentoId}),
+        {sucesso: "Registro criado", detalhe: `Salvo em ${rotulo}.`});
       await carregarDados();
       ui(secao).selecionados.clear();
       ui(secao).selecionados.add(criado.id);
       renderTudo();
       abrirEditorSelecao(secao);
-      toast("Registro criado.");
     } else {
-      for (const id of ids) await api.alterar(tabela, id, campos);
+      await comAviso(ids.length > 1 ? `Salvando ${ids.length} registros...` : "Salvando...",
+        async () => { for (const id of ids) await api.alterar(tabela, id, campos); },
+        {sucesso: ids.length > 1 ? `${ids.length} registros salvos` : "Alterações salvas",
+         detalhe: `${Object.keys(campos).length} campo(s) em ${rotulo}.`});
       await carregarDados();
       renderTudo();
       abrirEditorSelecao(secao);
-      toast(ids.length > 1 ? `${ids.length} registros salvos.` : "Alterações salvas.");
     }
-  } catch (erro){
-    avisarErro(erro, "salvar");
-  } finally {
-    botao.disabled = false;
-  }
+  } catch { /* comAviso já mostrou */ }
+  finally { botao.disabled = false; }
 }
 async function excluirEditor(){
   if (!editorCtx?.ids.length) return;
@@ -876,19 +974,18 @@ async function excluirEditor(){
   const botao = $("#editorDelete");
   botao.disabled = true;
   try {
-    for (const id of ids) await api.excluir(tabela, id);
+    // 409 aqui é a guarda de histórico: a frase do servidor diz o que fazer,
+    // então ela vale mais que qualquer mensagem genérica nossa
+    await comAviso(ids.length > 1 ? `Excluindo ${ids.length} registros...` : "Excluindo...",
+      async () => { for (const id of ids) await api.excluir(tabela, id); },
+      {sucesso: ids.length > 1 ? `${ids.length} registros excluídos` : "Registro excluído",
+       detalhe: `Removido de ${SECOES[secao].titulo.toLowerCase()}.`});
     ui(secao).selecionados.clear();
     fecharEditor();
     await carregarDados();
     renderTudo();
-    toast(`${ids.length} registro(s) excluído(s).`);
-  } catch (erro){
-    // 409 aqui é a guarda de histórico: a frase do servidor diz o que fazer,
-    // então ela vale mais que qualquer mensagem genérica nossa
-    avisarErro(erro, "excluir");
-  } finally {
-    botao.disabled = false;
-  }
+  } catch { /* comAviso já mostrou */ }
+  finally { botao.disabled = false; }
 }
 
 /* ==========================================================================
@@ -991,8 +1088,11 @@ function guardarLayout(p, cards){
       const antes = JSON.stringify(p.cards);
       p.cards = salvo.cards;
       if (JSON.stringify(salvo.cards) !== antes){
-        toast("Parte do layout não foi aceita pelo servidor.", "error");
+        aviso("Layout ajustado pelo servidor", "atencao",
+              {detalhe: "Parte do que você montou não foi aceita e voltou ao que cabe."});
         if (state.section === "painel") renderPainel();
+      } else {
+        aviso("Layout salvo", "ok", {detalhe: `${cards.length} cards em ${esc(p.nome)}.`, vida: 2200});
       }
     } catch (erro){ avisarErro(erro, "salvar o layout"); }
   }, 500);
@@ -1053,7 +1153,6 @@ function ligarArrasto(p, cards){
     const id = b.dataset.dashboardCardRemove;
     guardarLayout(p, cards.filter(c => c.id !== id));
     renderPainel();
-    toast(`${CARDS[id].t} saiu do painel.`);
   });
 }
 
@@ -1256,14 +1355,15 @@ function renderWorkspaces({animar = false} = {}){
   });
   $$("[data-painel-excluir]", box).forEach(b => b.onclick = async () => {
     const id = Number(b.dataset.painelExcluir);
+    const nome = lista.find(p => p.id === id)?.nome || "";
     b.disabled = true;
     try {
-      await api.excluirPainel(id);
+      await comAviso("Excluindo painel...", () => api.excluirPainel(id),
+        {sucesso: "Painel excluído", detalhe: nome});
       if (state.paineis.ativo === id) state.paineis.ativo = null;
       await carregarDados();
       renderPainel();
-      toast("Painel excluído.");
-    } catch (erro){ avisarErro(erro, "excluir o painel"); b.disabled = false; }
+    } catch { b.disabled = false; }
   });
 
   const abrirCriar = $("[data-painel-criar]", box);
@@ -1290,16 +1390,17 @@ function renderWorkspaces({animar = false} = {}){
       const botao = $(".dashboard-workspaces-create-form-submit", form);
       botao.disabled = true;
       try {
-        const novo = await api.criarPainel({
-          estabelecimento_id: state.estabelecimentoId, nome, compartilhado, cards: layoutPadrao(),
-        });
+        const novo = await comAviso("Criando painel...",
+          () => api.criarPainel({estabelecimento_id: state.estabelecimentoId,
+                                 nome, compartilhado, cards: layoutPadrao()}),
+          {sucesso: "Painel criado",
+           detalhe: `${nome} · ${compartilhado ? "compartilhado com a loja" : "particular"}`});
         state.paineis.criando = false;
         state.paineis.ativo = novo.id;
         state.paineis.editando = true;
         await carregarDados();
         fecharMenuPaineis(); renderPainel();
-        toast("Painel criado. Monte do jeito que preferir.");
-      } catch (erro){ avisarErro(erro, "criar o painel"); botao.disabled = false; }
+      } catch { botao.disabled = false; }
     };
   }
 }
@@ -1365,7 +1466,7 @@ function renderBiblioteca(){
   $$("[data-lib-adicionar]").forEach(b => b.onclick = () => {
     const id = b.dataset.libAdicionar;
     guardarLayout(p, [...cards, {id, grupo:CARDS[id].tam, cols:CARDS[id].cols, rows:CARDS[id].rows, config:{}}]);
-    renderPainel(); toast(`${CARDS[id].t} adicionado.`);
+    renderPainel();
   });
   $$("[data-lib-remover]").forEach(b => b.onclick = () => {
     guardarLayout(p, cards.filter(c => c.id !== b.dataset.libRemover));
@@ -1634,9 +1735,11 @@ function initAssistente(){
       state.conversa.push({papel:"assistant", texto:r.resposta});
     } catch (erro){
       if (erro instanceof ErroApi && erro.semSessao) return mostrarLogin("Sua sessão expirou. Entre de novo.", "erro");
-      dizer(erro instanceof ErroApi && erro.status === 503
+      const motivo = erro instanceof ErroApi && erro.status === 503
         ? "O assistente não está configurado neste servidor (falta a chave da OpenRouter)."
-        : "Não consegui responder agora. Tente de novo em instantes.", "assistant");
+        : "Não consegui responder agora. Tente de novo em instantes.";
+      dizer(motivo, "assistant");
+      aviso("O assistente não respondeu", "erro", {detalhe: motivo});
     } finally {
       orb()?.setAttribute("state", "idle");
       $("#globalAiChatStatus").lastElementChild.textContent = "Pronta para responder sobre esta tela";
@@ -1772,13 +1875,14 @@ function initPerfil(){
     const botao = $("button[type=submit]", ev.target);
     botao.disabled = true;
     try {
-      const r = await api.trocarNome($("#novoNome").value.trim(), $("#nomeSenhaAtual").value);
+      const r = await comAviso("Salvando nome...",
+        () => api.trocarNome($("#novoNome").value.trim(), $("#nomeSenhaAtual").value),
+        {sucesso: "Nome atualizado", detalhe: n => "" });
       state.usuario.nome = r.nome;
       $("#nomeSenhaAtual").value = "";
       aplicarPapel();
       renderPerfil();
-      statusPerfil("#profileSettingsStatus", "Nome atualizado.", "ok");
-      toast("Nome atualizado.");
+      statusPerfil("#profileSettingsStatus", `Agora você aparece como ${r.nome}.`, "ok");
     } catch (erro){
       statusPerfil("#profileSettingsStatus", erro.message || "Não consegui salvar.", "erro");
     } finally { botao.disabled = false; }
@@ -1795,14 +1899,16 @@ function initPerfil(){
     const botao = $("button[type=submit]", ev.target);
     botao.disabled = true;
     try {
-      const r = await api.trocarSenha($("#senhaAtual").value, nova);
+      const r = await comAviso("Trocando senha...",
+        () => api.trocarSenha($("#senhaAtual").value, nova),
+        {sucesso: "Senha trocada",
+         detalhe: "Use a nova na próxima vez que entrar."});
       ev.target.reset();
       renderPerfil();
       statusPerfil("#profileSettingsStatus",
         r.outras_sessoes_encerradas
           ? `Senha trocada. ${r.outras_sessoes_encerradas} outra(s) sessão(ões) encerrada(s).`
           : "Senha trocada.", "ok");
-      toast("Senha trocada.");
     } catch (erro){
       statusPerfil("#profileSettingsStatus", erro.message || "Não consegui trocar.", "erro");
     } finally { botao.disabled = false; }
@@ -1826,37 +1932,58 @@ function initPerfil(){
   $("#formFoto").onsubmit = async ev => {
     ev.preventDefault();
     if (!fotoNova) return;
+    const antes = state.prefs.foto;
     state.prefs.foto = fotoNova;
-    await guardarFoto();
-    statusPerfil("#profileSettingsStatus", "Foto aplicada.", "ok");
+    if (await guardarFoto("Enviando foto...", "Foto de perfil atualizada")){
+      statusPerfil("#profileSettingsStatus", "Foto aplicada.", "ok");
+    } else {
+      state.prefs.foto = antes;   // devolve o que estava, já que não gravou
+      pintarAvatar($("#profileAvatar"), state.usuario);
+      pintarAvatar($("#profileAvatarLarge"), state.usuario);
+    }
   };
   $("#fotoRemover").onclick = async () => {
+    const antes = state.prefs.foto;
+    if (!antes){ statusPerfil("#profileSettingsStatus", "Você ainda não tem foto.", ""); return; }
     delete state.prefs.foto;
     fotoNova = null;
     $("#fotoPrevia").hidden = true;
     $("#fotoArquivo").value = "";
     $("#fotoAplicar").disabled = true;
-    await guardarFoto();
-    statusPerfil("#profileSettingsStatus", "Foto removida.", "ok");
+    if (await guardarFoto("Removendo foto...", "Foto removida")){
+      statusPerfil("#profileSettingsStatus", "Voltou para as suas iniciais.", "ok");
+    } else {
+      state.prefs.foto = antes;
+    }
   };
-  async function guardarFoto(){
+  async function guardarFoto(rotulo, sucesso){
     pintarAvatar($("#profileAvatar"), state.usuario);
     pintarAvatar($("#profileAvatarLarge"), state.usuario);
-    try { await api.preferencias(state.prefs); }
-    catch (erro){ avisarErro(erro, "salvar a foto"); }
+    try {
+      await comAviso(rotulo, () => api.preferencias(state.prefs),
+        {sucesso, detalhe: "Vale em qualquer computador onde você entrar."});
+      return true;
+    } catch { return false; }
   }
 
   // ---- atualização automática ----
+  const rotuloIntervalo = ms => ({60000:"1 min", 300000:"5 min",
+                                   900000:"15 min", 1800000:"30 min"}[ms] || `${ms/60000} min`);
   $("#autoRefreshEnabled").onchange = ev => {
     state.prefs.autoRefresh = ev.target.checked;
     $("#autoRefreshIntervalField").hidden = !ev.target.checked;
     aplicarAutoRefresh();
     salvarPrefs();
+    aviso(ev.target.checked ? "Atualização automática ligada" : "Atualização automática desligada",
+          "ok", {detalhe: ev.target.checked
+            ? `Os dados serão buscados a cada ${rotuloIntervalo(Number(state.prefs.autoRefreshMs) || 300000)}.`
+            : "Os números só mudam quando você atualizar."});
   };
   $("#autoRefreshInterval").onchange = ev => {
     state.prefs.autoRefreshMs = Number(ev.target.value);
     aplicarAutoRefresh();
     salvarPrefs();
+    aviso("Intervalo alterado", "ok", {detalhe: `Agora a cada ${rotuloIntervalo(Number(ev.target.value))}.`});
   };
 
   // ---- encerrar outras sessões ----
@@ -1962,17 +2089,22 @@ function ligarPainelUI(){
   });
 
   $("[data-dashboard-layout-close]").onclick = () => {
-    sairDaEdicao(); renderPainel(); toast("Painel salvo.");
+    sairDaEdicao(); renderPainel();
+    aviso("Edição concluída", "ok", {detalhe: "O layout já está gravado.", vida: 2600});
   };
   $("[data-dashboard-layout-reset]").onclick = () => {
     const p = painelAtual(); if (!p || !podeEditarPainel(p)) return;
-    guardarLayout(p, layoutPadrao()); renderPainel(); toast("Layout restaurado.");
+    guardarLayout(p, layoutPadrao()); renderPainel();
   };
   $("#dashboardManagerEditbarTitleInput").onchange = async ev => {
     const p = painelAtual(); if (!p || !podeEditarPainel(p)) return;
     const nome = ev.target.value.trim() || "Painel";
-    try { await api.alterarPainel(p.id, {nome}); p.nome = nome; renderWorkspaces(); }
-    catch (erro){ avisarErro(erro, "renomear o painel"); ev.target.value = p.nome; }
+    if (nome === p.nome) return;
+    try {
+      await comAviso("Renomeando...", () => api.alterarPainel(p.id, {nome}),
+        {sucesso: "Painel renomeado", detalhe: nome});
+      p.nome = nome; renderWorkspaces();
+    } catch { ev.target.value = p.nome; }
   };
   $("#dashboardLibraryFab").onclick = abrirBiblioteca;
   $$("[data-dashboard-library-close]").forEach(b => b.onclick = fecharBiblioteca);

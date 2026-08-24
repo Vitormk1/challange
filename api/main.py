@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
+from pathlib import Path
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
@@ -29,13 +31,17 @@ import psycopg
 import requests
 from fastapi import Body, Cookie, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from psycopg import sql
 
 from auth import (conferir_senha, criar_hash, novo_token, permissoes, pode,
                   secoes_bloqueadas, validade)
 from db import conectar
+from protecao import (CabecalhosDeSeguranca, limitar_ia, limitar_login,
+                      zerar_login)
 
+PAINEL = Path(__file__).resolve().parent.parent / "docs"
 COOKIE = "praca_sessao"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MODELO_PADRAO = "mistralai/mistral-small-24b-instruct-2501"
@@ -44,7 +50,16 @@ KM_KWH = 10.4
 AMORT = 1.11          # equipamento por sessão: R$6.000 em 5 anos, 3 sessões/dia
 COMPRAM, UPLIFT, NOVOS = 0.90, 0.12, 0.20
 
-app = FastAPI(title="Smart Charge")
+# A documentação automática expõe todas as rotas, os corpos aceitos e os
+# nomes dos campos. Útil em desenvolvimento, desnecessário num serviço
+# público — quem for depurar liga DOCS_ABERTOS=1.
+_docs = os.environ.get("DOCS_ABERTOS", "") == "1"
+app = FastAPI(title="Smart Charge",
+              docs_url="/docs" if _docs else None,
+              redoc_url=None,
+              openapi_url="/openapi.json" if _docs else None)
+
+app.add_middleware(CabecalhosDeSeguranca)
 
 app.add_middleware(
     CORSMiddleware,
@@ -88,6 +103,13 @@ def erro_chave_estrangeira(request: Request, erro: psycopg.errors.ForeignKeyViol
 def erro_duplicado(request: Request, erro: psycopg.errors.UniqueViolation):
     return JSONResponse(status_code=409,
                         content={"detail": "Já existe um registro com esse valor único."})
+
+
+@app.exception_handler(psycopg.errors.NotNullViolation)
+def erro_obrigatorio(request: Request, erro: psycopg.errors.NotNullViolation):
+    coluna = getattr(erro.diag, "column_name", "") or "um campo obrigatório"
+    return JSONResponse(status_code=400, content={"detail":
+        f"Faltou preencher: {coluna}."})
 
 
 @app.exception_handler(psycopg.errors.CheckViolation)
@@ -197,9 +219,12 @@ def sem_financeiro(lojas: list[dict]) -> list[dict]:
 
 # ------------------------------------------------------------------ auth ---
 @app.post("/auth/login")
-def login(resp: Response, corpo: dict = Body(...)):
+def login(request: Request, resp: Response, corpo: dict = Body(...)):
     email = str(corpo.get("email", "")).strip().lower()
     senha = str(corpo.get("senha", ""))
+    # antes de tocar o banco: 12 tentativas levavam 7,8 s sem isto, o que dá
+    # para varrer um dicionário inteiro pela porta da frente
+    limitar_login(request, email)
     linhas = consultar(
         "SELECT id, nome, email, papel, senha_hash FROM usuarios "
         " WHERE lower(email) = %s AND ativo", (email,))
@@ -216,11 +241,13 @@ def login(resp: Response, corpo: dict = Body(...)):
         cur.execute("UPDATE usuarios SET ultimo_acesso = now() WHERE id = %s", (u["id"],))
         con.commit()
 
-    # Painel no GitHub Pages e API no Render são domínios diferentes, e um
-    # cookie SameSite=Lax não é enviado entre domínios: o login responderia
-    # 200 e a sessão nunca colaria. None exige Secure, então os dois andam
-    # juntos. Em desenvolvimento (tudo em localhost) o padrão Lax é melhor,
-    # porque não precisa de HTTPS.
+    # Lax porque o painel é servido por este mesmo processo (ver o mount no
+    # fim do arquivo). Enquanto o painel morava no GitHub Pages, este cookie
+    # precisava de SameSite=None — e aí Safari, Firefox, Brave e o anônimo do
+    # Chrome o descartavam por ser cookie de terceiro: o login respondia 200 e
+    # a requisição seguinte voltava 401. Mesma origem elimina o problema em
+    # vez de contorná-lo.
+    zerar_login(request, email)
     resp.set_cookie(COOKIE, token, httponly=True,
                     samesite=os.environ.get("COOKIE_SAMESITE", "lax").lower(),
                     max_age=60 * 60 * 24 * 14,
@@ -313,6 +340,17 @@ def dados(estabelecimento_id: int, u: dict = Depends(usuario_atual)):
 
 
 # ------------------------------------------------------------------ CRUD ---
+# O que o servidor completa sozinho ao criar. Cada entrada existe porque a
+# coluna é obrigatória no banco e não faz sentido pedir na tela.
+PREENCHIDOS_PELO_SERVIDOR = {
+    "clientes": {
+        # identifica a mesma pessoa entre visitas sem guardar quem ela é;
+        # quando a telinha passar a criar clientes, o hash virá de lá
+        "identificador_hash": lambda: secrets.token_hex(16),
+    },
+    "vendas": {"momento": lambda: datetime.now(timezone.utc)},
+}
+
 CAMPOS_EDITAVEIS = {
     "carregadores": {"nome", "numero_serie", "potencia_kw", "conector", "modo",
                      "teto_cortesia_kwh", "kwh_por_real", "preco_kwh_brl",
@@ -372,6 +410,13 @@ def criar(tabela: str, corpo: dict = Body(...), u: dict = Depends(usuario_atual)
         campos["estabelecimento_id"] = exigir_loja(u, int(corpo["estabelecimento_id"]))
     elif u["papel"] != "main":
         raise HTTPException(403, "só o desenvolvedor cria estabelecimento")
+
+    # Campos que a tela não tem como preencher, mas o banco exige. Sem isto,
+    # "Cadastrar cliente" respondia 500: identificador_hash é NOT NULL e não
+    # aparece no formulário — nem deve, porque é o identificador embaralhado
+    # de quem carrega, não algo que o lojista digita.
+    for coluna, valor in PREENCHIDOS_PELO_SERVIDOR.get(tabela, {}).items():
+        campos.setdefault(coluna, valor() if callable(valor) else valor)
     # sql.Identifier em vez de f-string: o nome vem da URL, e mesmo estando
     # numa lista fechada, montar SQL por concatenação é um hábito que uma hora
     # escapa. Aqui o psycopg escapa o identificador por conta própria.
@@ -807,6 +852,10 @@ Posso dizer o total de sessões e de clientes únicos, se ajudar."""
 
 @app.post("/ia/perguntar")
 def perguntar(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
+    # Login já barra estranho, mas quem tem login pode perguntar em laço — e
+    # cada pergunta é dinheiro na OpenRouter. O teto é folgado o bastante para
+    # ninguém esbarrar usando o painel de verdade.
+    limitar_ia(u["id"])
     chave = os.environ.get("OPENROUTER_API_KEY", "").strip()
     if not chave:
         raise HTTPException(503, "OPENROUTER_API_KEY não configurada no servidor")
@@ -863,3 +912,26 @@ def saude():
             "origens": os.environ.get("ORIGENS_PERMITIDAS", ""),
             "cookie": {"samesite": os.environ.get("COOKIE_SAMESITE", "lax"),
                        "secure": os.environ.get("COOKIE_SEGURO", "") == "1"}}
+
+
+# ==========================================================================
+# O painel sai daqui, não de outro domínio.
+#
+# Isto não é conveniência: cookie de sessão entre domínios é cookie de
+# terceiro, e Safari, Firefox, Brave e o anônimo do Chrome descartam cookie de
+# terceiro por padrão. O login respondia 200 e a requisição seguinte voltava
+# 401, e não havia configuração do lado do usuário que resolvesse. Servindo a
+# página e a API da mesma origem, o cookie é primeira parte, volta a SameSite
+# =Lax, e o CORS deixa de existir.
+#
+# O mount vem DEPOIS de todas as rotas: o FastAPI resolve na ordem, e um mount
+# em "/" registrado antes engoliria /auth, /dados e o resto.
+# ==========================================================================
+if PAINEL.is_dir():
+    app.mount("/painel", StaticFiles(directory=PAINEL / "painel", html=True), name="painel")
+    if (PAINEL / "vaga").is_dir():
+        app.mount("/vaga", StaticFiles(directory=PAINEL / "vaga", html=True), name="vaga")
+
+    @app.get("/", include_in_schema=False)
+    def raiz():
+        return RedirectResponse("/painel/")

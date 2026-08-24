@@ -36,6 +36,8 @@ api/
   seed.py      trinta dias de operação de três lojas, para demonstração
   exportar.py  despeja o banco num JSON, para conferencia e backup
   trocar_senha.py  troca a senha de um usuário, antes de publicar
+  protecao.py  limite de tentativas de login e cabeçalhos de segurança
+  auditoria.py troca requisições reais contra a API e diz o que passou
 ai/
   charge_curve.py   previsão de tempo de recarga (o núcleo do produto)
 ```

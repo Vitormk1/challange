@@ -33,8 +33,8 @@ services:
       - key: OPENROUTER_MODEL
         value: mistralai/mistral-small-24b-instruct-2501
 
-      # De onde o navegador pode chamar esta API. Trocar pelo endereço real
-      # do GitHub Pages.
+      # Mesma origem não precisa de CORS. Fica só para o desenvolvimento
+      # local apontar para cá quando for preciso depurar.
       - key: ORIGENS_PERMITIDAS
         value: https://vitormk1.github.io
 
@@ -42,9 +42,10 @@ services:
       - key: COOKIE_SEGURO
         value: "1"
 
-      # O painel fica em github.io e a API em onrender.com — domínios
-      # diferentes. Um cookie SameSite=Lax simplesmente não é enviado nesse
-      # caso, e o login "funcionaria" sem nunca manter a sessão. None+Secure
-      # é o que faz sessão entre domínios existir.
+      # O painel é servido por este mesmo processo, então o cookie é de
+      # primeira parte e Lax basta. Com o painel em outro domínio (a versão
+      # anterior, no GitHub Pages) era preciso SameSite=None, e aí Safari,
+      # Firefox, Brave e o anônimo do Chrome descartavam o cookie por ser de
+      # terceiro — login respondia 200 e a sessão nunca colava.
       - key: COOKIE_SAMESITE
-        value: none
+        value: lax

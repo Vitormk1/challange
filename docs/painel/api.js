@@ -16,6 +16,18 @@ const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 /* Onde a API mora. É a única linha que muda se o serviço trocar de endereço. */
 const API_PUBLICADA = "https://praca-recarga-api.onrender.com";
 
+/* O painel real é servido pela própria API. Uma cópia aberta de outro domínio
+   (o GitHub Pages, por exemplo) não consegue manter sessão — o cookie seria de
+   terceiro, e a maioria dos navegadores descarta. Em vez de deixar a pessoa
+   descobrir isso com um "e-mail ou senha incorretos" que mente, manda para o
+   endereço que funciona. */
+(() => {
+  if (!API_PUBLICADA || local) return;
+  if (location.origin === new URL(API_PUBLICADA).origin) return;
+  if (new URLSearchParams(location.search).has("api")) return;   // escape para depurar
+  location.replace(API_PUBLICADA + "/painel/");
+})();
+
 export const BASE = (() => {
   // ?api=... na URL vence tudo, e fica gravado: serve para apontar o painel
   // publicado para uma API local durante um teste, sem republicar nada
@@ -26,7 +38,8 @@ export const BASE = (() => {
   }
   try { const salvo = localStorage.getItem("pr.api"); if (salvo) return salvo; } catch {}
   if (local) return "http://127.0.0.1:8000";
-  return API_PUBLICADA;
+  // mesma origem: caminho relativo, sem CORS e sem cookie de terceiro
+  return location.origin === new URL(API_PUBLICADA).origin ? "" : API_PUBLICADA;
 })();
 
 export class ErroApi extends Error {

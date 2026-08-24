@@ -169,3 +169,128 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
 .profile-settings-modal .refresh-status.is-error { color: var(--status-critical, #d64545); }
 .profile-settings-modal .refresh-status.is-ok { color: var(--status-ok, #1f8a5a); }
 .profile-side-card .refresh-status:empty { display: none; }
+
+
+/* ==========================================================================
+   Avisos
+
+   Canto inferior direito, empilhados, cor e ícone por tipo. A barra de tempo
+   embaixo é o que evita a dúvida "isso vai sumir?" — dá para ver o aviso
+   indo embora, e passar o mouse por cima segura enquanto se lê.
+   ========================================================================== */
+.toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 13000;
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+  pointer-events: none;
+}
+
+.aviso {
+  --av-cor: var(--primary, #248dd1);
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 11px;
+  width: min(370px, calc(100vw - 40px));
+  padding: 13px 14px 15px;
+  border-radius: 15px;
+  background: var(--surface-strong, #fff);
+  border: 1px solid var(--line, rgba(15, 42, 68, 0.1));
+  border-left: 3px solid var(--av-cor);
+  box-shadow: 0 12px 32px rgba(10, 32, 54, 0.16);
+  pointer-events: auto;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(.22,.9,.3,1);
+}
+.aviso.is-visivel { opacity: 1; transform: none; }
+.aviso.is-saindo { opacity: 0; transform: translateX(14px) scale(0.98); }
+
+.aviso.is-ok      { --av-cor: var(--status-ok, #1f8a5a); }
+.aviso.is-erro    { --av-cor: var(--status-critical, #d64545); }
+.aviso.is-atencao { --av-cor: var(--status-warning, #d99114); }
+.aviso.is-info,
+.aviso.is-andando { --av-cor: var(--primary, #248dd1); }
+
+.aviso-icone {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  color: var(--av-cor);
+  background: color-mix(in srgb, var(--av-cor) 14%, transparent);
+}
+.aviso-icone svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.aviso-girando { animation: aviso-gira 0.9s linear infinite; transform-origin: center; }
+@keyframes aviso-gira { to { transform: rotate(360deg); } }
+
+.aviso-copy { display: grid; gap: 2px; min-width: 0; }
+.aviso-copy strong {
+  font-size: 0.89rem;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--text, #0f2a44);
+}
+.aviso-copy small {
+  font-size: 0.79rem;
+  line-height: 1.45;
+  color: var(--muted, #5b7089);
+}
+
+.aviso-fechar {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin: -2px -2px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--muted, #5b7089);
+  background: transparent;
+  cursor: pointer;
+}
+.aviso-fechar:hover { background: var(--line, rgba(15, 42, 68, 0.08)); color: var(--text, #0f2a44); }
+
+/* barra de tempo: mostra o aviso indo embora, e o mouse por cima segura */
+.aviso:not(.is-andando)::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--av-cor);
+  opacity: 0.35;
+  transform-origin: left;
+  animation: aviso-tempo linear forwards;
+  animation-duration: 4s;
+}
+.aviso.is-erro::after { animation-duration: 9s; }
+.aviso:hover::after { animation-play-state: paused; }
+@keyframes aviso-tempo { to { transform: scaleX(0); } }
+
+@media (max-width: 640px) {
+  .toast-stack { right: 12px; left: 12px; bottom: 12px; justify-items: stretch; }
+  .aviso { width: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aviso, .aviso::after, .aviso-girando { transition: none; animation: none; }
+}
