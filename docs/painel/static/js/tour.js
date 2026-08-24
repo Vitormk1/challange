@@ -21,7 +21,7 @@
 // mas importar aqui também deixa o tour.js autocontido, sem depender da
 // ordem de import de outro módulo — customElements.define() já se protege
 // contra registro duplicado.
-import "./aiEntity.js?v=20260904a";
+import "./aiEntity.js?v=20260904d";
 
 /**
  * @typedef {Object} TourStep

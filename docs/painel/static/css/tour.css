@@ -122,7 +122,7 @@
   position: fixed;
   top: 0; left: 0; width: 0; height: 0;
   border-radius: 16px;
-  box-shadow: 0 0 0 3px var(--primary), 0 0 0 9px rgba(36, 141, 209, 0.22), 0 18px 40px rgba(5, 16, 28, 0.28);
+  box-shadow: 0 0 0 3px var(--primary), 0 0 0 9px rgba(180, 22, 15, 0.22), 0 18px 40px rgba(5, 16, 28, 0.28);
   pointer-events: none;
   opacity: 0;
   transition:

@@ -58,7 +58,7 @@ body.editando-painel .global-ai-command { display: none !important; }
   position: absolute;
   inset: 0;
   border-radius: var(--radius-xl, 20px);
-  border: 1px dashed color-mix(in srgb, var(--primary, #248dd1) 45%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--primary, #b4160f) 45%, transparent);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease;
@@ -82,7 +82,7 @@ body.dashboard-card-resizing * { user-select: none !important; }
   font-weight: 700;
   letter-spacing: 0.02em;
   color: #fff;
-  background: var(--primary, #248dd1);
+  background: var(--primary, #b4160f);
   pointer-events: none;
 }
 
@@ -111,9 +111,9 @@ body.somente-leitura [data-criar] { display: none; }
   margin: 0 0 14px;
   padding: 10px 14px;
   border-radius: var(--radius-md, 14px);
-  border: 1px solid var(--line, rgba(15, 42, 68, 0.1));
-  background: var(--surface-soft, rgba(36, 141, 209, 0.06));
-  color: var(--muted, #5b7089);
+  border: 1px solid var(--line, rgba(22, 22, 26, 0.1));
+  background: var(--surface-soft, rgba(180, 22, 15, 0.06));
+  color: var(--muted, #5b5b66);
   font-size: 0.86rem;
 }
 
@@ -128,7 +128,7 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
   gap: 10px;
   padding: 9px 12px;
   border-radius: var(--radius-md, 14px);
-  border: 1px solid var(--line, rgba(15, 42, 68, 0.08));
+  border: 1px solid var(--line, rgba(22, 22, 26, 0.08));
   background: var(--surface-soft, rgba(255, 255, 255, 0.5));
 }
 .linha-ponto-copy { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
@@ -138,7 +138,7 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.linha-ponto-copy span { font-size: 0.78rem; color: var(--muted, #5b7089); }
+.linha-ponto-copy span { font-size: 0.78rem; color: var(--muted, #5b5b66); }
 
 /* -------- avatar com foto -------- */
 .avatar.tem-foto { padding: 0; overflow: hidden; }
@@ -163,7 +163,7 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
   height: 96px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid var(--line, rgba(15, 42, 68, 0.12));
+  border: 2px solid var(--line, rgba(22, 22, 26, 0.12));
 }
 
 .profile-settings-modal .refresh-status:empty { display: none; }
@@ -201,7 +201,7 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
 }
 
 .aviso {
-  --av-cor: var(--primary, #248dd1);
+  --av-cor: var(--primary, #b4160f);
   position: relative;
   align-self: end;
   height: auto;
@@ -213,7 +213,7 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
   padding: 13px 14px 15px;
   border-radius: 15px;
   background: var(--surface-strong, #fff);
-  border: 1px solid var(--line, rgba(15, 42, 68, 0.1));
+  border: 1px solid var(--line, rgba(22, 22, 26, 0.1));
   border-left: 3px solid var(--av-cor);
   box-shadow: 0 12px 32px rgba(10, 32, 54, 0.16);
   pointer-events: auto;
@@ -229,7 +229,7 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
 .aviso.is-erro    { --av-cor: var(--status-critical, #d64545); }
 .aviso.is-atencao { --av-cor: var(--status-warning, #d99114); }
 .aviso.is-info,
-.aviso.is-andando { --av-cor: var(--primary, #248dd1); }
+.aviso.is-andando { --av-cor: var(--primary, #b4160f); }
 
 .aviso-icone {
   display: grid;
@@ -257,12 +257,12 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
   font-size: 0.89rem;
   font-weight: 650;
   line-height: 1.35;
-  color: var(--text, #0f2a44);
+  color: var(--text, #16161a);
 }
 .aviso-copy small {
   font-size: 0.79rem;
   line-height: 1.45;
-  color: var(--muted, #5b7089);
+  color: var(--muted, #5b5b66);
 }
 
 .aviso-fechar {
@@ -276,11 +276,11 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
   border-radius: 7px;
   font-size: 1rem;
   line-height: 1;
-  color: var(--muted, #5b7089);
+  color: var(--muted, #5b5b66);
   background: transparent;
   cursor: pointer;
 }
-.aviso-fechar:hover { background: var(--line, rgba(15, 42, 68, 0.08)); color: var(--text, #0f2a44); }
+.aviso-fechar:hover { background: var(--line, rgba(22, 22, 26, 0.08)); color: var(--text, #16161a); }
 
 /* barra de tempo: mostra o aviso indo embora, e o mouse por cima segura */
 .aviso:not(.is-andando)::after {
@@ -437,7 +437,7 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
    ========================================================================== */
 .global-ai-chat-message {
   --balao-fundo: var(--surface-strong, #fff);
-  --balao-borda: var(--line, rgba(15, 42, 68, 0.1));
+  --balao-borda: var(--line, rgba(22, 22, 26, 0.1));
   max-width: 86%;
   padding: 9px 13px;
   border-radius: 16px;
@@ -450,7 +450,7 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
   margin: 0;
   font-size: 0.88rem;
   line-height: 1.5;
-  color: var(--text, #0f2a44);
+  color: var(--text, #16161a);
   /* pergunta colada de outro lugar não pode estourar a largura do balão */
   overflow-wrap: anywhere;
   white-space: pre-wrap;
@@ -462,10 +462,10 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
   border-bottom-right-radius: 5px;
 }
 
-/* respostas da assistente: à esquerda, azul do painel */
+/* respostas da assistente: à esquerda, no vermelho da marca */
 .global-ai-chat-message.is-assistant {
-  --balao-fundo: color-mix(in srgb, var(--primary, #248dd1) 11%, var(--surface-strong, #fff));
-  --balao-borda: color-mix(in srgb, var(--primary, #248dd1) 26%, transparent);
+  --balao-fundo: color-mix(in srgb, var(--primary, #b4160f) 11%, var(--surface-strong, #fff));
+  --balao-borda: color-mix(in srgb, var(--primary, #b4160f) 26%, transparent);
   align-self: flex-start;
   border-bottom-left-radius: 5px;
 }
@@ -478,8 +478,8 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
   box-shadow: none;
 }
 :root[data-theme="dark"] .global-ai-chat-message.is-assistant {
-  --balao-fundo: color-mix(in srgb, var(--primary, #46a9e8) 24%, transparent);
-  --balao-borda: color-mix(in srgb, var(--primary, #46a9e8) 38%, transparent);
+  --balao-fundo: color-mix(in srgb, var(--primary, #ff4d42) 24%, transparent);
+  --balao-borda: color-mix(in srgb, var(--primary, #ff4d42) 38%, transparent);
 }
 
 @keyframes balao-entra {

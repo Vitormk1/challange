@@ -104,14 +104,48 @@
   --tooltip-bg: var(--marca-preto);
   --tooltip-text: #F7F7F8;
 
-  /* A esfera pensa em vermelho, e não em azul. Parada continua clara: um
-     ponto vermelho pulsando o tempo todo no canto vira alarme falso. */
-  --ai-orb-halo-cyan: rgba(225, 37, 27, 0.18);
-  --ai-orb-surface-cyan: rgba(225, 37, 27, 0.16);
+  /* ---- a esfera da assistente ----
+     Ela é feita de branco com tinta por cima, e a tinta era gelo — daí ela
+     continuar lendo como azul mesmo depois de eu trocar o "pensando". São 29
+     tokens, não 6; trocar meia dúzia deixou o resto do vidro azulado.
+
+     O núcleo continua branco de propósito. Uma esfera vermelha inteira
+     pulsando num canto o tempo todo lê como alarme, não como assistente
+     disponível — o vermelho entra como reflexo e halo, não como massa. */
+  --ai-orb-halo-white: rgba(255, 255, 255, 0.34);
+  --ai-orb-halo-ice: rgba(255, 235, 233, 0.28);
+  --ai-orb-halo-cyan: rgba(255, 90, 78, 0.16);
+  --ai-orb-halo-silver: rgba(238, 226, 225, 0.16);
+
+  --ai-orb-surface-core: rgba(255, 255, 255, 0.96);
+  --ai-orb-surface-mid: rgba(255, 238, 236, 0.84);
+  --ai-orb-surface-soft: rgba(250, 205, 200, 0.26);
+  --ai-orb-surface-white: rgba(255, 255, 255, 0.34);
+  --ai-orb-surface-ice: rgba(255, 226, 222, 0.28);
+  --ai-orb-surface-cyan: rgba(255, 90, 78, 0.16);
+  --ai-orb-surface-silver: rgba(242, 230, 229, 0.22);
+
+  --ai-orb-form-a: rgba(255, 255, 255, 0.64);
+  --ai-orb-form-b: rgba(255, 238, 236, 0.54);
+  --ai-orb-form-c: rgba(255, 226, 222, 0.48);
+  --ai-orb-form-d: rgba(255, 255, 255, 0.5);
+  --ai-orb-form-e: rgba(255, 200, 194, 0.34);
+  --ai-orb-form-f: rgba(255, 246, 245, 0.44);
+  --ai-orb-form-g: rgba(255, 255, 255, 0.34);
+
+  --ai-orb-idle-core: rgba(255, 255, 255, 0.98);
+  --ai-orb-idle-mid: rgba(255, 238, 236, 0.82);
+  --ai-orb-idle-soft: rgba(255, 90, 78, 0.22);
+
   --ai-orb-thinking-core: rgba(225, 37, 27, 0.98);
   --ai-orb-thinking-mid: rgba(180, 22, 15, 0.86);
   --ai-orb-thinking-soft: rgba(225, 37, 27, 0.3);
-  --ai-orb-shadow-cyan: rgba(225, 37, 27, 0.3);
+
+  /* alarme fica âmbar: é o único estado em que a esfera precisa NÃO parecer
+     com os outros, e agora que "pensando" é vermelho, âmbar é o que sobra
+     para destoar. */
+  --ai-orb-shadow-white: rgba(255, 255, 255, 0.54);
+  --ai-orb-shadow-cyan: rgba(255, 90, 78, 0.32);
 }
 
 /* ==========================================================================
@@ -225,3 +259,68 @@
 /* Linha do item ativo: era ciano, agora é a cor da marca. */
 .nav-item.active::before,
 .nav-item.active::after { background: var(--marca-vermelho); }
+
+/* ==========================================================================
+   A esfera no tema claro
+
+   Este bloco existe porque a referência tem um igual, e com especificidade
+   maior que `:root` — `:root:not([data-theme="dark"])`. Enquanto os meus
+   tokens da esfera estavam só no `:root`, este bloco os anulava inteiros no
+   claro, e a esfera continuava azul mesmo com tudo o resto já vermelho. Era
+   isso que estava aparecendo.
+
+   E a razão da referência fazer isso é boa: no escuro a esfera é uma pérola
+   branca e se destaca sozinha; no claro, uma pérola branca sobre página
+   branca simplesmente some. Então no claro ela precisa mesmo ser uma bola
+   com cor.
+
+   Só que "com cor" aqui é o vermelho FECHADO da marca (#B4160F), não o vivo.
+   Uma bola vermelho-vivo pulsando num canto o tempo todo lê como alarme, e
+   esta é a peça mais permanente da tela. O fechado lê como marca.
+   ========================================================================== */
+:root:not([data-theme="dark"]) {
+  --ai-orb-halo-white: rgba(180, 22, 15, 0.30);
+  --ai-orb-halo-ice: rgba(200, 34, 26, 0.28);
+  --ai-orb-halo-cyan: rgba(225, 37, 27, 0.20);
+  --ai-orb-halo-silver: rgba(214, 92, 84, 0.18);
+
+  --ai-orb-surface-core: rgba(163, 18, 12, 0.98);
+  --ai-orb-surface-mid: rgba(180, 22, 15, 0.90);
+  --ai-orb-surface-soft: rgba(204, 46, 38, 0.40);
+  --ai-orb-surface-white: rgba(190, 30, 22, 0.46);
+  --ai-orb-surface-ice: rgba(204, 46, 38, 0.40);
+  --ai-orb-surface-cyan: rgba(225, 37, 27, 0.30);
+  --ai-orb-surface-silver: rgba(214, 92, 84, 0.24);
+
+  --ai-orb-form-a: rgba(163, 18, 12, 0.78);
+  --ai-orb-form-b: rgba(180, 22, 15, 0.70);
+  --ai-orb-form-c: rgba(198, 40, 32, 0.60);
+  --ai-orb-form-d: rgba(212, 52, 44, 0.64);
+  --ai-orb-form-e: rgba(220, 96, 88, 0.42);
+  --ai-orb-form-f: rgba(190, 30, 22, 0.54);
+  --ai-orb-form-g: rgba(225, 37, 27, 0.46);
+
+  --ai-orb-idle-core: rgba(163, 18, 12, 0.99);
+  --ai-orb-idle-mid: rgba(180, 22, 15, 0.94);
+  --ai-orb-idle-soft: rgba(212, 52, 44, 0.40);
+
+  --ai-orb-shadow-white: rgba(163, 18, 12, 0.42);
+  --ai-orb-shadow-cyan: rgba(225, 37, 27, 0.34);
+}
+
+/* --------------------------------------------------------------------------
+   Os selos "Compartilhado" e "Privado" no popup de painéis
+
+   A referência dá uma cor só para os dois temas, e no claro isso reprovava:
+   o texto do selo media 4,12 sobre o próprio fundo do selo. São dois tokens
+   que já existem e já são cientes do tema — é só usá-los em vez de um
+   hexadecimal fixo.
+   -------------------------------------------------------------------------- */
+.dashboard-workspaces-visibility-badge.is-shared {
+  color: var(--primary-accessible-text);
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+.dashboard-workspaces-visibility-badge.is-private {
+  color: var(--warning-accessible-text);
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+}
