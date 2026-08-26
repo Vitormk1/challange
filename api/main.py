@@ -24,6 +24,7 @@ import binascii
 import json
 import os
 import secrets
+import time
 from pathlib import Path
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -46,6 +47,48 @@ from protecao import (CabecalhosDeSeguranca, limitar_ia, limitar_ia_publica, lim
 PAINEL = Path(__file__).resolve().parent.parent / "docs"
 COOKIE = "praca_sessao"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+
+def chamar_openrouter(chave: str, corpo: dict, titulo: str, tempo: int = 45) -> dict:
+    """Uma chamada ao modelo, com uma segunda tentativa quando vale a pena.
+
+    A OpenRouter roteia para provedores de verdade (DeepInfra, Together...), e
+    quando o provedor da vez está lotado a resposta volta 429 — mesmo em conta
+    paga e com crédito sobrando. Não é limite nosso nem da conta: é capacidade
+    do outro lado, e passa em segundos.
+
+    Sem retentativa, esse 429 vira "não consegui responder" na cara de quem
+    perguntou. Uma segunda tentativa depois de uma pausa curta resolve a
+    maioria, e o custo de errar é uma chamada a mais, não uma resposta pior.
+
+    Só 429 e 5xx são retentados. 4xx que não seja 429 é erro nosso — prompt
+    grande demais, modelo escrito errado — e repetir não conserta.
+    """
+    ultimo = None
+    for tentativa in (1, 2):
+        try:
+            r = requests.post(
+                OPENROUTER_URL, timeout=tempo,
+                headers={"Authorization": f"Bearer {chave}",
+                         "Content-Type": "application/json",
+                         "X-Title": titulo},
+                json=corpo)
+            if r.status_code == 429 or r.status_code >= 500:
+                ultimo = f"HTTP {r.status_code}"
+                if tentativa == 1:
+                    time.sleep(1.5)
+                    continue
+                raise HTTPException(503,
+                    "A assistente está congestionada agora. Tente de novo em alguns segundos.")
+            r.raise_for_status()
+            return r.json()
+        except requests.RequestException as erro:
+            ultimo = str(erro)
+            if tentativa == 1:
+                time.sleep(1.5)
+                continue
+            raise HTTPException(502, f"a OpenRouter não respondeu: {ultimo}")
+    raise HTTPException(502, f"a OpenRouter não respondeu: {ultimo}")
 MODELO_PADRAO = "mistralai/mistral-small-24b-instruct-2501"
 
 KM_KWH = 10.4
@@ -949,21 +992,12 @@ def perguntar(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
             mensagens.append({"role": m["papel"], "content": str(m["texto"])[:1000]})
     mensagens.append({"role": "user", "content": pergunta})
 
-    try:
-        r = requests.post(
-            OPENROUTER_URL, timeout=45,
-            headers={"Authorization": f"Bearer {chave}",
-                     "Content-Type": "application/json",
-                     "X-Title": "Smart Charge"},
-            json={"model": os.environ.get("OPENROUTER_MODEL", MODELO_PADRAO),
-                  "messages": mensagens,
-                  "max_tokens": 400,
-                  "temperature": 0.2},
-        )
-        r.raise_for_status()
-        dados_resp = r.json()
-    except requests.RequestException as erro:
-        raise HTTPException(502, f"a OpenRouter não respondeu: {erro}")
+    dados_resp = chamar_openrouter(chave, {
+        "model": os.environ.get("OPENROUTER_MODEL", MODELO_PADRAO),
+        "messages": mensagens,
+        "max_tokens": 400,
+        "temperature": 0.2,
+    }, "Smart Charge")
 
     escolha = (dados_resp.get("choices") or [{}])[0]
     texto = (escolha.get("message") or {}).get("content", "").strip()
@@ -1079,23 +1113,14 @@ def perguntar_publico(request: Request, corpo: dict = Body(...)):
             mensagens.append({"role": m["papel"], "content": str(m["texto"])[:400]})
     mensagens.append({"role": "user", "content": pergunta})
 
-    try:
-        r = requests.post(
-            OPENROUTER_URL, timeout=45,
-            headers={"Authorization": f"Bearer {chave}",
-                     "Content-Type": "application/json",
-                     # ASCII puro: cabeçalho HTTP é codificado em latin-1, e um
-                     # travessão aqui derruba a requisição com UnicodeEncodeError
-                     "X-Title": "Smart Charge site"},
-            json={"model": os.environ.get("OPENROUTER_MODEL", MODELO_PADRAO),
-                  "messages": mensagens,
-                  "max_tokens": 260,      # resposta curta é o teto de gasto por chamada
-                  "temperature": 0.3},
-        )
-        r.raise_for_status()
-        dados_resp = r.json()
-    except requests.RequestException as erro:
-        raise HTTPException(502, f"a OpenRouter não respondeu: {erro}")
+    # "Smart Charge site" em ASCII puro: cabeçalho HTTP é codificado em
+    # latin-1, e um travessão aqui derruba a requisição com UnicodeEncodeError
+    dados_resp = chamar_openrouter(chave, {
+        "model": os.environ.get("OPENROUTER_MODEL", MODELO_PADRAO),
+        "messages": mensagens,
+        "max_tokens": 260,      # resposta curta é o teto de gasto por chamada
+        "temperature": 0.3,
+    }, "Smart Charge site")
 
     texto = ((dados_resp.get("choices") or [{}])[0].get("message") or {}).get("content", "").strip()
     if not texto:
@@ -1142,25 +1167,19 @@ def transcrever(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
     if len(cru) < 1000 or cru[:4] != b"RIFF":
         raise HTTPException(400, "Não reconheci o áudio. Grave de novo.")
 
-    try:
-        r = requests.post(
-            OPENROUTER_URL, timeout=90,
-            headers={"Authorization": f"Bearer {chave}",
-                     "Content-Type": "application/json",
-                     "X-Title": "Smart Charge"},
-            json={"model": MODELO_AUDIO, "max_tokens": 400, "temperature": 0,
-                  "messages": [{"role": "user", "content": [
-                      {"type": "text", "text":
-                       "Transcreva este áudio em português do Brasil. Responda só "
-                       "com o texto falado, sem aspas, sem comentário e sem "
-                       "descrever ruído. Se não houver fala, responda vazio."},
-                      {"type": "input_audio",
-                       "input_audio": {"data": audio, "format": "wav"}}]}]},
-        )
-        r.raise_for_status()
-        dados_resp = r.json()
-    except requests.RequestException as erro:
-        raise HTTPException(502, f"a transcrição falhou: {erro}")
+    # 90s e não 45: áudio sobe junto com o pedido, e o modelo lê antes de
+    # responder. A retentativa vale igual aqui — ditar de novo é pior que
+    # esperar mais um segundo e meio.
+    dados_resp = chamar_openrouter(chave, {
+        "model": MODELO_AUDIO, "max_tokens": 400, "temperature": 0,
+        "messages": [{"role": "user", "content": [
+            {"type": "text", "text":
+             "Transcreva este áudio em português do Brasil. Responda só "
+             "com o texto falado, sem aspas, sem comentário e sem "
+             "descrever ruído. Se não houver fala, responda vazio."},
+            {"type": "input_audio",
+             "input_audio": {"data": audio, "format": "wav"}}]}],
+    }, "Smart Charge", tempo=90)
 
     escolha = (dados_resp.get("choices") or [{}])[0]
     texto = (escolha.get("message") or {}).get("content", "")
