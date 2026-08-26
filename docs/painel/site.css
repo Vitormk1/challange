@@ -1,0 +1,729 @@
+/* ==========================================================================
+   Smart Charge — site de apresentação
+
+   Esta folha é independente do painel. O style.css da referência tem 447 KB
+   e existe para desenhar um dashboard: carregá-lo aqui seria pagar quase
+   meio megabyte para usar três regras, e ainda herdar nomes de classe que
+   brigariam com os desta página.
+
+   Os tokens de cor repetem os valores do marca.css de propósito, em vez de
+   importá-lo: o marca.css nomeia as variáveis pelo vocabulário da referência
+   (--sidebar-bg, --table-row-hover), que não quer dizer nada numa landing.
+   Se o vermelho da marca mudar, muda nos dois lugares — está anotado no
+   marca.css também.
+
+   Fonte: pilha do sistema. A Content-Security-Policy declara
+   `style-src 'self'` e `font-src 'self'` (api/protecao.py), o que barra o
+   Google Fonts. Trocar a política por causa de uma fonte seria abrir a
+   página a folhas de terceiro para ganhar um traço diferente — não paga.
+   ========================================================================== */
+
+:root {
+  --vermelho: #E1251B;
+  --vermelho-forte: #B4160F;
+  --vermelho-claro: #FDEBEA;
+  --preto: #0D0D0F;
+  --grafite: #17171B;
+  --carvao: #232329;
+
+  --fundo: #FFFFFF;
+  --fundo-suave: #F4F4F6;
+  --fundo-frio: #F0F2F7;
+  --superficie: #FFFFFF;
+
+  --texto: #16161A;
+  --texto-2: #55555F;
+  --texto-3: #74747F;
+  --sobre-escuro: #F7F7F8;
+  --sobre-escuro-2: #B9B9C4;
+
+  --linha: #E4E4E9;
+  --linha-forte: #CFCFD7;
+
+  --raio: 16px;
+  --raio-g: 28px;
+  --sombra: 0 18px 46px rgba(13, 13, 15, 0.09);
+  --sombra-forte: 0 26px 70px rgba(13, 13, 15, 0.16);
+
+  --largura: 1240px;
+  --respiro: 26px;
+
+  --fonte: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+           "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  font-family: var(--fonte);
+  color: var(--texto);
+  background: var(--fundo);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.55;
+  /* nenhuma seção pode empurrar a página para os lados no celular */
+  overflow-x: hidden;
+}
+
+/* `height: auto` não é detalhe: os <img> carregam width/height no HTML para
+   reservar a área antes de baixar (evita a página pular). Sem esta linha o
+   max-width encolhe a largura e a altura fica com o valor do atributo — o
+   celular saía em 420x1140 em vez de 420x630, esticado ao dobro. */
+img { max-width: 100%; height: auto; display: block; }
+a { color: inherit; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.envelope {
+  width: 100%;
+  max-width: var(--largura);
+  margin: 0 auto;
+  padding: 0 var(--respiro);
+}
+
+/* --------------------------------------------------------------- títulos ---
+   O tamanho é fluido por clamp: entre o celular e o monitor grande não há um
+   ponto de corte onde a manchete "pula", ela acompanha a largura. */
+h1, h2, h3 { margin: 0; line-height: 1.12; letter-spacing: -0.02em; font-weight: 800; }
+h1 { font-size: clamp(2.1rem, 5.2vw, 3.9rem); }
+h2 { font-size: clamp(1.75rem, 3.9vw, 2.9rem); }
+h3 { font-size: clamp(1.05rem, 1.6vw, 1.25rem); letter-spacing: -0.01em; }
+
+/* o realce de uma palavra no título, como no site de referência */
+.realce { color: var(--vermelho); }
+
+.olho {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--vermelho);
+}
+
+.secao { padding: clamp(64px, 9vw, 118px) 0; }
+.secao-suave { background: var(--fundo-suave); }
+.secao-fria {
+  background: linear-gradient(180deg, #FFFFFF 0%, var(--fundo-frio) 52%, #FFFFFF 100%);
+}
+
+.cabeca-secao { max-width: 760px; margin: 0 0 clamp(34px, 4vw, 56px); }
+.cabeca-secao.centro { margin-left: auto; margin-right: auto; text-align: center; }
+.cabeca-secao p {
+  margin: 18px 0 0;
+  font-size: clamp(1rem, 1.3vw, 1.12rem);
+  color: var(--texto-2);
+}
+
+/* --------------------------------------------------------------- botões --- */
+.botao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 50px;
+  padding: 0 26px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.97rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.16s ease, background 0.16s ease,
+              border-color 0.16s ease, box-shadow 0.16s ease;
+}
+.botao:hover { transform: translateY(-2px); }
+.botao:active { transform: none; }
+.botao:focus-visible { outline: 3px solid var(--vermelho); outline-offset: 3px; }
+
+.botao-principal {
+  background: var(--vermelho-forte);
+  color: #FFFFFF;
+  box-shadow: 0 12px 28px rgba(180, 22, 15, 0.32);
+}
+.botao-principal:hover { background: #9C120C; }
+
+/* Sobre a foto do herói o contorno claro precisa de fundo próprio: vidro
+   fosco em cima de um jpeg qualquer ainda dá contraste de texto suficiente,
+   um contorno vazado não dá. */
+.botao-vidro {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #FFFFFF;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.botao-vidro:hover { background: rgba(255, 255, 255, 0.24); }
+
+.botao-contorno {
+  background: transparent;
+  border-color: var(--linha-forte);
+  color: var(--texto);
+}
+.botao-contorno:hover { border-color: var(--preto); background: #FFFFFF; }
+
+.botao-claro { background: #FFFFFF; color: var(--preto); }
+.botao-claro:hover { background: #F0F0F2; }
+
+/* ==========================================================================
+   Cabeçalho e herói
+   ========================================================================== */
+.heroi {
+  position: relative;
+  isolation: isolate;
+  margin: 12px 12px 0;
+  border-radius: var(--raio-g);
+  overflow: hidden;
+  background: var(--preto);
+  color: #FFFFFF;
+}
+.heroi-foto {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  z-index: -2;
+}
+/* A foto tem cabo azul e rua clara à esquerda — justo onde o texto cai. As
+   duas camadas resolvem coisas diferentes: a primeira escurece o lado do
+   texto para o branco ter contraste, a segunda joga um calor avermelhado por
+   cima para o azul do cabo não brigar com o vermelho da marca. */
+.heroi::before,
+.heroi::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+.heroi::before {
+  background:
+    linear-gradient(100deg, rgba(9, 9, 11, 0.93) 0%, rgba(9, 9, 11, 0.74) 38%,
+                    rgba(9, 9, 11, 0.34) 66%, rgba(9, 9, 11, 0.52) 100%);
+}
+.heroi::after {
+  background: radial-gradient(120% 88% at 4% 22%,
+              rgba(180, 22, 15, 0.34) 0%, transparent 62%);
+  mix-blend-mode: screen;
+}
+
+/* ---- barra de navegação ---- */
+.barra {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 22px 0 0;
+}
+.marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  text-decoration: none;
+  color: #FFFFFF;
+  font-weight: 800;
+  font-size: 1.16rem;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.marca img { width: 34px; height: 34px; }
+
+.menu {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+}
+.menu a {
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 6px 0;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.menu a:hover { color: #FFFFFF; border-bottom-color: var(--vermelho); }
+
+.barra .botao { min-height: 44px; padding: 0 22px; }
+
+/* botão de menu: só existe no celular */
+.abrir-menu {
+  display: none;
+  width: 46px; height: 46px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #FFFFFF;
+  cursor: pointer;
+}
+.abrir-menu svg { width: 22px; height: 22px; }
+
+/* ---- conteúdo do herói ---- */
+.heroi-corpo {
+  padding: clamp(64px, 9vw, 112px) 0 clamp(40px, 5vw, 62px);
+  max-width: 860px;
+}
+.heroi-corpo h1 { text-wrap: balance; }
+.heroi-corpo p {
+  margin: 24px 0 0;
+  max-width: 640px;
+  font-size: clamp(1rem, 1.35vw, 1.16rem);
+  color: rgba(255, 255, 255, 0.9);
+}
+.heroi-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 34px;
+}
+
+/* ---- cartão flutuante, como o do site de referência ---- */
+.cartao-heroi {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  max-width: 560px;
+  margin: 0 0 clamp(28px, 4vw, 46px) auto;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 20px;
+  background: rgba(13, 13, 15, 0.58);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: #FFFFFF;
+  text-decoration: none;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+.cartao-heroi:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+.cartao-heroi-icone {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 54px; height: 54px;
+  border-radius: 15px;
+  background: var(--vermelho-forte);
+}
+.cartao-heroi-icone svg { width: 26px; height: 26px; }
+.cartao-heroi strong { display: block; font-size: 1rem; }
+.cartao-heroi span {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.78);
+}
+.cartao-heroi-seta { margin-left: auto; flex: 0 0 auto; opacity: 0.7; }
+
+/* ==========================================================================
+   Números — carrossel do painel + cartões
+   ========================================================================== */
+.numeros {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 56px);
+  align-items: center;
+}
+
+.carrossel { min-width: 0; }
+.carrossel-janela {
+  position: relative;
+  border-radius: var(--raio);
+  overflow: hidden;
+  background: var(--preto);
+  box-shadow: var(--sombra-forte);
+  /* trava a altura na proporção das capturas: sem isto a página salta de
+     tamanho a cada troca de slide */
+  aspect-ratio: 1500 / 862;
+}
+.carrossel-janela img {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.carrossel-janela img.is-ativo { opacity: 1; }
+
+.carrossel-pontos {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  margin-top: 12px;
+}
+/* O ponto tem 9px porque 9px é o desenho certo; o alvo tem 40, porque 9px é
+   metade do que um polegar acerta. Quem toca é o botão, que é transparente e
+   grande — o ponto é o ::before dentro dele. */
+.carrossel-pontos button {
+  display: grid;
+  place-items: center;
+  width: 40px; height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: 999px;
+}
+.carrossel-pontos button::before {
+  content: "";
+  width: 9px; height: 9px;
+  border-radius: 999px;
+  background: var(--linha-forte);
+  transition: background 0.2s ease, width 0.2s ease;
+}
+.carrossel-pontos button.is-ativo::before { width: 26px; background: var(--vermelho); }
+.carrossel-pontos button:focus-visible { outline: 2px solid var(--vermelho); outline-offset: -4px; }
+
+.legenda-carrossel {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 0.86rem;
+  color: var(--texto-3);
+}
+
+.grade-numeros {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(14px, 1.6vw, 22px);
+}
+.cartao-numero {
+  padding: clamp(22px, 2.6vw, 34px);
+  border-radius: var(--raio);
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+  box-shadow: var(--sombra);
+}
+.cartao-numero.is-forte {
+  background: var(--preto);
+  border-color: var(--preto);
+  color: #FFFFFF;
+}
+.cartao-numero b {
+  display: block;
+  font-size: clamp(1.7rem, 3vw, 2.35rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+.cartao-numero.is-forte b { color: var(--vermelho); }
+.cartao-numero hr {
+  height: 1px;
+  margin: 16px 0;
+  border: 0;
+  background: var(--linha);
+}
+.cartao-numero.is-forte hr { background: rgba(255, 255, 255, 0.18); }
+.cartao-numero span { font-size: 0.95rem; color: var(--texto-2); }
+.cartao-numero.is-forte span { color: var(--sobre-escuro-2); }
+
+/* A ressalva não é rodapé decorativo: os quatro números são premissas do
+   modelo de atribuição, não resultado medido em cliente. Dizer isso perto
+   deles é o que separa número de promessa. */
+.ressalva {
+  max-width: 780px;
+  margin: clamp(30px, 4vw, 46px) auto 0;
+  padding: 16px 20px;
+  border-left: 3px solid var(--vermelho);
+  border-radius: 0 12px 12px 0;
+  background: var(--vermelho-claro);
+  font-size: 0.88rem;
+  color: #6A231F;
+}
+
+/* ==========================================================================
+   Plataforma — texto + celular
+   ========================================================================== */
+.duas-colunas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(30px, 5vw, 72px);
+  align-items: center;
+}
+.duas-colunas p {
+  margin: 20px 0 0;
+  font-size: clamp(1rem, 1.25vw, 1.08rem);
+  color: var(--texto-2);
+}
+
+/* O fundo da imagem do celular foi recortado no arquivo (alfa), então o PNG
+   assenta em qualquer cor e a sombra vem daqui, acompanhando a silhueta dos
+   dois aparelhos em vez de um retângulo. */
+.celular {
+  justify-self: center;
+  /* `min(...)` e não 420px puro: o max-width daqui vence o `max-width: 100%`
+     do reset, e num aparelho de 320px a coluna tem 284px — a imagem saía
+     10px para fora e era cortada pelo overflow-x do body, que esconde o
+     estrago sem desfazê-lo. */
+  max-width: min(420px, 100%);
+  filter: drop-shadow(0 30px 44px rgba(13, 13, 15, 0.26));
+}
+
+.lista-marcada { margin: 26px 0 0; padding: 0; list-style: none; }
+.lista-marcada li {
+  position: relative;
+  padding: 0 0 0 32px;
+  margin-bottom: 13px;
+  color: var(--texto-2);
+}
+.lista-marcada li::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 6px;
+  width: 18px; height: 18px;
+  border-radius: 999px;
+  background: var(--vermelho-claro);
+  box-shadow: inset 0 0 0 2px var(--vermelho);
+}
+.lista-marcada li strong { color: var(--texto); }
+
+/* ==========================================================================
+   Segmentos e recursos
+   ========================================================================== */
+.grade-cartoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(272px, 1fr));
+  gap: clamp(16px, 1.8vw, 24px);
+}
+.cartao {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(24px, 2.6vw, 32px);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  background: var(--superficie);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.cartao:hover {
+  transform: translateY(-4px);
+  border-color: var(--linha-forte);
+  box-shadow: var(--sombra);
+}
+.cartao p { margin: 12px 0 0; font-size: 0.95rem; color: var(--texto-2); }
+.cartao-icone {
+  display: grid;
+  place-items: center;
+  width: 46px; height: 46px;
+  margin-bottom: 18px;
+  border-radius: 13px;
+  background: var(--vermelho-claro);
+  color: var(--vermelho-forte);
+}
+.cartao-icone svg { width: 23px; height: 23px; }
+
+/* ==========================================================================
+   Como o retorno aparece — blocos alternados
+   ========================================================================== */
+.bloco {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(28px, 4.5vw, 64px);
+  align-items: center;
+}
+.bloco + .bloco { margin-top: clamp(48px, 6vw, 88px); }
+/* o segundo bloco troca os lados, para a página não virar uma coluna só */
+.bloco.is-invertido .bloco-figura { order: -1; }
+.bloco-figura {
+  border-radius: var(--raio);
+  overflow: hidden;
+  box-shadow: var(--sombra);
+  aspect-ratio: 4 / 3;
+}
+.bloco-figura img { width: 100%; height: 100%; object-fit: cover; }
+
+.passos { margin: 22px 0 0; padding: 0; list-style: none; counter-reset: passo; }
+.passos li {
+  position: relative;
+  padding: 0 0 0 46px;
+  margin-bottom: 18px;
+  color: var(--texto-2);
+}
+.passos li::before {
+  counter-increment: passo;
+  content: counter(passo);
+  position: absolute;
+  left: 0; top: 0;
+  display: grid;
+  place-items: center;
+  width: 30px; height: 30px;
+  border-radius: 999px;
+  background: var(--preto);
+  color: #FFFFFF;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.passos li strong { display: block; color: var(--texto); }
+
+/* ==========================================================================
+   Chamada final
+   ========================================================================== */
+.chamada {
+  position: relative;
+  overflow: hidden;
+  margin: 0 12px 12px;
+  padding: clamp(52px, 7vw, 92px) 0;
+  border-radius: var(--raio-g);
+  background: var(--preto);
+  color: #FFFFFF;
+  text-align: center;
+}
+.chamada::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(72% 130% at 50% 0%,
+              rgba(180, 22, 15, 0.42) 0%, transparent 64%);
+}
+.chamada .envelope { position: relative; }
+.chamada p {
+  margin: 18px auto 0;
+  max-width: 620px;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: clamp(1rem, 1.3vw, 1.1rem);
+}
+.chamada-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 34px;
+}
+
+/* ==========================================================================
+   Rodapé
+   ========================================================================== */
+.rodape {
+  padding: clamp(48px, 6vw, 76px) 0 34px;
+  background: var(--fundo-suave);
+  border-top: 1px solid var(--linha);
+}
+.rodape-grade {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr));
+  gap: clamp(26px, 3vw, 46px);
+}
+.rodape .marca { color: var(--texto); }
+.rodape-sobre p {
+  margin: 16px 0 0;
+  max-width: 320px;
+  font-size: 0.92rem;
+  color: var(--texto-2);
+}
+.rodape h4 {
+  margin: 0 0 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+.rodape ul { margin: 0; padding: 0; list-style: none; }
+.rodape li { margin-bottom: 10px; }
+.rodape li a {
+  font-size: 0.93rem;
+  color: var(--texto-2);
+  text-decoration: none;
+}
+.rodape li a:hover { color: var(--vermelho-forte); text-decoration: underline; }
+
+.rodape-fim {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  align-items: center;
+  margin-top: clamp(34px, 4vw, 52px);
+  padding-top: 24px;
+  border-top: 1px solid var(--linha);
+  font-size: 0.86rem;
+  color: var(--texto-3);
+}
+
+/* ==========================================================================
+   Telas menores
+
+   Duas quebras, e cada uma resolve uma coisa: em 960 as grades de duas
+   colunas deixam de caber lado a lado; em 760 a barra de navegação não cabe
+   mais em linha e o menu passa a abrir por baixo.
+   ========================================================================== */
+@media (max-width: 960px) {
+  .numeros, .duas-colunas, .bloco { grid-template-columns: minmax(0, 1fr); }
+  .bloco.is-invertido .bloco-figura { order: 0; }
+  .cartao-heroi { margin-right: 0; max-width: none; }
+  .celular { max-width: min(340px, 100%); }
+  .rodape-grade { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rodape-sobre { grid-column: 1 / -1; }
+}
+
+/* A barra do topo quebra antes do resto da página: logo, cinco itens e o
+   botão de acessar somam mais de 760px muito antes de as grades de duas
+   colunas apertarem. Medido em 768 (tablet em pé), o "Acessar" terminava em
+   847 — 79px fora da tela. Por isso a navegação tem corte próprio, e mais
+   alto que o dos outros blocos. */
+@media (max-width: 900px) {
+  .abrir-menu { display: inline-flex; }
+  /* O menu vira uma folha por cima do herói. Ele nasce fechado — não há
+     espaço para deixá-lo aberto — e o botão de acessar sai da barra para
+     dentro dele, senão a linha do topo fica com três coisas disputando a
+     mesma largura. */
+  .menu {
+    position: absolute;
+    left: var(--respiro);
+    right: var(--respiro);
+    top: 88px;
+    z-index: 5;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    margin: 0;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 18px;
+    background: rgba(13, 13, 15, 0.94);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    box-shadow: var(--sombra-forte);
+  }
+  .menu[hidden] { display: none; }
+  .menu a {
+    display: block;
+    padding: 13px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .menu li:last-child a { border-bottom: 0; }
+  .menu a:hover { border-bottom-color: rgba(255, 255, 255, 0.08); }
+  .menu .botao { width: 100%; margin-top: 8px; }
+
+  .barra { gap: 12px; }
+  .barra > .botao { display: none; }   /* o de dentro do menu assume */
+  .marca { font-size: 1.04rem; }
+}
+
+@media (max-width: 760px) {
+  :root { --respiro: 18px; --raio-g: 20px; }
+
+  .heroi { margin: 8px 8px 0; }
+
+
+  .heroi-acoes .botao { flex: 1 1 100%; }
+  .chamada-acoes .botao { flex: 1 1 100%; }
+
+  .grade-numeros { grid-template-columns: minmax(0, 1fr); }
+  .rodape-grade { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .botao, .cartao, .cartao-heroi, .carrossel-janela img { transition: none; }
+  .botao:hover, .cartao:hover, .cartao-heroi:hover { transform: none; }
+}

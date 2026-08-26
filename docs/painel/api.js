@@ -20,12 +20,17 @@ const API_PUBLICADA = "https://praca-recarga-api.onrender.com";
    (o GitHub Pages, por exemplo) não consegue manter sessão — o cookie seria de
    terceiro, e a maioria dos navegadores descarta. Em vez de deixar a pessoa
    descobrir isso com um "e-mail ou senha incorretos" que mente, manda para o
-   endereço que funciona. */
+   endereço que funciona.
+
+   O destino é /painel/dashboard.html, e não /painel/: quem abriu esta cópia
+   queria o painel. Desde que a apresentação passou a morar em /painel/, cair
+   na raiz devolveria a landing e a pessoa teria de procurar o caminho de
+   volta para a tela que já tinha aberto. */
 (() => {
   if (!API_PUBLICADA || local) return;
   if (location.origin === new URL(API_PUBLICADA).origin) return;
   if (new URLSearchParams(location.search).has("api")) return;   // escape para depurar
-  location.replace(API_PUBLICADA + "/painel/");
+  location.replace(API_PUBLICADA + "/painel/dashboard.html");
 })();
 
 export const BASE = (() => {

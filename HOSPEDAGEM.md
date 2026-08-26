@@ -81,8 +81,10 @@ Abra `https://SUA-URL.onrender.com/saude`. A resposta diz o que está valendo:
 
 ### 3. O endereço do painel
 
-**O painel é servido pela própria API**, em `https://SUA-URL.onrender.com/painel/`.
-É esse o endereço para compartilhar.
+**As telas são servidas pela própria API.** `https://SUA-URL.onrender.com/painel/`
+é o site de apresentação, e é esse o endereço para compartilhar: dali saem os
+links para o painel (`/painel/dashboard.html`) e para o mapa de carregadores
+(`/painel/mapa.html`), que é aberto e não pede login.
 
 Em [`docs/painel/api.js`](docs/painel/api.js) uma linha guarda esse endereço, e
 é a única que muda se o serviço trocar de host:

@@ -217,7 +217,22 @@ def main() -> None:
         checar(f"cabeçalho {nome}", nome in cab, cab.get(nome, "ausente")[:28])
     checar("CSP proíbe iframe de terceiro",
            "frame-ancestors 'none'" in cab.get("content-security-policy", ""))
-    checar("painel é servido pela própria API", r.status_code == 200, f"HTTP {r.status_code}")
+    checar("apresentação é servida pela própria API", r.status_code == 200, f"HTTP {r.status_code}")
+
+    # /painel/ virou o site de apresentação, e o painel passou a morar em
+    # /painel/dashboard.html. Sem esta linha, renomear o arquivo de volta (ou
+    # errar o nome num deploy) passaria pela auditoria: a raiz continuaria
+    # respondendo 200 e ninguém veria que a tela de trabalho sumiu.
+    d = anon.get(f"{API}/painel/dashboard.html", timeout=TEMPO)
+    checar("painel do lojista continua no ar", d.status_code == 200, f"HTTP {d.status_code}")
+    m = anon.get(f"{API}/painel/mapa.html", timeout=TEMPO)
+    checar("mapa de carregadores responde", m.status_code == 200, f"HTTP {m.status_code}")
+
+    # As duas telas abertas não podem pedir sessão: a apresentação é pública
+    # por definição, e o mapa foi especificado como acessível sem login.
+    checar("apresentação e mapa são públicos",
+           "loginGate" not in r.text and "loginGate" not in m.text,
+           "porta de login presente numa tela pública")
 
     # HSTS só existe sobre https: em http local ele não deve aparecer, porque
     # ensinaria o navegador a recusar 127.0.0.1 por um ano.

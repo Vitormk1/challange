@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Charge — mapa de carregadores</title>
+<meta name="description" content="Mapa público dos pontos de recarga Smart Charge. Sem cadastro e sem login.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260906c">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260906c">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260906c">
+<link rel="stylesheet" href="./site.css?v=20260906c">
+<style>
+  /* Página de uma tela só: não vale um arquivo de folha para si. Quando o
+     mapa entrar, isto vira mapa.css e sai daqui. */
+  .espera {
+    min-height: 100svh;
+    display: grid;
+    place-items: center;
+    padding: 40px 0;
+    background: var(--fundo-suave);
+  }
+  .espera-caixa {
+    max-width: 620px;
+    text-align: center;
+    padding: clamp(30px, 5vw, 52px);
+    border: 1px solid var(--linha);
+    border-radius: var(--raio-g);
+    background: var(--superficie);
+    box-shadow: var(--sombra);
+  }
+  .espera-marca { justify-content: center; margin-bottom: 26px; color: var(--texto); }
+  .espera-pino {
+    display: grid;
+    place-items: center;
+    width: 62px; height: 62px;
+    margin: 0 auto 22px;
+    border-radius: 18px;
+    background: var(--vermelho-claro);
+    color: var(--vermelho-forte);
+  }
+  .espera-pino svg { width: 30px; height: 30px; }
+  .espera p { margin: 16px 0 0; color: var(--texto-2); }
+  .espera-acoes {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 30px;
+  }
+  @media (max-width: 520px) { .espera-acoes .botao { flex: 1 1 100%; } }
+</style>
+</head>
+<body>
+
+<main class="espera">
+  <div class="espera-caixa">
+    <a class="marca espera-marca" href="./">
+      <img src="./img/logo.png" alt="" width="34" height="34">
+      Smart Charge
+    </a>
+
+    <div class="espera-pino" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+        <circle cx="12" cy="10" r="3"></circle>
+      </svg>
+    </div>
+
+    <h1>O mapa entra na próxima etapa</h1>
+    <p>
+      Aqui vai ficar o mapa público dos pontos de recarga Smart Charge, com os
+      carregadores marcados e aberto a qualquer pessoa — sem cadastro e sem
+      login. A página de apresentação e o painel já estão no ar.
+    </p>
+
+    <div class="espera-acoes">
+      <a class="botao botao-principal" href="./">Voltar à apresentação</a>
+      <a class="botao botao-contorno" href="./dashboard.html">Abrir o painel</a>
+    </div>
+  </div>
+</main>
+
+</body>
+</html>

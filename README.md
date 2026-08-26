@@ -14,9 +14,14 @@ Recarga de veículos elétricos **como ativo comercial**. Dois produtos, um sist
 
 | | Onde | Quem serve |
 |---|---|---|
-| **Painel do lojista** | <https://praca-recarga-api.onrender.com/painel/> | a própria API |
+| **Apresentação** | <https://praca-recarga-api.onrender.com/painel/> | a própria API |
+| **Painel do lojista** | `.../painel/dashboard.html` | a própria API |
+| **Mapa de carregadores** | `.../painel/mapa.html` | a própria API |
 | **Dossiê** | `vitormk1.github.io/challange/` | GitHub Pages |
 | **Telinha da vaga** | `vitormk1.github.io/challange/vaga/` | GitHub Pages |
+
+`/painel/` é a porta de entrada e não pede login: dali saem os dois caminhos,
+o painel (que pede) e o mapa (que não pede).
 
 O painel **não** fica no GitHub Pages, e isso não é detalhe de gosto. Com a
 página num domínio e a API em outro, o cookie de sessão vira cookie de
@@ -38,7 +43,11 @@ docs/
   img/              a logo, em três tamanhos (256, 180 e 32)
   vaga/             a telinha da vaga · serve também o celular pelo QR
   painel/
-    index.html      a página inteira: login, painel e os diálogos
+    index.html      o site de apresentação
+    site.css        a folha dele — independente da referência
+    site.js         carrossel das telas e menu do celular
+    mapa.html       o mapa público de carregadores
+    dashboard.html  a página inteira: login, painel e os diálogos
     app.js          o painel — cards, edição, avisos, ditado, gráficos
     api.js          a conversa com a API, e o redirecionamento do Pages
     style.css       a folha da referência (447 KB), copiada sem alterar layout

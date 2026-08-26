@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Charge — Painel</title>
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260905j">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260905j">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260905j">
+<meta name="description" content="Painel do lojista: retorno, carregadores, sessões, clientes e vendas atribuídas.">
+<link rel="stylesheet" href="./style.css?v=20260905j">
+<!-- marca.css vem depois do style.css: ele só troca os tokens de cor, e
+     precisa vencer os valores originais da referência -->
+<link rel="stylesheet" href="./marca.css?v=20260905j">
+<link rel="stylesheet" href="./static/css/tour.css?v=20260905j">
+<link rel="stylesheet" href="./painel.css?v=20260905j">
+<link rel="stylesheet" href="./login.css?v=20260905j">
+</head>
+<body class="primary-loading sem-sessao">
+
+<!-- ===================== tela de carregamento ===================== -->
+<div class="dashboard-loading-screen" id="dashboardLoadingScreen" aria-hidden="true">
+  <div class="dashboard-loading-panel" role="status" aria-live="polite" aria-label="Carregando painel">
+    <div class="dashboard-loading-brand">
+      <div class="dashboard-loading-mark" aria-hidden="true">
+        <img src="./img/logo.png?v=20260905j" alt="" width="50" height="50" decoding="async">
+      </div>
+      <div class="dashboard-loading-copy">
+        <p class="eyebrow">Visão do lojista</p>
+        <h1>Smart Charge</h1>
+        <p id="dashboardLoadingText">Preparando seus dados...</p>
+      </div>
+    </div>
+    <div class="dashboard-loading-bars" aria-hidden="true">
+      <span class="dashboard-loading-bar bar-1"></span><span class="dashboard-loading-bar bar-2"></span>
+      <span class="dashboard-loading-bar bar-3"></span><span class="dashboard-loading-bar bar-4"></span>
+    </div>
+    <div class="dashboard-loading-sheen" aria-hidden="true"></div>
+  </div>
+</div>
+
+
+<!-- ===================== login ===================== -->
+<div class="login-gate" id="loginGate" hidden>
+  <main class="login-caixa">
+
+    <!-- marca: o anel enche conforme a pessoa preenche o formulário -->
+    <div class="login-marca">
+      <span class="login-selo" aria-hidden="true">
+        <img src="./img/logo.png?v=20260905j" alt="" width="60" height="60" decoding="async">
+      </span>
+      <h1>Smart Charge</h1>
+    </div>
+
+    <form id="loginForm" class="login-form" autocomplete="on" novalidate>
+      <div class="login-campo">
+        <label class="sr-only" for="loginEmail">E-mail</label>
+        <input id="loginEmail" name="email" type="email" inputmode="email"
+               placeholder="E-mail" autocomplete="username" required>
+      </div>
+      <div class="login-campo login-senha">
+        <label class="sr-only" for="loginSenha">Senha</label>
+        <input id="loginSenha" name="senha" type="password" placeholder="Senha"
+               autocomplete="current-password" required>
+        <button class="login-olho" id="loginSenhaToggle" type="button"
+                aria-label="Mostrar senha" aria-pressed="false">
+          <svg class="olho-ver" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="olho-esconder" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 6.2A9.6 9.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-3.3 3.9M6.6 8.1A16 16 0 0 0 2.5 12S6 18 12 18a9.4 9.4 0 0 0 3.3-.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+        </button>
+      </div>
+      <button class="login-entrar" id="loginButton" type="submit">
+        <span class="login-entrar-texto">Entrar</span>
+        <span class="login-entrar-girando" aria-hidden="true"></span>
+      </button>
+    </form>
+
+    <p class="login-status" id="loginStatus" role="status" aria-live="polite"></p>
+
+    <div class="login-tema" role="radiogroup" aria-label="Tema da interface">
+      <button class="login-tema-op" type="button" role="radio" aria-checked="false" data-theme-choice="light" title="Claro" aria-label="Tema claro">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><g stroke-linecap="round"><path d="M12 2.4v2.4M12 19.2v2.4M4.2 12H1.8M22.2 12h-2.4M6.5 6.5 4.8 4.8M19.2 19.2l-1.7-1.7M17.5 6.5l1.7-1.7M4.8 19.2l1.7-1.7"/></g></svg>
+      </button>
+      <button class="login-tema-op" type="button" role="radio" aria-checked="false" data-theme-choice="dark" title="Escuro" aria-label="Tema escuro">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.4A8.6 8.6 0 0 1 9.6 4a8.7 8.7 0 1 0 10.4 10.4Z"/></svg>
+      </button>
+      <button class="login-tema-op" type="button" role="radio" aria-checked="false" data-theme-choice="system" title="Seguir o sistema" aria-label="Seguir o tema do sistema">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.6" y="4.2" width="18.8" height="13" rx="2.2"/><path d="M8.4 20.4h7.2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+  </main>
+</div>
+
+<div class="app-shell">
+  <!-- ===================== barra lateral ===================== -->
+  <aside class="sidebar">
+    <button class="brand brand-button" id="brandReloadButton" type="button" aria-label="Recarregar painel">
+      <div class="brand-mark" aria-hidden="true">
+        <img src="./img/logo.png?v=20260905j" alt="" width="26" height="26" decoding="async">
+      </div>
+      <h1>Smart Charge</h1>
+    </button>
+
+    <div class="sidebar-main">
+      <div class="client-switcher">
+        <label class="sr-only" for="clientSelect">Estabelecimento ativo</label>
+        <select id="clientSelect" aria-label="Estabelecimento ativo"></select>
+        <button class="client-dropdown-trigger" id="clientDropdownTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="clientDropdownMenu">
+          <span class="client-dropdown-label" id="clientDropdownLabel">Estabelecimento</span>
+          <span class="client-dropdown-arrow" aria-hidden="true">›</span>
+        </button>
+        <div class="client-dropdown-menu" id="clientDropdownMenu" role="listbox" aria-label="Estabelecimentos disponíveis" hidden></div>
+      </div>
+
+      <nav class="sidebar-nav" id="sidebarNav">
+        <section class="nav-group" data-nav-group="operacao">
+          <button class="nav-group-toggle" type="button" data-nav-group-toggle aria-expanded="true" aria-controls="navGroupOperacao" aria-label="Ocultar grupo Operação">
+            <span>Operação</span><span class="nav-group-arrow" aria-hidden="true">›</span>
+          </button>
+          <div class="nav-group-items" id="navGroupOperacao">
+            <button class="nav-item active" type="button" data-section="painel"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"></path></svg></span>Painel</span></button>
+            <button class="nav-item" type="button" data-section="carregadores"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7 2h8a2 2 0 0 1 2 2v18H5V4a2 2 0 0 1 2-2Zm11 6h1a2 2 0 0 1 2 2v6h-2v-6h-1V8Zm-6 1-3 5h2.5L11 18l3-5h-2.5L12 9Z"></path></svg></span>Carregadores</span></button>
+            <button class="nav-item" type="button" data-section="sessoes"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 10.6V6h-2v7.4l5.2 3.1 1-1.7-4.2-2.2Z"></path></svg></span>Sessões</span></button>
+            <button class="nav-item" type="button" data-section="leituras"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M3 17h3l3-9 4 14 3-11 2 6h3v2h-4.5l-1-3-3 11-4-14-2 6H3v-2Z"></path></svg></span>Leituras</span></button>
+          </div>
+        </section>
+
+        <section class="nav-group" data-nav-group="negocio">
+          <button class="nav-group-toggle" type="button" data-nav-group-toggle aria-expanded="true" aria-controls="navGroupNegocio" aria-label="Ocultar grupo Negócio">
+            <span>Negócio</span><span class="nav-group-arrow" aria-hidden="true">›</span>
+          </button>
+          <div class="nav-group-items" id="navGroupNegocio">
+            <button class="nav-item" type="button" data-section="clientes"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.3 0-7 1.7-7 4v2h14v-2c0-2.3-3.7-4-7-4Zm7.5-8.6a4 4 0 0 1 0 7.2v-7.2ZM17 14.4c2.4.6 5 2 5 3.6v2h-4v-2c0-1.4-.4-2.6-1-3.6Z"></path></svg></span>Clientes</span></button>
+            <button class="nav-item" type="button" data-section="vendas"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7 4h10l1 3H6l1-3Zm-2 5h14l-1.2 11.1a2 2 0 0 1-2 1.9H8.2a2 2 0 0 1-2-1.9L5 9Zm4 3v6h2v-6H9Zm4 0v6h2v-6h-2Z"></path></svg></span>Vendas</span></button>
+            <button class="nav-item" type="button" data-section="cupons"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M2 7h20v4a2 2 0 0 0 0 4v4H2v-4a2 2 0 0 0 0-4V7Zm7 2v6h2V9H9Z"></path></svg></span>Cupons</span></button>
+            <button class="nav-item" type="button" data-section="financeiro"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M11 2h2v3.1c2 .3 3.5 1.5 3.9 3.4h-2.1c-.3-.9-1.3-1.5-2.8-1.5-1.7 0-2.7.7-2.7 1.7 0 .9.7 1.4 2.9 1.9 3 .6 4.8 1.6 4.8 4 0 2.1-1.6 3.5-4 3.9V22h-2v-3.5c-2.3-.3-4-1.6-4.3-3.8h2.1c.3 1.1 1.4 1.8 3.2 1.8 1.9 0 2.9-.8 2.9-1.8 0-1-.8-1.5-3.1-2-3-.6-4.6-1.7-4.6-3.9 0-2 1.5-3.4 3.8-3.8V2Z"></path></svg></span>Financeiro</span></button>
+          </div>
+        </section>
+
+        <section class="nav-group is-collapsed" data-nav-group="cadastros">
+          <button class="nav-group-toggle" type="button" data-nav-group-toggle aria-expanded="false" aria-controls="navGroupCadastros" aria-label="Exibir grupo Cadastros">
+            <span>Cadastros</span><span class="nav-group-arrow" aria-hidden="true">›</span>
+          </button>
+          <div class="nav-group-items" id="navGroupCadastros">
+            <button class="nav-item" type="button" data-section="estabelecimentos"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path fill-rule="evenodd" d="M4 3H20V21H4V3Z M7 6H10.5V9H7V6Z M13.5 6H17V9H13.5V6Z M7 10.5H10.5V13.5H7V10.5Z M13.5 10.5H17V13.5H13.5V10.5Z M7 15H10.5V18H7V15Z M13.5 15H17V18H13.5V15Z"></path></svg></span>Estabelecimentos</span></button>
+            <button class="nav-item" type="button" data-section="paineis"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true">▦</span>Painéis salvos</span></button>
+          </div>
+        </section>
+      </nav>
+    </div>
+
+    <div class="sidebar-profile-row">
+      <button class="profile-card profile-card-docked" id="profileShortcut" type="button" aria-label="Abrir menu da conta e aparência" aria-haspopup="dialog" aria-expanded="false" aria-controls="collapsedProfileMenu">
+        <div class="avatar" id="profileAvatar">··</div>
+        <div class="profile-copy">
+          <strong id="profileName">Carregando...</strong>
+          <div class="sidebar-system-status" id="floatingRefreshBadge">
+            <span class="sidebar-system-status-copy">
+              <span id="floatingRefreshText" aria-live="polite">Carregando...</span>
+              <small class="sidebar-system-status-label">Última atualização<span id="floatingMonitorIndicator" class="is-ok" aria-label="Dados carregados"></span></small>
+            </span>
+          </div>
+        </div>
+        <span class="profile-card-arrow" aria-hidden="true">›</span>
+      </button>
+      <div class="collapsed-profile-menu account-menu" id="collapsedProfileMenu" role="dialog" aria-label="Conta e aparência" aria-hidden="true">
+        <div class="account-menu-section">
+          <div class="account-menu-heading">
+            <span>Aparência</span>
+            <small>Escolha como o painel será exibido</small>
+          </div>
+          <div class="theme-choice-group" role="radiogroup" aria-label="Tema da interface">
+            <button class="theme-choice" type="button" role="radio" aria-checked="false" data-theme-choice="light">
+              <span class="theme-choice-icon" aria-hidden="true">☀</span><span>Claro</span><span class="theme-choice-check" aria-hidden="true">✓</span>
+            </button>
+            <button class="theme-choice" type="button" role="radio" aria-checked="false" data-theme-choice="dark">
+              <span class="theme-choice-icon" aria-hidden="true">☾</span><span>Escuro</span><span class="theme-choice-check" aria-hidden="true">✓</span>
+            </button>
+            <button class="theme-choice" type="button" role="radio" aria-checked="false" data-theme-choice="system">
+              <span class="theme-choice-icon" aria-hidden="true">◐</span><span>Sistema</span><span class="theme-choice-check" aria-hidden="true">✓</span>
+            </button>
+          </div>
+        </div>
+        <div class="account-menu-divider" aria-hidden="true"></div>
+        <button class="collapsed-profile-menu-button" id="collapsedProfileMenuProfile" type="button">
+          <span class="collapsed-profile-menu-icon" aria-hidden="true">⚙</span><span>Configurações do perfil</span>
+        </button>
+        <button class="collapsed-profile-menu-button is-logout" id="collapsedProfileMenuLogout" type="button">
+          <span class="collapsed-profile-menu-icon" aria-hidden="true">⇥</span><span>Fazer logout</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <button class="sidebar-toggle sidebar-edge-toggle" id="sidebarToggleDesktop" type="button" aria-label="Abrir ou fechar menu" aria-expanded="true">
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M14.7 5.3a1 1 0 0 1 0 1.4L9.41 12l5.3 5.3a1 1 0 1 1-1.42 1.4l-6-6a1 1 0 0 1 0-1.4l6-6a1 1 0 0 1 1.42 0Z"></path></svg>
+  </button>
+
+  <!-- ===================== conteúdo ===================== -->
+  <main class="main-panel">
+    <header class="topbar">
+      <div class="topbar-title">
+        <div>
+          <p class="eyebrow" id="activeSectionEyebrow">Visão do lojista</p>
+          <h2 id="activeSectionTitle">Painel</h2>
+        </div>
+      </div>
+      <form class="global-ai-command" id="globalAiCommandForm" role="search"
+            aria-label="Perguntar à assistente" hidden>
+        <div class="global-ai-command-field">
+          <label class="sr-only" for="globalAiCommandInput">Pergunte à assistente</label>
+          <input id="globalAiCommandInput" type="search" autocomplete="off"
+                 placeholder="Pergunte alguma coisa sobre esta loja...">
+          <button class="global-ai-command-submit" type="submit" aria-label="Enviar para a assistente">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 5v5a4 4 0 0 1-4 4H5"></path>
+              <path d="m10 9-5 5 5 5"></path>
+            </svg>
+          </button>
+        </div>
+      </form>
+      <div class="topbar-side">
+        <div class="topbar-actions" id="topbarActions"></div>
+        <button class="icon-button tour-launch-button" id="tourLaunchButton" type="button" aria-label="Abrir tour guiado">?</button>
+      </div>
+    </header>
+
+    <div class="workspace-shell">
+      <div class="content-column">
+
+        <!-- ---------- PAINEL ---------- -->
+        <section class="panel-section is-active" id="section-painel">
+          <div class="dashboard-manager-shell" id="dashboardManagerShell">
+            <button class="dashboard-manager-toggle" id="dashboardManagerToggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Ver painéis">
+              <span class="dashboard-manager-toggle-icon" aria-hidden="true">▦</span>
+              <span class="dashboard-manager-toggle-label">Ver painéis</span>
+            </button>
+
+            <div class="dashboard-workspaces-menu" id="dashboardWorkspacesMenu" role="dialog" aria-label="Painéis" aria-hidden="true">
+              <div class="dashboard-workspaces-menu-head">
+                <p class="eyebrow">Painéis</p>
+                <h3>Seus painéis</h3>
+              </div>
+              <div class="dashboard-workspaces-list" id="dashboardWorkspacesList"></div>
+            </div>
+
+            <div class="dashboard-manager-sidebar-placeholder" aria-hidden="true"><span>Menu lateral não editável</span></div>
+
+            <div class="dashboard-manager-editbar" id="dashboardManagerEditbar">
+              <div class="dashboard-manager-editbar-title">
+                <p class="eyebrow">Painel gerencial</p>
+                <input type="text" class="dashboard-manager-editbar-title-input" id="dashboardManagerEditbarTitleInput" maxlength="120" placeholder="Nome do painel" autocomplete="off" aria-label="Nome do painel">
+              </div>
+              <div class="dashboard-manager-editbar-actions">
+                <button class="ghost-button" type="button" data-dashboard-layout-reset>Restaurar padrão</button>
+                <button class="primary-button" type="button" data-dashboard-layout-close>Concluir edição</button>
+              </div>
+            </div>
+
+            <div class="dashboard-manager-main">
+              <div class="dashboard-canvas" id="dashboardCanvas">
+                <section class="dashboard-canvas-group" id="dashboardLargeCardsGroup">
+                  <div class="dashboard-canvas-group-head">
+                    <p class="eyebrow">Cards grandes</p>
+                    <h3>Visão de destaque</h3>
+                  </div>
+                  <div class="dashboard-canvas-grid dashboard-canvas-grid-large" id="dashboardGridLarge" data-dashboard-dropzone="large"></div>
+                </section>
+                <section class="dashboard-canvas-group" id="dashboardSmallCardsGroup">
+                  <div class="dashboard-canvas-group-head">
+                    <p class="eyebrow">Cards pequenos</p>
+                    <h3>Indicadores rápidos</h3>
+                  </div>
+                  <div class="dashboard-canvas-grid dashboard-canvas-grid-small" id="dashboardGridSmall" data-dashboard-dropzone="small"></div>
+                </section>
+                <div class="dashboard-canvas-empty" id="dashboardCanvasEmpty" hidden>
+                  <p>Clique em editar painel para montar a visão do seu dia a dia</p>
+                </div>
+              </div>
+            </div>
+
+            <button class="dashboard-library-fab" id="dashboardLibraryFab" type="button" data-dashboard-library-open aria-haspopup="dialog" aria-expanded="false" aria-controls="dashboardManagerPanel" aria-label="Adicionar card">
+              <span aria-hidden="true">+</span>
+            </button>
+
+            <div class="dashboard-manager-panel" id="dashboardManagerPanel" aria-hidden="true">
+              <div class="dashboard-library-sheet-scrim" data-dashboard-library-close></div>
+              <div class="dashboard-manager-panel-shell" role="dialog" aria-modal="true" aria-labelledby="dashboardManagerPanelTitle">
+                <div class="dashboard-library-sheet-handle" aria-hidden="true"></div>
+                <div class="dashboard-manager-panel-header">
+                  <div>
+                    <p class="eyebrow">Painel gerencial</p>
+                    <h3 id="dashboardManagerPanelTitle">Adicionar cards</h3>
+                  </div>
+                  <button class="icon-button" type="button" data-dashboard-library-close aria-label="Fechar biblioteca de cards">
+                    <span aria-hidden="true">×</span>
+                  </button>
+                </div>
+                <div class="dashboard-manager-panel-body" id="dashboardManagerPanelBody"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ---------- TABELAS ---------- -->
+        <section class="panel-section" id="section-carregadores"><div class="table-screen" id="screen-carregadores"></div></section>
+        <section class="panel-section" id="section-sessoes"><div class="table-screen" id="screen-sessoes"></div></section>
+        <section class="panel-section" id="section-leituras"><div class="table-screen" id="screen-leituras"></div></section>
+        <section class="panel-section" id="section-clientes"><div class="table-screen" id="screen-clientes"></div></section>
+        <section class="panel-section" id="section-vendas"><div class="table-screen" id="screen-vendas"></div></section>
+        <section class="panel-section" id="section-cupons"><div class="table-screen" id="screen-cupons"></div></section>
+        <section class="panel-section" id="section-estabelecimentos"><div class="table-screen" id="screen-estabelecimentos"></div></section>
+        <section class="panel-section" id="section-paineis"><div class="table-screen" id="screen-paineis"></div></section>
+        <section class="panel-section" id="section-financeiro"><div class="table-screen" id="screen-financeiro"></div></section>
+
+        <!-- ---------- PERFIL ---------- -->
+        <section class="panel-section" id="section-perfil">
+          <div class="content-grid profile-grid">
+            <article class="surface-card profile-main-card">
+              <div class="card-heading">
+                <div><h3>Sua conta</h3></div>
+              </div>
+              <div class="profile-panel">
+                <div class="avatar avatar-large" id="profileAvatarLarge">&#183;&#183;</div>
+                <div>
+                  <h4 id="profilePanelName">Carregando...</h4>
+                  <p id="profilePanelMeta"></p>
+                </div>
+              </div>
+              <dl class="detail-list" id="profileDetails"></dl>
+            </article>
+
+            <article class="surface-card profile-side-card">
+              <div class="card-heading">
+                <div>
+                  <p class="eyebrow">Mais fun&ccedil;&otilde;es</p>
+                  <h3>Prefer&ecirc;ncias de acesso</h3>
+                </div>
+              </div>
+              <div class="todo-list profile-forms">
+                <div class="todo-item">
+                  <strong>Configura&ccedil;&otilde;es</strong>
+                  <span>Abra as op&ccedil;&otilde;es de nome, senha, foto de perfil e atualiza&ccedil;&atilde;o autom&aacute;tica do painel.</span>
+                  <button class="ghost-button" id="profileSettingsButton" type="button">Configura&ccedil;&otilde;es</button>
+                </div>
+                <div class="todo-item">
+                  <strong>Encerrar as outras sess&otilde;es</strong>
+                  <span id="profileSessoesTexto">Derruba o acesso nos computadores onde voc&ecirc; esqueceu aberto, mantendo este.</span>
+                  <button class="ghost-button" id="profileEncerrarOutras" type="button">Encerrar outras sess&otilde;es</button>
+                </div>
+              </div>
+              <div class="refresh-status" id="profileStatus" aria-live="polite"></div>
+            </article>
+          </div>
+        </section>
+
+      </div>
+
+      <aside class="editor-drawer" id="editorDrawer" aria-hidden="true">
+        <div class="editor-shell">
+          <div class="editor-header">
+            <div class="editor-header-copy">
+              <p class="eyebrow" id="editorEyebrow">Editor</p>
+              <h3 id="editorTitle">Selecione registros</h3>
+            </div>
+            <button class="icon-button" id="editorClose" type="button" aria-label="Fechar editor"><span aria-hidden="true">×</span></button>
+          </div>
+          <div class="editor-body" id="editorBody"></div>
+          <form class="editor-footer" id="editorForm">
+            <div class="editor-status" id="editorStatus">Nenhum item selecionado.</div>
+            <div class="editor-actions">
+              <button class="ghost-button danger-outline editor-delete-button" id="editorDelete" type="button" hidden>Excluir selecionado(s)</button>
+              <button class="ghost-button" id="editorClear" type="button">Limpar seleção</button>
+              <button class="primary-button" id="editorSave" type="submit">Salvar alterações</button>
+            </div>
+          </form>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+
+<!-- ===================== assistente de IA ===================== -->
+<button class="global-ai-launcher" id="globalAiLauncher" type="button" aria-label="Abrir assistente de IA" aria-haspopup="dialog" aria-expanded="false" aria-controls="globalAiChat">
+  <bms-ai-entity state="idle" size="49" decorative data-ai-entity-role="launcher"></bms-ai-entity>
+</button>
+
+<section class="global-ai-chat" id="globalAiChat" role="dialog" aria-modal="false" aria-label="Assistente da Smart Charge" aria-hidden="true">
+  <header class="global-ai-chat-header">
+    <button class="global-ai-chat-close" id="globalAiChatClose" type="button" aria-label="Fechar assistente"><span aria-hidden="true">×</span></button>
+  </header>
+  <div class="global-ai-chat-status" id="globalAiChatStatus">
+    <span class="global-ai-chat-status-dot" aria-hidden="true"></span>
+    <span>Pronta para responder sobre esta tela</span>
+  </div>
+  <div class="global-ai-chat-messages" id="globalAiChatMessages" aria-live="polite" aria-relevant="additions text"></div>
+  <form class="global-ai-chat-composer" id="globalAiChatForm">
+    <label class="sr-only" for="globalAiChatInput">Mensagem para o assistente</label>
+    <textarea id="globalAiChatInput" rows="2" placeholder="Pergunte sobre o retorno, os carregadores ou a cortesia."></textarea>
+    <div class="global-ai-chat-actions">
+      <button class="global-ai-chat-audio" id="globalAiChatAudio" type="button" hidden
+              aria-label="Gravar mensagem por áudio" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="8.5" y="3" width="7" height="12" rx="3.5"></rect>
+          <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"></path>
+        </svg>
+        <span>Áudio</span>
+      </button>
+      <button class="primary-button global-ai-chat-submit" type="submit">Enviar</button>
+    </div>
+  </form>
+</section>
+
+<div class="filter-modal profile-settings-modal" id="profileSettingsModal" aria-hidden="true">
+  <div class="filter-modal-dialog profile-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="profileSettingsTitle">
+    <div class="filter-modal-header">
+      <div>
+        <p class="eyebrow">Prefer&ecirc;ncias de acesso</p>
+        <h3 id="profileSettingsTitle">Configura&ccedil;&otilde;es</h3>
+      </div>
+      <button class="icon-button" id="profileSettingsClose" type="button" aria-label="Fechar configura&ccedil;&otilde;es"><span aria-hidden="true">&times;</span></button>
+    </div>
+    <div class="filter-modal-body">
+      <div class="filter-modal-card profile-settings-card">
+
+        <div class="todo-item collapsible-card" data-collapsible>
+          <button class="collapse-toggle" type="button" data-collapse-toggle aria-expanded="false">
+            <strong>Alterar nome do perfil</strong>
+            <span class="collapse-icon">+</span>
+          </button>
+          <div class="collapse-body">
+            <form id="formNome" class="inline-form">
+              <input class="text-input" type="text" id="novoNome" placeholder="Novo nome exibido" maxlength="80" required>
+              <input class="text-input" type="password" id="nomeSenhaAtual" placeholder="Senha atual" autocomplete="current-password" required>
+              <span class="form-helper">Esse nome aparece no painel. Confirme com sua senha atual.</span>
+              <button class="ghost-button" type="submit">Salvar nome do perfil</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="todo-item collapsible-card" data-collapsible>
+          <button class="collapse-toggle" type="button" data-collapse-toggle aria-expanded="false">
+            <strong>Alterar senha</strong>
+            <span class="collapse-icon">+</span>
+          </button>
+          <div class="collapse-body">
+            <form id="formSenha" class="inline-form">
+              <input class="text-input" type="password" id="senhaAtual" placeholder="Senha atual" autocomplete="current-password" required>
+              <input class="text-input" type="password" id="senhaNova" placeholder="Nova senha" minlength="8" autocomplete="new-password" required>
+              <input class="text-input" type="password" id="senhaConfirma" placeholder="Confirme a nova senha" minlength="8" autocomplete="new-password" required>
+              <span class="form-helper">Trocar a senha encerra suas sess&otilde;es nos outros computadores.</span>
+              <button class="ghost-button" type="submit">Salvar senha</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="todo-item collapsible-card" data-collapsible>
+          <button class="collapse-toggle" type="button" data-collapse-toggle aria-expanded="false">
+            <strong>Alterar foto de perfil</strong>
+            <span class="collapse-icon">+</span>
+          </button>
+          <div class="collapse-body">
+            <form id="formFoto" class="inline-form">
+              <input class="text-input" type="file" id="fotoArquivo" accept="image/png,image/jpeg,image/webp">
+              <span class="form-helper">A imagem &eacute; recortada em quadrado e reduzida a 128px antes de ser guardada.</span>
+              <div class="foto-previa" id="fotoPrevia" hidden><img id="fotoPreviaImg" alt=""></div>
+              <div class="filter-modal-actions">
+                <button class="ghost-button" type="button" id="fotoRemover">Remover foto</button>
+                <button class="ghost-button" type="submit" id="fotoAplicar" disabled>Aplicar foto</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="todo-item profile-settings-option">
+          <div class="profile-settings-option-head">
+            <strong>Atualiza&ccedil;&atilde;o autom&aacute;tica</strong>
+            <span class="info-tooltip" tabindex="0" role="note" aria-label="Configura a atualiza&ccedil;&atilde;o autom&aacute;tica dos dados">
+              <span class="info-badge" aria-hidden="true">i</span>
+              <span class="info-tooltip-text">Busca os dados de novo em segundo plano, sem voc&ecirc; recarregar a p&aacute;gina.</span>
+            </span>
+          </div>
+          <span>Ative para manter os n&uacute;meros do painel se atualizando sozinhos.</span>
+          <label class="settings-toggle" for="autoRefreshEnabled">
+            <input type="checkbox" id="autoRefreshEnabled">
+            <span>Ativar atualiza&ccedil;&atilde;o autom&aacute;tica</span>
+          </label>
+          <label class="settings-select-field" id="autoRefreshIntervalField" for="autoRefreshInterval" hidden>
+            <span>Intervalo de atualiza&ccedil;&atilde;o</span>
+            <select class="text-input" id="autoRefreshInterval">
+              <option value="60000">1 min</option>
+              <option value="300000">5 min</option>
+              <option value="900000">15 min</option>
+              <option value="1800000">30 min</option>
+            </select>
+          </label>
+        </div>
+
+      </div>
+      <div class="refresh-status" id="profileSettingsStatus" aria-live="polite"></div>
+    </div>
+  </div>
+</div>
+
+<div class="filter-modal logout-confirm-modal" id="logoutModal" aria-hidden="true">
+  <div class="filter-modal-dialog logout-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="logoutTitulo">
+    <div class="filter-modal-header">
+      <div>
+        <p class="eyebrow">Encerrar sessão</p>
+        <h3 id="logoutTitulo">Confirmar logout</h3>
+      </div>
+      <button class="icon-button" id="logoutFechar" type="button" aria-label="Fechar confirmação"><span aria-hidden="true">×</span></button>
+    </div>
+    <div class="filter-modal-body">
+      <div class="filter-modal-card logout-confirm-card">
+        <div class="delete-confirm-copy">
+          <strong>Sair do painel</strong>
+          <p>A sessão será encerrada neste e nos outros computadores onde você a deixou aberta.</p>
+        </div>
+        <div class="filter-modal-actions">
+          <button class="ghost-button" id="logoutCancelar" type="button">Cancelar</button>
+          <button class="primary-button danger-button" id="logoutConfirmar" type="button">Sair</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
+
+<script type="module" src="./app.js?v=20260905j"></script>
+</body>
+</html>
