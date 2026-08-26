@@ -21,7 +21,7 @@
 // mas importar aqui também deixa o tour.js autocontido, sem depender da
 // ordem de import de outro módulo — customElements.define() já se protege
 // contra registro duplicado.
-import "./aiEntity.js?v=20260908b";
+import "./aiEntity.js?v=20260908c";
 
 /**
  * @typedef {Object} TourStep
@@ -57,7 +57,7 @@ const TOUR_STEPS = [
     body: "No lápis de cada painel você adiciona e remove cards pela biblioteca. Compartilhado, todos da loja veem a mesma versão." },
   { id: "carregadores", section: "carregadores", target: '[data-section="carregadores"]', placement: "right",
     title: "Carregadores",
-    body: "Cada ponto pode ser cortesia ou cobrança por kWh. A vaga da frente atrai cliente; a dos fundos pode cobrar." },
+    body: "Cada ponto tem o seu preço por kWh e o seu percentual de cashback. A vaga da frente pode devolver mais que a dos fundos." },
   { id: "sessoes", section: "sessoes", target: '[data-section="sessoes"]', placement: "right",
     title: "Sessões",
     body: "Cada recarga, com energia entregue, quilômetros e a venda que ela trouxe." },
@@ -70,8 +70,8 @@ const TOUR_STEPS = [
     title: "Cadastros",
     body: "Dados do estabelecimento e os painéis salvos. É onde a margem e o ticket da loja são definidos." },
   { id: "financeiro", section: "financeiro", target: "#screen-financeiro", placement: "top",
-    title: "Quanto de cortesia cabe",
-    body: "Com a sua margem e o seu ticket, o painel calcula o teto de cortesia que não dá prejuízo." },
+    title: "Quanto de cashback cabe",
+    body: "Com a sua margem, o seu ticket e a margem da energia, o painel calcula o teto de cashback que não dá prejuízo." },
   { id: "ia", section: null, target: "#globalAiLauncher", placement: "left",
     title: "Assistente",
     body: "A esfera no canto responde perguntas sobre o que está na tela. Pronto — é só isso." },
