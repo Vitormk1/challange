@@ -68,6 +68,15 @@ body.editando-painel .global-ai-command { display: none !important; }
 .dashboard-card.is-resizing::before { opacity: 1 !important; border-style: solid; }
 .dashboard-card.is-resizing { z-index: 6; }
 /* durante o arrasto o cursor é do card, não do que estiver embaixo dele */
+/* Subir e descer card só existem no celular, onde arrastar não funciona.
+   No desktop quem manda é o punho de arrastar, e duas setas a mais só
+   poluiriam o canto do card. */
+.dashboard-card-tool-mover { display: none; }
+
+/* No desktop o cabeçalho da tabela é clicável e já ordena; a lista só
+   apareceria repetindo o que a coluna faz melhor. */
+.table-ordenar-celular { display: none; }
+
 body.dashboard-card-resizing,
 body.dashboard-card-resizing * { user-select: none !important; }
 
@@ -488,4 +497,225 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
 }
 @media (prefers-reduced-motion: reduce) {
   .global-ai-chat-message { animation: none; }
+}
+
+/* ==========================================================================
+   Celular
+
+   O style.css da referência já vira a barra lateral em gaveta abaixo de
+   1180px, mas para de aí: a grade continua com duas colunas de card e altura
+   travada em linhas de 96px. Num aparelho de 375px isso dá card de 167px —
+   largura em que um gráfico de linha vira um risco e um número de quatro
+   dígitos encosta nas duas bordas.
+
+   Daqui para baixo, então, o painel é outro desenho, e não o mesmo apertado:
+   uma coluna, altura pelo conteúdo, tabela em forma de lista e alvo de toque
+   grande o bastante para um dedo. 720px é o corte porque é onde duas colunas
+   deixam de caber sem espremer.
+   ========================================================================== */
+@media (max-width: 720px) {
+
+  /* ---- grade: uma coluna, altura pelo conteúdo ---- */
+  /* O !important é obrigatório: a referência declara o span do card com
+     !important dentro do próprio media query dela. */
+  .dashboard-canvas-grid-large,
+  .dashboard-canvas-grid-small {
+    grid-template-columns: 1fr !important;
+    grid-auto-rows: auto !important;
+    gap: 12px !important;
+  }
+  #dashboardCanvas [data-dashboard-card] {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+
+  /* A altura no celular não vem daqui: a referência a calcula a partir de
+     --dashboard-mobile-row-span, e quem decide esse número por card é o
+     aplicarSpans() do app.js. Aqui só cuidamos da largura. */
+
+  /* A referência esconde a linha de contexto do KPI no celular, e faz sentido
+     no desenho dela: lá o card tem metade da tela. Aqui ele tem a tela toda,
+     e sem essa linha sobra um número sem o que ele significa. */
+  .dashboard-canvas-grid-small > [data-dashboard-card],
+  .dashboard-kpi-card { height: auto !important; min-height: 108px !important; }
+  .dashboard-kpi-card .dashboard-kpi-meta { display: block; }
+
+  .dashboard-canvas { padding: 0; }
+  .dashboard-canvas-group + .dashboard-canvas-group { margin-top: 18px; }
+
+  /* ---- ferramentas do card ---- */
+  /* Arrastar card é HTML5 drag-and-drop, que o toque não dispara. No celular
+     o punho sai e entram duas setas — a ordem é vertical mesmo, então subir e
+     descer dizem exatamente o que vai acontecer. */
+  .dashboard-card-tool-handle { display: none !important; }
+  .dashboard-card-tool-mover { display: inline-flex; }
+  .dashboard-card-tool { min-width: 34px; min-height: 34px; }
+
+  /* ---- topo ---- */
+  .topbar { gap: 10px; padding: 12px; }
+  .topbar-side { flex-wrap: wrap; gap: 8px; }
+  #topbarActions .primary-button { flex: 1 1 auto; min-height: 42px; }
+  .global-ai-command-field { min-height: 46px; }
+  /* a moldura tem 46px, mas quem recebe o toque é o input — e ele tinha 19 */
+  .global-ai-command-field input { min-height: 40px; }
+
+  /* ---- abrir a gaveta ---- */
+  /* A referência põe esse botão colado na borda esquerda, com 30px e metade
+     para fora da tela — some atrás do dedo antes de ser tocado. No celular
+     ele vira um alvo redondo de 48px na parte de baixo, que é onde o polegar
+     alcança sem trocar a mão de posição. */
+  .sidebar-toggle.sidebar-edge-toggle {
+    top: auto !important;
+    bottom: 18px;
+    left: 14px !important;
+    width: 48px;
+    height: 48px;
+    border-radius: 999px;
+    transform: none !important;
+    box-shadow: 0 8px 22px rgba(10, 12, 20, 0.28);
+  }
+  .sidebar-edge-toggle svg { width: 17px; height: 17px; }
+
+  /* ---- painéis e biblioteca ---- */
+  .dashboard-workspaces-menu {
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  /* A barra de edição é item de grade dentro da casca, não uma faixa solta:
+     posicionar por left/right aqui não faria nada. O que muda é a quebra —
+     nome numa linha, os dois botões dividindo a de baixo. */
+  .dashboard-manager-shell.is-editing .dashboard-manager-editbar {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px;
+  }
+  .dashboard-manager-editbar-title { flex: 1 1 100%; }
+  .dashboard-manager-editbar-actions { flex: 1 1 100%; }
+  .dashboard-manager-editbar-actions > * { flex: 1 1 0; min-height: 42px; }
+  /* o aviso de que o menu lateral não se edita só ocupa altura numa tela
+     onde o menu lateral nem está à vista */
+  .dashboard-manager-sidebar-placeholder { display: none; }
+  .dashboard-library-fab { right: 14px; bottom: 18px; width: 52px; height: 52px; }
+
+  /* ---- conversa com a assistente ---- */
+  .global-ai-chat {
+    left: 8px !important; right: 8px !important;
+    top: 8px !important; bottom: 8px !important;
+    width: auto !important; height: auto !important;
+    /* Com o teclado aberto, `bottom` continua medindo a janela inteira e o
+       campo de escrever fica atrás do teclado. `dvh` mede o que sobrou de
+       fato; onde não existir, o max-height simplesmente não se aplica e a
+       conversa volta a ser o que era. */
+    max-height: calc(100dvh - 16px) !important;
+  }
+  .global-ai-chat-message { max-width: 92%; }
+
+  /* ---- tabela vira lista ---- */
+  /* Rolar 768px de tabela dentro de 315px de tela é procurar a coluna com o
+     dedo. Cada linha vira um cartão com rótulo à esquerda e valor à direita:
+     some a rolagem lateral e o registro passa a ser lido de uma vez. */
+  .table-screen .table-scroll { overflow: visible; }
+  .table-screen thead { display: none; }
+  .table-screen table,
+  .table-screen tbody,
+  .table-screen tr,
+  .table-screen td { display: block; width: 100%; }
+  .table-screen tbody tr {
+    position: relative;
+    border: 1px solid var(--line, rgba(22, 22, 26, 0.12));
+    border-radius: 14px;
+    padding: 10px 46px 10px 12px;
+    margin-bottom: 10px;
+    background: var(--surface-strong, #fff);
+  }
+  .table-screen tbody td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    border: 0;
+    padding: 5px 0;
+    text-align: right;
+  }
+  .table-screen tbody td::before {
+    content: attr(data-rotulo);
+    flex: 0 0 40%;
+    text-align: left;
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  /* a caixa de seleção não é um campo do registro: vai no canto do cartão */
+  .table-screen tbody td:first-child {
+    position: absolute;
+    top: 10px; right: 12px;
+    width: auto;
+    padding: 0;
+  }
+  .table-screen tbody td:first-child::before { content: none; }
+  /* a linha de "nada encontrado" não é registro: sem rótulo, sem canto */
+  .table-screen tbody td[colspan] { padding-right: 0; text-align: left; }
+  .table-screen tbody tr:has(td[colspan]) { padding-right: 12px; }
+
+  /* cada linha já virou um cartão com borda; a moldura do card em volta só
+     estaria cobrando 32px de largura para desenhar a mesma coisa duas vezes */
+  .table-card { padding: 10px; }
+  /* a caixa de seleção é o único alvo de toque do cartão: 18px é metade do
+     que um polegar acerta, e errar aqui marca a linha errada */
+  .table-screen tbody td:first-child { width: 32px; }
+  .table-screen .row-check,
+  .table-screen .head-check { width: 22px; height: 22px; }
+
+  .table-toolbar { flex-wrap: wrap; gap: 10px; }
+  .toolbar-left, .toolbar-right { flex: 1 1 100%; flex-wrap: wrap; }
+  .table-search { flex: 1 1 100%; }
+  /* height, não min-height: o style.css da referência fixa a altura do campo,
+     e um mínimo menor que um valor declarado não muda nada */
+  .table-search input { width: 100%; height: 42px; }
+  /* `.toolbar-left` é display:contents, então quem organiza estes três é a
+     `.table-toolbar` — e ela é grade, não flex. Largura e coluna cobrem os
+     dois casos sem depender de qual é. */
+  .table-ordenar-celular {
+    display: block;
+    flex: 1 1 100%;
+    width: 100%;
+    grid-column: 1 / -1;
+  }
+  .table-ordenar-celular select {
+    width: 100%;
+    min-height: 42px;
+    padding: 0 10px;
+    border-radius: 10px;
+    border: 1px solid var(--line, rgba(22, 22, 26, 0.14));
+    background: var(--surface-strong, #fff);
+    color: var(--text);
+    font: inherit;
+  }
+
+  /* ---- gaveta de edição ---- */
+  .editor-shell { width: auto; max-width: none; margin: 0 10px; }
+  .editor-body { max-height: 60vh; }
+  .editor-footer { flex-wrap: wrap; gap: 8px; }
+  .editor-footer button { flex: 1 1 auto; min-height: 42px; }
+}
+
+/* Dedo, não ponteiro: o corte é o apontador, porque quem erra um alvo de
+   36px é o dedo — num celular de 375px ou num tablet de 1024px. */
+@media (pointer: coarse) {
+  .icon-button,
+  .global-ai-command-submit,
+  .global-ai-chat-close { min-width: 42px; min-height: 42px; }
+}
+
+/* Tela muito estreita (iPhone SE e afins): o número do KPI é o que estoura
+   primeiro, porque a referência o dimensiona por vw. */
+@media (max-width: 380px) {
+  .dashboard-kpi-value { font-size: 1.35rem; }
+  .table-screen tbody td::before { flex-basis: 46%; }
 }

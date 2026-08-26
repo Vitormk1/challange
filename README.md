@@ -43,7 +43,8 @@ docs/
     api.js          a conversa com a API, e o redirecionamento do Pages
     style.css       a folha da referência (447 KB), copiada sem alterar layout
     marca.css       a identidade preto-e-vermelho: só tokens de cor
-    painel.css      o que é nosso: redimensionar cards, avisos, balões, curva
+    painel.css      o que é nosso: redimensionar cards, avisos, balões, curva,
+                    e o desenho do painel no celular
     login.css       a tela de entrada, com tokens próprios
     static/         o tour guiado e a esfera da assistente, da referência
 api/
@@ -275,6 +276,45 @@ Exclusão que apagaria histórico é **recusada**, com número:
 As chaves estrangeiras são `RESTRICT`, não `CASCADE`. Antes disso, apagar um
 carregador levava junto 69 sessões, 671 leituras e 69 cupons, e deixava 63
 vendas órfãs — em silêncio.
+
+---
+
+## O painel no celular
+
+O dono da loja não abre o painel sentado numa mesa. Ele abre no corredor, com
+uma mão, enquanto alguém espera. A folha da referência já encolhe a barra
+lateral abaixo de 1180px, mas para aí: a grade continua com duas colunas de
+card e altura travada em linhas de 96px. Num aparelho de 375px isso dá card de
+167px — largura em que o gráfico de linha vira um risco e o número de quatro
+dígitos encosta nas duas bordas.
+
+Abaixo de 720px o painel é outro desenho, e não o mesmo apertado:
+
+| No computador | No celular |
+|---|---|
+| duas colunas de card | uma, ocupando a tela |
+| altura pelas linhas do desktop | altura por card (`mob`, em `app.js`) |
+| arrastar pelo punho para reordenar | setas ↑ ↓ no canto do card |
+| puxar a borda para redimensionar | não existe: o card já ocupa a linha |
+| tabela com 768px de rolagem lateral | cada registro vira um cartão com rótulos |
+| ordenar clicando na coluna | lista de ordenação na barra de ferramentas |
+| barra lateral fixa | gaveta, fechada por padrão |
+
+Três decisões que valem o registro:
+
+- **Arrastar não existe no toque.** O punho usa HTML5 drag-and-drop, que o
+  dedo não dispara. Manter o punho no celular seria mostrar um controle que
+  não responde; as setas dizem exatamente o que vai acontecer.
+- **A tabela vira lista.** Rolar 768px de tabela dentro de 315px de tela é
+  procurar a coluna com o dedo. Cada linha vira um cartão com o rótulo à
+  esquerda e o valor à direita, e o registro passa a ser lido de uma vez.
+- **A preferência da barra lateral é do computador.** No celular a gaveta
+  começa sempre fechada, e abrir ou fechar ali não grava nada — senão uma
+  visita pelo telefone deixaria o painel do computador com o menu recolhido
+  na próxima vez.
+
+O que **não** muda é o desktop: os cortes são todos em media query, e acima de
+720px a página continua sendo a da referência, pixel por pixel.
 
 ---
 

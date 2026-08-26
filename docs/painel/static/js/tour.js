@@ -21,7 +21,7 @@
 // mas importar aqui também deixa o tour.js autocontido, sem depender da
 // ordem de import de outro módulo — customElements.define() já se protege
 // contra registro duplicado.
-import "./aiEntity.js?v=20260904h";
+import "./aiEntity.js?v=20260905j";
 
 /**
  * @typedef {Object} TourStep
@@ -476,9 +476,15 @@ export function createTourModule({
     if (!btn) return;
 
     let referenceRect = null;
-    if (pill && !pill.hidden) {
+    // O `hidden` do atributo não é a única forma de o pill sumir: fora da
+    // seção do painel ele sai por display:none, e aí `pill.hidden` continua
+    // false e o retângulo vem todo zerado. Com left = 0, a conta abaixo dava
+    // right = innerWidth + 12 e jogava o "?" para fora da tela pela esquerda
+    // — no celular ele parava em x = -50, sem jeito de ser tocado. Medir a
+    // largura é o que distingue "escondido de outro jeito" de "está aí".
+    const pillRect = pill && !pill.hidden ? pill.getBoundingClientRect() : null;
+    if (pillRect && pillRect.width > 0) {
       const gap = 12;
-      const pillRect = pill.getBoundingClientRect();
       btn.style.right = `${Math.round(window.innerWidth - pillRect.left + gap)}px`;
       referenceRect = pillRect;
     } else {

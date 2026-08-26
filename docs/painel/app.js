@@ -16,9 +16,9 @@
       a tela de login diz isso, e é só o que ela faz.
    ========================================================================== */
 
-import "./static/js/aiEntity.js?v=20260904h";
-import { createTourModule } from "./static/js/tour.js?v=20260904h";
-import { api, BASE, ErroApi } from "./api.js?v=20260904h";
+import "./static/js/aiEntity.js?v=20260905j";
+import { createTourModule } from "./static/js/tour.js?v=20260905j";
+import { api, BASE, ErroApi } from "./api.js?v=20260905j";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -263,17 +263,22 @@ function erroPrevisao(s){
 /* ==========================================================================
    biblioteca de cards
    ========================================================================== */
-/* `min` é o menor tamanho em que o card ainda diz alguma coisa. Um gráfico de
+/* `mob` é a altura do card no celular, em linhas de 96px, e existe porque lá
+   a largura não é mais escolha de ninguém: o card ocupa a tela toda. Sem esse
+   número o card herda as 4 ou 5 linhas do desktop e vira uma coluna de 426px
+   de altura para mostrar um número de quatro dígitos.
+
+   `min` é o menor tamanho em que o card ainda diz alguma coisa. Um gráfico de
    linha espremido em 4 colunas vira um risco; um KPI de duas linhas de texto
    aguenta bem menos espaço. Sem esse piso por card, redimensionar quebra
    justamente os cards que mais importam. */
 const CARDS = {
-  retorno:  {t:"Lucro atribuído × custo", g:"Retorno",  tam:"large", cols:11, rows:4, min:{cols:7, rows:3}, financeiro:true},
-  teto:     {t:"Teto de cortesia",        g:"Retorno",  tam:"large", cols:9,  rows:4, min:{cols:5, rows:3}, financeiro:true},
-  horas:    {t:"Sessões por hora",        g:"Operação", tam:"large", cols:11, rows:4, min:{cols:7, rows:3}},
-  pontos:   {t:"Carregadores",            g:"Operação", tam:"large", cols:9,  rows:4, min:{cols:5, rows:3}},
-  previsao: {t:"Erro da previsão",        g:"Operação", tam:"large", cols:9,  rows:4, min:{cols:7, rows:3}},
-  curva:    {t:"Curva de recarga",        g:"Operação", tam:"large", cols:20, rows:5, min:{cols:9, rows:4}},
+  retorno:  {t:"Lucro atribuído × custo", g:"Retorno",  tam:"large", cols:11, rows:4, min:{cols:7, rows:3}, mob:3, financeiro:true},
+  teto:     {t:"Teto de cortesia",        g:"Retorno",  tam:"large", cols:9,  rows:4, min:{cols:5, rows:3}, mob:3, financeiro:true},
+  horas:    {t:"Sessões por hora",        g:"Operação", tam:"large", cols:11, rows:4, min:{cols:7, rows:3}, mob:3},
+  pontos:   {t:"Carregadores",            g:"Operação", tam:"large", cols:9,  rows:4, min:{cols:5, rows:3}, mob:3},
+  previsao: {t:"Erro da previsão",        g:"Operação", tam:"large", cols:9,  rows:4, min:{cols:7, rows:3}, mob:3},
+  curva:    {t:"Curva de recarga",        g:"Operação", tam:"large", cols:20, rows:5, min:{cols:9, rows:4}, mob:4},
   lucro:    {t:"Lucro atribuído",         g:"Retorno",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
   vendas:   {t:"Vendas atribuídas",       g:"Retorno",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
   sessoes:  {t:"Sessões no período",      g:"Operação", tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}},
@@ -312,7 +317,12 @@ let prefsPendentes = null;
 function salvarPrefs(){
   state.prefs = {
     tema: state.prefs.tema ?? "system",
-    sidebarColapsada: document.body.classList.contains("sidebar-collapsed"),
+    // No celular a barra é uma gaveta e nasce fechada sempre. Gravar esse
+    // "fechada" como preferência faria o desktop abrir recolhido só porque a
+    // pessoa passou pelo celular uma vez — então lá o valor antigo é mantido.
+    sidebarColapsada: isCompactViewport()
+      ? Boolean(state.prefs.sidebarColapsada)
+      : document.body.classList.contains("sidebar-collapsed"),
     gruposFechados: $$(".nav-group.is-collapsed").map(g => g.dataset.navGroup),
     secao: state.section,
     painelAtivo: {...(state.prefs.painelAtivo || {}),
@@ -337,7 +347,8 @@ function salvarPrefs(){
 function aplicarPrefs(p){
   state.prefs = p && typeof p === "object" ? p : {};
   aplicarTema(state.prefs.tema || "system", false);
-  setSidebarCollapsed(Boolean(state.prefs.sidebarColapsada), false);
+  // gaveta fechada no celular, preferência gravada no desktop
+  setSidebarCollapsed(isCompactViewport() || Boolean(state.prefs.sidebarColapsada), false);
   const fechados = Array.isArray(state.prefs.gruposFechados) ? state.prefs.gruposFechados : ["cadastros"];
   $$(".nav-group").forEach(g => {
     g.classList.toggle("is-collapsed", fechados.includes(g.dataset.navGroup));
@@ -577,6 +588,24 @@ function initSidebar(){
   $("#sidebarToggleDesktop").onclick = () =>
     setSidebarCollapsed(!document.body.classList.contains("sidebar-collapsed"));
 
+  /* O véu atrás da gaveta é um ::before do .main-panel — pseudo-elemento não
+     recebe evento, então quem escuta é o painel inteiro, e só enquanto a
+     gaveta está aberta por cima dele. Sem isto, no celular, abrir a barra era
+     um caminho sem volta. */
+  $(".main-panel").addEventListener("click", ev => {
+    if (!isCompactViewport()) return;
+    if (document.body.classList.contains("sidebar-collapsed")) return;
+    if (ev.target.closest(".sidebar, .sidebar-edge-toggle")) return;
+    ev.preventDefault();
+    setSidebarCollapsed(true, false);
+  }, true);
+
+  // no celular, ir para uma seção fecha a gaveta: o conteúdo está atrás dela
+  addEventListener("resize", () => {
+    if (isCompactViewport()) return;
+    setSidebarCollapsed(Boolean(state.prefs.sidebarColapsada), false);
+  });
+
   $$("[data-nav-group-toggle]").forEach(b => b.onclick = () => {
     const g = b.closest(".nav-group");
     g.classList.toggle("is-collapsed");
@@ -722,7 +751,7 @@ function setSection(secao){
   fecharEditor();
   renderSecaoAtual();
   salvarPrefs();
-  document.body.classList.remove("sidebar-open");
+  if (isCompactViewport()) setSidebarCollapsed(true, false);
 }
 const canAccessSection = s => Boolean(SECOES[s]) && podeVer(s);
 
@@ -774,7 +803,7 @@ function renderTabela(secao){
     <tr class="${u.selecionados.has(l.id) ? "is-selected" : ""}">
       <td><input class="row-check" type="checkbox" data-linha="${l.id}" ${u.selecionados.has(l.id) ? "checked" : ""}
                  aria-label="Selecionar registro" ${editavel ? "" : "disabled"}></td>
-      ${cfg.colunas.map(c => `<td>${c.v(l)}</td>`).join("")}
+      ${cfg.colunas.map(c => `<td data-rotulo="${esc(c.r)}">${c.v(l)}</td>`).join("")}
     </tr>`).join("")
     : `<tr><td colspan="${cfg.colunas.length + 1}">
          <div class="empty-state">${esc(termo ? "Nada encontrado para esta busca." : cfg.vazio)}</div></td></tr>`;
@@ -793,6 +822,15 @@ function renderTabela(secao){
           <label class="table-search">
             <input type="search" placeholder="Buscar em ${esc(SECOES[secao].titulo.toLowerCase())}"
                    value="${esc(u.busca)}" data-busca="${secao}">
+          </label>
+          <label class="table-ordenar-celular">
+            <span class="sr-only">Ordenar por</span>
+            <select data-ordenar-celular>
+              <option value="">Ordem padrão</option>
+              ${cfg.colunas.map((c, i) => `
+                <option value="${i}:1" ${ordem?.col === i && ordem.dir === 1 ? "selected" : ""}>${esc(c.r)} ↑</option>
+                <option value="${i}:-1" ${ordem?.col === i && ordem.dir === -1 ? "selected" : ""}>${esc(c.r)} ↓</option>`).join("")}
+            </select>
           </label>
         </div>
         <div class="toolbar-right">
@@ -837,6 +875,16 @@ function renderTabela(secao){
     campo.focus(); campo.setSelectionRange(campo.value.length, campo.value.length);
     salvarPrefs();
   };
+  /* No celular o cabeçalho da tabela não existe — cada linha virou um cartão
+     — e com ele iriam embora os botões de ordenar. Esta lista põe a mesma
+     escolha onde ainda há cabeçalho: a barra de ferramentas. */
+  const ordenarCelular = $("[data-ordenar-celular]", alvo);
+  if (ordenarCelular) ordenarCelular.onchange = () => {
+    const [col, dir] = ordenarCelular.value.split(":");
+    u.ordem = ordenarCelular.value ? {col: Number(col), dir: Number(dir)} : null;
+    renderTabela(secao); salvarPrefs();
+  };
+
   $$("[data-ordenar]", alvo).forEach(b => b.onclick = () => {
     const i = Number(b.dataset.ordenar);
     const atual = u.ordem ?? cfg.ordemPadrao ?? null;
@@ -1040,6 +1088,14 @@ function renderPainel(){
         <button class="dashboard-card-tool" type="button" data-dashboard-card-remove="${c.id}" aria-label="Remover ${esc(CARDS[c.id].t)}">
           <span aria-hidden="true">−</span>
         </button>
+        <button class="dashboard-card-tool dashboard-card-tool-mover" type="button"
+                data-dashboard-card-subir="${c.id}" aria-label="Subir ${esc(CARDS[c.id].t)}">
+          <span aria-hidden="true">↑</span>
+        </button>
+        <button class="dashboard-card-tool dashboard-card-tool-mover" type="button"
+                data-dashboard-card-descer="${c.id}" aria-label="Descer ${esc(CARDS[c.id].t)}">
+          <span aria-hidden="true">↓</span>
+        </button>
         <button class="dashboard-card-tool dashboard-card-tool-handle" type="button" draggable="true"
                 data-dashboard-card-handle="${c.id}" aria-label="Mover ${esc(CARDS[c.id].t)}">
           <span aria-hidden="true">⋮⋮</span>
@@ -1069,8 +1125,16 @@ function aplicarSpans(cards){
     no.style.gridRow = `span ${c.rows}`;
     no.style.setProperty("--dashboard-card-col-span", String(c.cols));
     no.style.setProperty("--dashboard-card-row-span", String(c.rows));
-    no.style.setProperty("--dashboard-mobile-col-span", "1");
-    no.style.setProperty("--dashboard-mobile-row-span", String(c.rows));
+    // No celular o card ocupa a largura toda, e a altura vem do `mob` do
+    // catálogo — não das linhas do desktop, que ali só produziriam um card
+    // alto e vazio. Card pequeno cabe em uma linha; gráfico precisa de três.
+    // Entre 720 e 1180px (tablet em pé) a grade da referência tem duas
+    // colunas e ainda vale usá-las: gráfico ocupa as duas, indicador ocupa
+    // uma. Abaixo de 720 o painel.css força tudo a ocupar a linha inteira, e
+    // este número deixa de importar.
+    no.style.setProperty("--dashboard-mobile-col-span", c.grupo === "large" ? "2" : "1");
+    no.style.setProperty("--dashboard-mobile-row-span",
+                         String(CARDS[c.id]?.mob ?? (c.grupo === "large" ? 3 : 1)));
   });
 }
 
@@ -1150,6 +1214,25 @@ function ligarArrasto(p, cards){
     };
   });
 
+  /* Mover no toque. A ordem que importa é a de dentro do grupo, porque os dois
+     grupos são grades separadas — trocar com um card do outro grupo não teria
+     para onde ir. */
+  const mover = (id, passo) => {
+    const grupo = cards.filter(c => c.grupo === cards.find(x => x.id === id)?.grupo);
+    const i = grupo.findIndex(c => c.id === id);
+    const j = i + passo;
+    if (i < 0 || j < 0 || j >= grupo.length) return;
+    const de = cards.indexOf(grupo[i]), para = cards.indexOf(grupo[j]);
+    const novo = cards.slice();
+    [novo[de], novo[para]] = [novo[para], novo[de]];
+    guardarLayout(p, novo);
+    renderPainel();
+  };
+  $$("#dashboardCanvas [data-dashboard-card-subir]").forEach(b =>
+    b.onclick = () => mover(b.dataset.dashboardCardSubir, -1));
+  $$("#dashboardCanvas [data-dashboard-card-descer]").forEach(b =>
+    b.onclick = () => mover(b.dataset.dashboardCardDescer, 1));
+
   $$("#dashboardCanvas [data-dashboard-card-remove]").forEach(b => b.onclick = () => {
     const id = b.dataset.dashboardCardRemove;
     guardarLayout(p, cards.filter(c => c.id !== id));
@@ -1198,6 +1281,9 @@ function ligarRedimensionar(p, cards){
 
     card.onpointerdown = ev => {
       if (!state.paineis.editando || ev.button !== 0) return;
+      // no celular o card já ocupa a linha inteira; não há o que redimensionar,
+      // e uma borda de 8px é menor que a ponta de um dedo
+      if (isCompactViewport()) return;
       // clique em botão do card (remover, mover, link) não é redimensionar
       if (ev.target.closest("button, a, input, select")) return;
       const modo = modoDeRedimensionar(card, ev);
@@ -1352,7 +1438,10 @@ function renderWorkspaces({animar = false} = {}){
     state.paineis.ativo = Number(b.dataset.painelEditar);
     state.paineis.editando = true;
     fecharMenuPaineis(); renderPainel();
-    toast("Arraste pelo punho, puxe o canto para redimensionar, use o + para adicionar.");
+    // no celular não há punho nem canto para puxar: a instrução seria mentira
+    toast(isCompactViewport()
+      ? "Use as setas do card para reordenar e o + para adicionar."
+      : "Arraste pelo punho, puxe o canto para redimensionar, use o + para adicionar.");
   });
   $$("[data-painel-excluir]", box).forEach(b => b.onclick = async () => {
     const id = Number(b.dataset.painelExcluir);

@@ -292,6 +292,15 @@
   .login-tema-op { width: 28px; height: 28px; }
 }
 
+/* Dedo, não ponteiro. O corte aqui é o tipo de apontador e não a largura da
+   tela, porque quem erra o alvo de 32px é o dedo — e ele existe tanto num
+   celular de 375px quanto num tablet de 1024px. Fica de fora do bloco de
+   tela baixa acima, que aperta os alvos de propósito para caber deitado. */
+@media (pointer: coarse) and (min-height: 461px) {
+  .login-olho { width: 42px; height: 42px; }
+  .login-tema-op { width: 38px; height: 38px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   }
 
