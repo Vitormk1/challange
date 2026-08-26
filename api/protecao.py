@@ -159,6 +159,24 @@ CSP = "; ".join([
     "object-src 'none'",
 ])
 
+# A página do mapa é a única que carrega imagem de fora, e ganha uma CSP
+# própria por isso. O que muda é só o img-src, e só nela.
+#
+# Por que não Google Maps: a API dele chega por <script> de maps.googleapis.com,
+# o que obrigaria a abrir `script-src` para um terceiro — e script de terceiro
+# na página pode tudo, inclusive ler o cookie de sessão de quem estiver logado
+# no painel na mesma origem. Ainda exigiria uma chave no cliente, numa página
+# que não pede login: qualquer um copiaria do código-fonte e gastaria a cota,
+# que é cobrada. Restrição por referrer ajuda e não resolve.
+#
+# Com Leaflet servido daqui, `script-src 'self'` continua intacto e o que se
+# abre é `img-src` para um host de tiles. Imagem não executa código, e a
+# diferença de superfície entre as duas escolhas é essa.
+#
+# `connect-src` NÃO é afetado: tile raster chega por <img>, não por fetch.
+TILES = "https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org"
+CSP_MAPA = CSP.replace("img-src 'self' data:", f"img-src 'self' data: {TILES}")
+
 CABECALHOS = {
     "Content-Security-Policy": CSP,
     "X-Content-Type-Options": "nosniff",
@@ -194,6 +212,10 @@ class CabecalhosDeSeguranca(BaseHTTPMiddleware):
         resposta = await call_next(request)
         for nome, valor in CABECALHOS.items():
             resposta.headers.setdefault(nome, valor)
+        # comparação exata, não `startswith`: um prefixo deixaria
+        # /painel/mapa.html.qualquer-coisa herdar a política afrouxada
+        if request.url.path == "/painel/mapa.html":
+            resposta.headers["Content-Security-Policy"] = CSP_MAPA
         protocolo = request.headers.get("x-forwarded-proto", request.url.scheme)
         if protocolo == "https":
             resposta.headers.setdefault("Strict-Transport-Security", HSTS)

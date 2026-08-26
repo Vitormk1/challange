@@ -255,6 +255,25 @@ def main() -> None:
     checar("assistente do site ignora estabelecimento_id",
            v.status_code == 400, f"HTTP {v.status_code}")
 
+    # ---- a CSP afrouxada do mapa ----
+    # A página do mapa é a única que carrega imagem de fora. O risco de uma
+    # exceção por caminho é ela vazar para o resto do site sem ninguém notar,
+    # e é isso que as três linhas abaixo vigiam: a exceção existe onde deve e
+    # NÃO existe onde não deve.
+    csp_mapa = m.headers.get("content-security-policy", "")
+    csp_site = r.headers.get("content-security-policy", "")
+    csp_painel = d.headers.get("content-security-policy", "")
+    checar("mapa aceita imagem do servidor de tiles",
+           "basemaps.cartocdn.com" in csp_mapa, csp_mapa[:40] or "sem CSP")
+    checar("apresentação NÃO herda a exceção do mapa",
+           "cartocdn" not in csp_site and "img-src 'self' data:;" in csp_site + ";")
+    checar("painel NÃO herda a exceção do mapa", "cartocdn" not in csp_painel)
+    # o afrouxamento é só de imagem: script de terceiro continua barrado
+    checar("mapa mantém script-src fechado",
+           "script-src 'self';" in csp_mapa + ";", csp_mapa[:60])
+    checar("mapa mantém connect-src fechado",
+           "connect-src 'self';" in csp_mapa + ";")
+
     # E a rota com banco continua exigindo sessão.
     v = anon.post(f"{API}/ia/perguntar",
                   json={"pergunta": "oi", "estabelecimento_id": 1}, timeout=TEMPO)

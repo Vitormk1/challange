@@ -47,6 +47,8 @@ docs/
     site.css        a folha dele — independente da referência
     site.js         carrossel das telas e menu do celular
     mapa.html       o mapa público de carregadores
+    mapa.css        o layout dele
+    mapa.js         Leaflet, pinos e a lista lateral
     dashboard.html  a página inteira: login, painel e os diálogos
     app.js          o painel — cards, edição, avisos, ditado, gráficos
     api.js          a conversa com a API, e o redirecionamento do Pages
@@ -55,7 +57,8 @@ docs/
     painel.css      o que é nosso: redimensionar cards, avisos, balões, curva,
                     e o desenho do painel no celular
     login.css       a tela de entrada, com tokens próprios
-    static/         o tour guiado e a esfera da assistente, da referência
+    static/         o tour guiado, a esfera da assistente e o Leaflet
+    orbe.css        a esfera, extraída do style.css da referência
 api/
   schema.sql        as tabelas e visões — o contrato de dados
   db.py             pool de conexões com o PostgreSQL e aplicação do esquema
@@ -285,6 +288,28 @@ Exclusão que apagaria histórico é **recusada**, com número:
 As chaves estrangeiras são `RESTRICT`, não `CASCADE`. Antes disso, apagar um
 carregador levava junto 69 sessões, 671 leituras e 69 cupons, e deixava 63
 vendas órfãs — em silêncio.
+
+---
+
+## O mapa de carregadores
+
+Aberto, sem login, em `/painel/mapa.html`. **Os pontos são inventados**: doze
+lojas em volta de São Paulo, geradas por semente fixa para a tela ser a mesma
+em toda apresentação, com um aviso disso ancorado no próprio mapa. Quando
+houver integração de verdade, o que muda é a origem de `PONTOS` no
+[mapa.js](docs/painel/mapa.js) — o resto da página não sabe de onde eles vêm.
+
+**Leaflet, não Google Maps**, e a razão é a Content-Security-Policy. A API do
+Google chega por `<script>` de `maps.googleapis.com`, o que obrigaria a abrir
+`script-src` para um terceiro — e script de terceiro na página pode tudo,
+inclusive ler o cookie de sessão de quem estiver logado no painel na mesma
+origem. Ainda exigiria uma chave no cliente, numa página que não pede login:
+qualquer um copiaria do código-fonte e gastaria a cota, que é cobrada.
+
+Com o Leaflet servido de `static/leaflet/`, `script-src 'self'` continua
+intacto e o que se abre é `img-src` para o host de tiles, só na página do
+mapa. Imagem não executa código. A auditoria vigia os dois lados: que a
+exceção exista lá e que **não** exista na apresentação nem no painel.
 
 ---
 

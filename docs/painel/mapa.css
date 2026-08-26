@@ -1,0 +1,296 @@
+/* ==========================================================================
+   Smart Charge — mapa de carregadores
+
+   Carrega o site.css só pelos tokens de cor e pelo .botao; o layout aqui é
+   outro. Mapa é a única página do projeto em que o conteúdo ocupa a janela
+   inteira e não rola: quem rola é o mapa, por dentro.
+   ========================================================================== */
+
+.pagina-mapa {
+  /* 100dvh e não 100vh: no celular a barra do navegador entra e sai, e com
+     vh o mapa ficava com uma faixa cortada embaixo o tempo todo. */
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--fundo-suave);
+}
+
+.pular {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 900;
+  padding: 12px 18px;
+  border-radius: 0 0 12px 0;
+  background: var(--preto);
+  color: #FFF;
+  text-decoration: none;
+  font-weight: 700;
+}
+.pular:focus { left: 0; }
+
+/* --------------------------------------------------------------- topo --- */
+.mapa-topo {
+  position: relative;
+  z-index: 500;          /* acima do mapa: o Leaflet usa até 400 */
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 66px;
+  padding: 0 18px;
+  background: var(--superficie);
+  border-bottom: 1px solid var(--linha);
+  box-shadow: 0 1px 12px rgba(13, 13, 15, 0.06);
+}
+.mapa-topo .marca { color: var(--texto); font-size: 1.04rem; }
+.mapa-topo .marca img { width: 30px; height: 30px; }
+.mapa-topo-acoes { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.mapa-botao-painel { min-height: 42px; padding: 0 18px; font-size: 0.9rem; }
+
+.mapa-botao-lista {
+  display: none;               /* só existe quando a lista vira gaveta */
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 0 15px;
+  border: 1px solid var(--linha-forte);
+  border-radius: 999px;
+  background: var(--superficie);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--texto);
+  cursor: pointer;
+}
+.mapa-botao-lista svg { width: 17px; height: 17px; }
+
+/* --------------------------------------------------------------- palco --- */
+.mapa-palco {
+  position: relative;
+  height: calc(100dvh - 66px);
+  display: grid;
+  grid-template-columns: 356px minmax(0, 1fr);
+}
+/* `grid-row: 1` nos dois, e não só `grid-column`. Sem isso a colocação
+   automática punha o mapa na coluna 2 da linha 1 e a lista, que pede a
+   coluna 1, não podia voltar atrás — abria uma segunda linha. A grade ficava
+   com `0px 834px` e o mapa herdava a linha de altura zero. */
+#mapa {
+  grid-column: 2;
+  grid-row: 1;
+  height: 100%;
+  background: #E8E9ED;         /* cor do tile antes de ele chegar */
+}
+
+/* --------------------------------------------------------------- lista --- */
+.mapa-lista {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--superficie);
+  border-right: 1px solid var(--linha);
+  z-index: 450;
+}
+.mapa-lista-topo {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 18px 14px;
+}
+.mapa-lista-topo h1 { font-size: 1.24rem; letter-spacing: -0.02em; }
+.mapa-lista-topo p { margin: 5px 0 0; font-size: 0.86rem; color: var(--texto-3); }
+.mapa-lista-fechar {
+  display: none;
+  margin-left: auto;
+  width: 36px; height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--fundo-suave);
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--texto-2);
+  cursor: pointer;
+}
+
+.mapa-busca {
+  position: relative;
+  display: block;
+  margin: 0 18px 12px;
+}
+.mapa-busca svg {
+  position: absolute;
+  left: 13px; top: 50%;
+  width: 17px; height: 17px;
+  transform: translateY(-50%);
+  color: var(--texto-3);
+  pointer-events: none;
+}
+.mapa-busca input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px 0 38px;
+  border: 1px solid var(--linha-forte);
+  border-radius: 12px;
+  background: var(--fundo);
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--texto);
+}
+.mapa-busca input:focus-visible { outline: 2px solid var(--vermelho); outline-offset: -1px; }
+
+.mapa-pontos {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0 12px 18px;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.mapa-ponto {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 6px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+.mapa-ponto:hover { background: var(--fundo-suave); }
+.mapa-ponto.is-ativo { background: var(--vermelho-claro); border-color: rgba(225, 37, 27, 0.3); }
+.mapa-ponto:focus-visible { outline: 2px solid var(--vermelho); outline-offset: 1px; }
+.mapa-ponto-marca {
+  display: grid;
+  place-items: center;
+  width: 38px; height: 38px;
+  border-radius: 11px;
+  background: var(--preto);
+  color: #FFF;
+}
+.mapa-ponto-marca svg { width: 19px; height: 19px; }
+.mapa-ponto b { display: block; font-size: 0.93rem; }
+.mapa-ponto small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.81rem;
+  color: var(--texto-3);
+}
+.mapa-ponto-selos { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.selo {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--fundo-suave);
+  color: var(--texto-2);
+}
+.selo.is-livre { background: #E7F6EE; color: #14653C; }
+.selo.is-ocupado { background: var(--vermelho-claro); color: #8A1616; }
+.mapa-vazio { padding: 22px 14px; font-size: 0.88rem; color: var(--texto-3); }
+
+/* --------------------------------------------------------------- pinos --- */
+/* O pino é um div com HTML dentro (L.divIcon), não uma imagem: assim ele usa
+   o vermelho da marca e continua nítido em tela retina, sem gerar PNG. */
+.pino {
+  display: grid;
+  place-items: center;
+  width: 34px; height: 34px;
+  border-radius: 50% 50% 50% 4px;
+  transform: rotate(-45deg);
+  background: var(--vermelho-forte);
+  border: 2px solid #FFF;
+  box-shadow: 0 3px 10px rgba(13, 13, 15, 0.35);
+  transition: transform 0.16s ease, background 0.16s ease;
+}
+.pino svg { width: 17px; height: 17px; color: #FFF; transform: rotate(45deg); }
+.pino.is-ocupado { background: var(--carvao); }
+.pino.is-ativo { transform: rotate(-45deg) scale(1.22); }
+.marcador-pino { background: none; border: 0; }
+
+.leaflet-popup-content-wrapper { border-radius: 14px; box-shadow: 0 12px 34px rgba(13, 13, 15, 0.22); }
+.leaflet-popup-content { margin: 14px 16px; font-family: var(--fonte); }
+.popup b { display: block; font-size: 0.96rem; color: var(--texto); }
+.popup small { display: block; margin-top: 3px; font-size: 0.82rem; color: var(--texto-3); }
+.popup-linhas { margin-top: 10px; display: grid; gap: 4px; font-size: 0.82rem; color: var(--texto-2); }
+.popup-linhas span b { display: inline; color: var(--texto); }
+
+/* --------------------------------------------------------------- aviso --- */
+.mapa-aviso {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  z-index: 460;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(13, 13, 15, 0.86);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #FFF;
+  font-size: 0.79rem;
+  line-height: 1.3;
+  box-shadow: 0 6px 20px rgba(13, 13, 15, 0.24);
+  /* passa clique para o mapa: é um aviso, não um controle */
+  pointer-events: none;
+}
+.mapa-aviso svg { flex: 0 0 auto; width: 15px; height: 15px; opacity: 0.85; }
+
+/* a atribuição do Leaflet é obrigação de licença; só encolhe */
+.leaflet-control-attribution { font-size: 0.66rem; background: rgba(255,255,255,0.82); }
+.leaflet-control-attribution a { color: var(--texto-2); }
+
+/* ==========================================================================
+   Celular
+
+   A lista deixa de ser coluna e vira gaveta por cima do mapa: numa tela de
+   375 não há como dar 356px a ela sem sobrar mapa nenhum.
+   ========================================================================== */
+@media (max-width: 860px) {
+  .mapa-topo { height: 60px; padding: 0 14px; gap: 10px; }
+  .mapa-topo .marca { font-size: 0.98rem; }
+  .mapa-botao-lista { display: inline-flex; }
+  .mapa-botao-painel { padding: 0 14px; font-size: 0.85rem; }
+
+  .mapa-palco { grid-template-columns: minmax(0, 1fr); height: calc(100dvh - 60px); }
+  #mapa { grid-column: 1; grid-row: 1; }
+
+  .mapa-lista {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: end;
+    max-height: 74%;
+    border-right: 0;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -10px 34px rgba(13, 13, 15, 0.22);
+    transform: translateY(101%);
+    transition: transform 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+  .mapa-lista.is-aberta { transform: none; }
+  .mapa-lista-fechar { display: block; }
+  .mapa-lista-topo { padding: 16px 16px 12px; }
+
+  /* com a gaveta fechada o aviso sobe um pouco, para não encostar na borda */
+  .mapa-aviso { bottom: 12px; font-size: 0.74rem; padding: 7px 12px; }
+}
+
+@media (max-width: 420px) {
+  /* "Acessar o painel" não cabe ao lado do logo e do botão de lista */
+  .mapa-botao-painel { font-size: 0; padding: 0 13px; }
+  .mapa-botao-painel::after { content: "Painel"; font-size: 0.85rem; }
+  .mapa-aviso { left: 12px; right: 12px; transform: none; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mapa-lista, .mapa-ponto, .pino { transition: none; }
+}

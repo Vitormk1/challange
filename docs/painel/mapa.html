@@ -2,85 +2,79 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Smart Charge — mapa de carregadores</title>
-<meta name="description" content="Mapa público dos pontos de recarga Smart Charge. Sem cadastro e sem login.">
+<meta name="description" content="Mapa dos pontos de recarga Smart Charge. Aberto, sem cadastro e sem login.">
 <meta name="robots" content="noindex">
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260906j">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260906j">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260906j">
-<link rel="stylesheet" href="./site.css?v=20260906j">
-<style>
-  /* Página de uma tela só: não vale um arquivo de folha para si. Quando o
-     mapa entrar, isto vira mapa.css e sai daqui. */
-  .espera {
-    min-height: 100svh;
-    display: grid;
-    place-items: center;
-    padding: 40px 0;
-    background: var(--fundo-suave);
-  }
-  .espera-caixa {
-    max-width: 620px;
-    text-align: center;
-    padding: clamp(30px, 5vw, 52px);
-    border: 1px solid var(--linha);
-    border-radius: var(--raio-g);
-    background: var(--superficie);
-    box-shadow: var(--sombra);
-  }
-  .espera-marca { justify-content: center; margin-bottom: 26px; color: var(--texto); }
-  .espera-pino {
-    display: grid;
-    place-items: center;
-    width: 62px; height: 62px;
-    margin: 0 auto 22px;
-    border-radius: 18px;
-    background: var(--vermelho-claro);
-    color: var(--vermelho-forte);
-  }
-  .espera-pino svg { width: 30px; height: 30px; }
-  .espera p { margin: 16px 0 0; color: var(--texto-2); }
-  .espera-acoes {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 12px;
-    margin-top: 30px;
-  }
-  @media (max-width: 520px) { .espera-acoes .botao { flex: 1 1 100%; } }
-</style>
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260907b">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260907b">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260907b">
+<link rel="stylesheet" href="./static/leaflet/leaflet.css?v=20260907b">
+<link rel="stylesheet" href="./site.css?v=20260907b">
+<link rel="stylesheet" href="./mapa.css?v=20260907b">
 </head>
-<body>
+<body class="pagina-mapa">
 
-<main class="espera">
-  <div class="espera-caixa">
-    <a class="marca espera-marca" href="./">
-      <img src="./img/logo.png" alt="" width="34" height="34">
-      Smart Charge
-    </a>
+<a class="pular" href="#lista">Pular para a lista de carregadores</a>
 
-    <div class="espera-pino" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
-           stroke-linecap="round" stroke-linejoin="round">
-        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
-        <circle cx="12" cy="10" r="3"></circle>
+<header class="mapa-topo">
+  <a class="marca" href="./">
+    <img src="./img/logo.png" alt="" width="30" height="30">
+    Smart Charge
+  </a>
+
+  <div class="mapa-topo-acoes">
+    <button class="mapa-botao-lista" id="botaoLista" type="button"
+            aria-expanded="false" aria-controls="painelLista">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" aria-hidden="true">
+        <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"></path>
       </svg>
-    </div>
-
-    <h1>O mapa entra na próxima etapa</h1>
-    <p>
-      Aqui vai ficar o mapa público dos pontos de recarga Smart Charge, com os
-      carregadores marcados e aberto a qualquer pessoa — sem cadastro e sem
-      login. A página de apresentação e o painel já estão no ar.
-    </p>
-
-    <div class="espera-acoes">
-      <a class="botao botao-principal" href="./">Voltar à apresentação</a>
-      <a class="botao botao-contorno" href="./dashboard.html">Abrir o painel</a>
-    </div>
+      <span>Lista</span>
+    </button>
+    <a class="botao botao-principal mapa-botao-painel" href="./dashboard.html">Acessar o painel</a>
   </div>
+</header>
+
+<main class="mapa-palco">
+  <div id="mapa" role="application" aria-label="Mapa dos pontos de recarga Smart Charge"></div>
+
+  <!-- Enquanto o mapa carrega, e para sempre em quem tem JavaScript
+       desligado, esta lista é a página. Ela não é enfeite de reserva: é a
+       mesma informação dos pinos, em texto. -->
+  <aside class="mapa-lista" id="painelLista" aria-labelledby="tituloLista">
+    <div class="mapa-lista-topo">
+      <div>
+        <h1 id="tituloLista">Pontos de recarga</h1>
+        <p id="contagemPontos">Carregando…</p>
+      </div>
+      <button class="mapa-lista-fechar" id="fecharLista" type="button" aria-label="Fechar a lista">×</button>
+    </div>
+
+    <label class="mapa-busca">
+      <span class="sr-only">Filtrar por nome, bairro ou segmento</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path>
+      </svg>
+      <input type="search" id="buscaPontos" placeholder="Filtrar por nome ou bairro" autocomplete="off">
+    </label>
+
+    <ul class="mapa-pontos" id="lista"></ul>
+  </aside>
+
+  <!-- O aviso de simulação fica ancorado no mapa, e não num rodapé: quem
+       está olhando o mapa nunca chega a um rodapé. -->
+  <p class="mapa-aviso" role="note">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9"></circle><path d="M12 11v5.5"></path><path d="M12 7.6h.01"></path>
+    </svg>
+    <span>Pontos simulados — localizações fictícias, para demonstração.</span>
+  </p>
 </main>
 
+<script src="./static/leaflet/leaflet.js?v=20260907b"></script>
+<script src="./mapa.js?v=20260907b"></script>
 </body>
 </html>

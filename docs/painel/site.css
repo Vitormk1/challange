@@ -747,23 +747,25 @@ h3 { font-size: clamp(1.05rem, 1.6vw, 1.25rem); letter-spacing: -0.01em; }
    conversa: no painel ela mora dentro do style.css da referência, que este
    site não carrega.
    ========================================================================== */
+/* Sem fundo, sem borda, sem sombra: a esfera flutua solta, que é como ela
+   aparece no painel — lá o .global-ai-launcher também é transparente. O
+   círculo preto que estava aqui competia com o próprio desenho da esfera,
+   que já tem halo e brilho próprios. */
 .ia-botao {
   position: fixed;
-  right: 22px;
-  bottom: 22px;
+  right: 20px;
+  bottom: 20px;
   z-index: 60;
   display: grid;
   place-items: center;
-  width: 62px; height: 62px;
+  width: 64px; height: 64px;
   padding: 0;
   border: 0;
-  border-radius: 999px;
-  background: var(--preto);
-  box-shadow: 0 14px 34px rgba(13, 13, 15, 0.34);
+  background: transparent;
   cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition: transform 0.18s ease;
 }
-.ia-botao:hover { transform: translateY(-3px); box-shadow: 0 20px 42px rgba(13, 13, 15, 0.42); }
+.ia-botao:hover { transform: translateY(-3px) scale(1.04); }
 .ia-botao:focus-visible { outline: 3px solid var(--vermelho); outline-offset: 3px; }
 
 /* Um convite, uma vez. Some no primeiro clique e não volta — balão que
@@ -973,7 +975,7 @@ h3 { font-size: clamp(1.05rem, 1.6vw, 1.25rem); letter-spacing: -0.01em; }
     width: auto;
     max-height: calc(100dvh - 16px);
   }
-  .ia-botao { right: 16px; bottom: 16px; width: 56px; height: 56px; }
+  .ia-botao { right: 14px; bottom: 14px; width: 58px; height: 58px; }
   .ia-chamariz { display: none; }
 }
 
