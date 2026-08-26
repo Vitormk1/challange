@@ -91,8 +91,21 @@
     });
     L.control.zoom({ position: "bottomright" }).addTo(mapa);
 
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-      maxZoom: 19,
+    /* A chave vem do servidor (config.js), não daqui: assim ela fica fora do
+       repositório, que é público e varrido por robô. Continua visível para
+       quem abrir o código-fonte — chave de basemap é de cliente por natureza
+       — e por isso merece restrição de domínio no painel da CARTO.
+
+       Sem chave, cai no endpoint anônimo, que funciona e é limitado. É o que
+       roda no ambiente local, onde ninguém precisa configurar nada. */
+    const chave = (window.CARTO_KEY || "").trim();
+    const tiles = chave
+      ? `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${chave}`
+      : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+
+    L.tileLayer(tiles, {
+      maxZoom: chave ? 20 : 19,
+      subdomains: "abcd",
       // atribuição é obrigação de licença dos dois, não gentileza
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
     }).addTo(mapa);
@@ -101,11 +114,15 @@
       const icone = L.divIcon({
         className: "marcador-pino",
         html: `<span class="pino${p.livre ? "" : " is-ocupado"}">${ICONE}</span>`,
-        iconSize: [34, 34],
-        iconAnchor: [17, 32],
-        popupAnchor: [0, -30],
+        // 42 e não 34: o pino desenhado continua com 34, mas o elemento que
+        // recebe o toque é este — e 34px é menos do que um polegar acerta.
+        // A folga extra é transparente, então nada muda na aparência.
+        iconSize: [42, 42],
+        iconAnchor: [21, 38],
+        popupAnchor: [0, -34],
       });
       const m = L.marker([p.lat, p.lng], { icon: icone, title: p.nome }).addTo(mapa);
+      // o popup não pode ser mais largo que a tela menos as margens do mapa
       m.bindPopup(`
         <div class="popup">
           <b>${p.nome}</b>
@@ -116,7 +133,7 @@
             <span>Cashback de <b>${p.cashback}%</b> para gastar na loja</span>
             <span>${p.livre ? `<b>${p.vagas} vaga(s) livre(s)</b>` : "Ocupado agora"}</span>
           </div>
-        </div>`);
+        </div>`, { maxWidth: Math.min(268, innerWidth - 56), autoPanPadding: [16, 16] });
       m.on("click", () => destacar(p.id, false));
       marcadores.set(p.id, m);
     });

@@ -274,6 +274,17 @@ def main() -> None:
     checar("mapa mantém connect-src fechado",
            "connect-src 'self';" in csp_mapa + ";")
 
+    # A rota que entrega a chave dos tiles não pode virar uma janela para o
+    # resto do ambiente: ela só existe para uma variável, e o teste garante
+    # que nada mais atravessou.
+    cfg = anon.get(f"{API}/painel/config.js", timeout=TEMPO)
+    checar("config.js responde", cfg.status_code == 200, f"HTTP {cfg.status_code}")
+    checar("config.js entrega só a chave dos tiles",
+           cfg.text.count("=") == 1 and cfg.text.startswith("window.CARTO_KEY ="),
+           cfg.text.strip()[:40])
+    for proibido in ("DATABASE_URL", "OPENROUTER", "SENHA", "postgres"):
+        checar(f"config.js não vaza {proibido}", proibido not in cfg.text)
+
     # E a rota com banco continua exigindo sessão.
     v = anon.post(f"{API}/ia/perguntar",
                   json={"pergunta": "oi", "estabelecimento_id": 1}, timeout=TEMPO)

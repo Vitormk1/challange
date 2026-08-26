@@ -294,3 +294,102 @@
 @media (prefers-reduced-motion: reduce) {
   .mapa-lista, .mapa-ponto, .pino { transition: none; }
 }
+
+/* ==========================================================================
+   Celular — a passada de verdade
+
+   Esta página vai ser aberta quase só no telefone: é o mapa que o motorista
+   consulta na rua. O bloco acima já fazia a lista virar gaveta; aqui estão
+   as três colisões que só apareceram medindo, mais o que um mapa precisa
+   quando quem toca é um dedo.
+   ========================================================================== */
+
+/* O pino desenhado tem 34px, mas o elemento que recebe o toque tem 42 (ver
+   iconSize no mapa.js). A folga é transparente e centraliza o desenho. */
+.marcador-pino { display: grid; place-items: center; }
+
+@media (max-width: 860px) {
+  /* O aviso estava embaixo, no meio, e colidia com DUAS coisas: os controles
+     de zoom (canto inferior direito) e a atribuição do Leaflet (rodapé do
+     mapa). Subir para o topo resolve as duas de uma vez — e é melhor assim,
+     porque a ressalva passa a ser lida antes de a pessoa acreditar nos
+     pontos, não depois. */
+  .mapa-aviso {
+    top: 12px;
+    bottom: auto;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    max-width: calc(100% - 24px);
+    text-align: center;
+  }
+
+  /* Botão de zoom de 30x30 é alvo de mouse. No dedo, 44.
+     O seletor precisa ser `.leaflet-touch .leaflet-bar a`: é o que a folha do
+     Leaflet usa, e um `.leaflet-control-zoom a` sozinho perde para ele. */
+  .leaflet-touch .leaflet-bar a,
+  .leaflet-control-zoom a {
+    width: 44px; height: 44px;
+    line-height: 44px;
+    font-size: 1.3rem;
+  }
+  .leaflet-control-zoom { margin-right: 12px !important; margin-bottom: 12px !important; }
+
+  /* A gaveta sobe por cima do mapa; a atribuição tem de continuar legível
+     enquanto ela está fechada, e sair da frente quando ela abre. */
+  .leaflet-control-attribution { margin-bottom: 2px !important; }
+
+  /* Alça de arrastar: sem ela a gaveta parece um card preso, e não uma folha
+     que sobe. É desenho, não controle — quem abre e fecha é o botão do topo
+     e o toque no ponto. */
+  .mapa-lista::before {
+    content: "";
+    display: block;
+    width: 38px; height: 4px;
+    margin: 8px auto 0;
+    border-radius: 999px;
+    background: var(--linha-forte);
+    flex: 0 0 auto;
+  }
+  .mapa-lista-topo { padding-top: 10px; }
+
+  /* Respiro para o entalhe e para a barra de gestos do aparelho. */
+  .mapa-topo { padding-left: max(14px, env(safe-area-inset-left));
+               padding-right: max(14px, env(safe-area-inset-right)); }
+  .mapa-pontos { padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+}
+
+@media (max-width: 420px) {
+  .mapa-aviso {
+    left: 10px; right: 10px;
+    transform: none;
+    max-width: none;
+    justify-content: center;
+    font-size: 0.72rem;
+  }
+  /* Numa tela dessas o nome do ponto é o que importa; os selos podem quebrar
+     em duas linhas sem prejuízo, mas o cartão não pode ficar estreito. */
+  .mapa-pontos { padding-left: 8px; padding-right: 8px; }
+  .mapa-ponto { grid-template-columns: 34px minmax(0, 1fr); gap: 10px; padding: 11px 10px; }
+  .mapa-ponto-marca { width: 34px; height: 34px; border-radius: 10px; }
+}
+
+/* Celular deitado: sobra largura e falta altura. A gaveta ocupando 74% deixa
+   o mapa numa tira inútil, então ela vira coluna de novo. */
+@media (max-height: 460px) and (orientation: landscape) and (max-width: 860px) {
+  .mapa-palco { grid-template-columns: 290px minmax(0, 1fr); }
+  #mapa { grid-column: 2; }
+  .mapa-lista {
+    grid-column: 1;
+    max-height: none;
+    align-self: stretch;
+    border-radius: 0;
+    border-right: 1px solid var(--linha);
+    box-shadow: none;
+    transform: none;
+  }
+  .mapa-lista::before { display: none; }
+  .mapa-lista-fechar { display: none; }
+  .mapa-botao-lista { display: none; }
+  .mapa-aviso { left: auto; right: 12px; transform: none; }
+}

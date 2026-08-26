@@ -1120,6 +1120,29 @@ def transcrever(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
     return {"texto": texto}
 
 
+# A chave dos tiles do mapa.
+#
+# Ela é de cliente por natureza: vai na URL do tile, e qualquer um que abra o
+# código-fonte da página a vê. Não dá para escondê-la de quem usa o mapa sem
+# passar todo o tráfego de imagem por este servidor, o que custaria banda e
+# latência para proteger uma chave de basemap.
+#
+# O que dá, e é o que se faz aqui, é mantê-la fora do repositório. A diferença
+# é concreta: repositório público é varrido por robô o tempo todo, atrás
+# exatamente disto; código-fonte de página exige alguém procurar de propósito.
+# Some do git, continua visível para quem olhar — e é por isso que ela merece
+# restrição de domínio no painel da CARTO.
+#
+# Sem a variável, o mapa cai no endpoint anônimo da CARTO, que funciona e é
+# limitado. Assim o ambiente local roda sem configurar nada.
+@app.get("/painel/config.js", include_in_schema=False)
+def config_do_mapa():
+    chave = os.environ.get("CARTO_KEY", "").strip()
+    corpo = f'window.CARTO_KEY = {json.dumps(chave)};' + chr(10)
+    return Response(corpo, media_type="application/javascript",
+                    headers={"Cache-Control": "no-store"})
+
+
 @app.get("/saude")
 def saude():
     """Sonda do Render, e conferência rápida do que subiu configurado."""
