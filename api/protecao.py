@@ -40,6 +40,21 @@ LIMITE_LOGIN_EMAIL = (6, 300)
 LIMITE_LOGIN_IP = (30, 300)
 LIMITE_IA = (30, 3600)       # 30 perguntas por hora, por usuário
 
+# A assistente do site de apresentação não pede login, e cada pergunta dela é
+# dinheiro na OpenRouter. Sem login não há quem cobrar, então o teto tem de
+# ser o próprio limite — e em duas camadas, porque uma só não cobre os dois
+# jeitos de estourar a conta:
+#
+#   por IP — segura a pessoa (ou o script) que fica perguntando em laço.
+#   global — segura o que o limite por IP não pega: muitos IPs diferentes,
+#     que é exatamente o que uma botnet ou um link que viralizou produzem.
+#     É um teto de gasto por dia, não uma proteção contra abuso individual.
+#
+# Números pensados para uma banca e alguns curiosos, não para tráfego de
+# produto: 10 por hora dá para tirar dúvida, não para conversar a tarde toda.
+LIMITE_IA_PUBLICA_IP = (10, 3600)
+LIMITE_IA_PUBLICA_TOTAL = (300, 86400)
+
 _tentativas: dict[str, deque[float]] = defaultdict(deque)
 
 
@@ -95,6 +110,29 @@ def limitar_ia(usuario_id: int) -> None:
     if not ok:
         raise HTTPException(429,
             f"Você fez {quantas} perguntas na última hora. Espere {espera // 60 + 1} min.")
+
+
+def limitar_ia_publica(request: Request) -> None:
+    """Teto duplo da assistente pública: por IP e no total do dia.
+
+    A ordem importa. O balde global é conferido DEPOIS do balde do IP, senão
+    um único cliente em laço gastaria as 300 do dia e derrubaria a assistente
+    para todo mundo antes de o limite dele próprio disparar.
+    """
+    _limpar_velhas()
+    quantas, janela = LIMITE_IA_PUBLICA_IP
+    ok, espera = _bater(f"ia-pub:ip:{ip_de(request)}", quantas, janela)
+    if not ok:
+        raise HTTPException(429,
+            f"Você já fez {quantas} perguntas nesta hora. "
+            f"Volte em {espera // 60 + 1} min — ou entre no painel, onde o limite é maior.")
+
+    quantas, janela = LIMITE_IA_PUBLICA_TOTAL
+    ok, _ = _bater("ia-pub:total", quantas, janela)
+    if not ok:
+        raise HTTPException(429,
+            "A assistente do site atingiu o limite de uso de hoje. "
+            "Ela volta amanhã; o painel continua no ar.")
 
 
 def zerar_login(request: Request, email: str) -> None:

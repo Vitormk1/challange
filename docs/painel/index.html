@@ -4,11 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Smart Charge — recarga elétrica como ativo comercial</title>
-<meta name="description" content="O Smart Charge liga o carregador elétrico ao caixa da loja: mede o retorno de cada recarga, prevê o tempo de carga e mostra até onde a cortesia se paga.">
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260906c">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260906c">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260906c">
-<link rel="stylesheet" href="./site.css?v=20260906c">
+<meta name="description" content="O Smart Charge liga o carregador elétrico ao caixa da loja: o motorista paga a recarga por kWh e recebe cashback para gastar ali dentro. O painel mede quanto disso volta em venda.">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260906e">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260906e">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260906e">
+<link rel="stylesheet" href="./orbe.css?v=20260906e">
+<link rel="stylesheet" href="./site.css?v=20260906e">
 </head>
 <body>
 
@@ -38,18 +39,18 @@
         <li><a href="#retorno">Retorno</a></li>
         <li><a href="./mapa.html">Mapa</a></li>
         <li><a href="https://vitormk1.github.io/challange/">O projeto</a></li>
-        <li><a class="botao botao-principal" href="./dashboard.html">Acessar</a></li>
+        <li class="menu-acessar"><a class="botao botao-principal" href="./dashboard.html">Acessar</a></li>
       </ul>
 
       <a class="botao botao-principal" href="./dashboard.html">Acessar</a>
     </nav>
 
     <div class="heroi-corpo">
-      <h1>Vaga que enche a loja.<br>Número que aprova o investimento.</h1>
+      <h1>Transformando inovação<br>em realidade.</h1>
       <p>
-        O Smart Charge liga o carregador elétrico ao caixa: mede quanto cada
-        recarga devolve em venda, prevê o tempo de carga e mostra até onde a
-        cortesia se paga — antes de a conta de luz chegar.
+        O motorista paga a recarga por kWh e recebe cashback para gastar na
+        loja. O Smart Charge mede quanto desse crédito volta em venda, prevê o
+        tempo de carga e mostra o retorno de cada vaga.
       </p>
       <div class="heroi-acoes">
         <a class="botao botao-principal" href="./dashboard.html">
@@ -92,54 +93,23 @@
 <section class="secao">
   <div class="envelope">
     <div class="cabeca-secao centro">
-      <h2>Smart Charge <span class="realce">em números</span></h2>
+      <h2>O painel <span class="realce">por dentro</span></h2>
       <p>
-        O painel não mostra quantos kWh saíram. Mostra quanto isso virou venda,
-        quanto custou e o que sobra no fim.
+        Não é um relatório de quantos kWh saíram. É a operação inteira numa
+        tela: o que a recarga rendeu, quanto voltou como cashback e o que
+        disso virou venda na loja.
       </p>
     </div>
 
-    <div class="numeros">
-      <div class="carrossel" id="carrossel">
-        <div class="carrossel-janela">
-          <img src="./img/dash-painel.jpg" alt="Painel do lojista: erro da previsão de recarga, sessões por hora do dia e a curva de uma recarga em andamento." class="is-ativo" width="1500" height="866">
-          <img src="./img/dash-indicadores.jpg" alt="Painel do lojista: lucro atribuído contra o custo do carregador, teto de cortesia e os indicadores rápidos da loja." width="1500" height="861">
-          <img src="./img/dash-assistente.jpg" alt="Painel do lojista com o assistente aberto, respondendo perguntas sobre as sessões e o faturamento da loja." width="1500" height="858">
-        </div>
-        <div class="carrossel-pontos" id="carrosselPontos" role="tablist" aria-label="Telas do painel"></div>
-        <p class="legenda-carrossel">Telas reais do painel, com dados de demonstração.</p>
+    <div class="carrossel" id="carrossel">
+      <div class="carrossel-janela">
+        <img src="./img/dash-painel.jpg" alt="Painel do lojista: erro da previsão de recarga, sessões por hora do dia e a curva de uma recarga em andamento." class="is-ativo" width="1500" height="866">
+        <img src="./img/dash-indicadores.jpg" alt="Painel do lojista: retorno da operação, cashback e os indicadores rápidos da loja." width="1500" height="861">
+        <img src="./img/dash-assistente.jpg" alt="Painel do lojista com o assistente aberto, respondendo perguntas sobre as sessões e o faturamento da loja." width="1500" height="858">
       </div>
-
-      <div class="grade-numeros">
-        <div class="cartao-numero is-forte">
-          <b>+12%</b>
-          <hr>
-          <span>no ticket de quem recarrega enquanto compra.</span>
-        </div>
-        <div class="cartao-numero">
-          <b>20%</b>
-          <hr>
-          <span>dos clientes não viriam à loja sem a vaga.</span>
-        </div>
-        <div class="cartao-numero">
-          <b>90%</b>
-          <hr>
-          <span>de quem recarrega passa no caixa.</span>
-        </div>
-        <div class="cartao-numero is-forte">
-          <b>10,4 km</b>
-          <hr>
-          <span>devolvidos ao motorista a cada kWh entregue.</span>
-        </div>
-      </div>
+      <div class="carrossel-pontos" id="carrosselPontos" role="tablist" aria-label="Telas do painel"></div>
+      <p class="legenda-carrossel">Telas reais do painel, com dados de demonstração.</p>
     </div>
-
-    <p class="ressalva">
-      <strong>O que estes quatro números são.</strong> Premissas do modelo de
-      atribuição, não resultado medido em cliente. Elas são configuráveis por
-      loja, e o painel recalcula o retorno com as vendas e as sessões reais da
-      operação — a conta que aparece lá é a da loja, não esta.
-    </p>
   </div>
 </section>
 
@@ -159,7 +129,7 @@
         </p>
         <ul class="lista-marcada">
           <li><strong>Retorno atribuído</strong> — lucro da visita contra o custo de energia e a amortização do equipamento.</li>
-          <li><strong>Teto de cortesia</strong> — quantos kWh a loja aguenta dar de graça antes de a conta virar prejuízo.</li>
+          <li><strong>Cashback por recarga</strong> — quanto foi emitido, quanto foi resgatado no caixa e o que sobrou de crédito em aberto.</li>
           <li><strong>Previsão de recarga</strong> — quanto falta para a vaga liberar, calculado pela curva de carga real.</li>
           <li><strong>Assistente</strong> — pergunte em português sobre a sua loja e receba a resposta com os números dela.</li>
         </ul>
@@ -176,8 +146,8 @@
     <div class="cabeca-secao centro">
       <h2>Inteligência aplicada ao <span class="realce">seu segmento</span></h2>
       <p>
-        A conta da cortesia muda com a margem e o tempo de permanência. O painel
-        troca as premissas por segmento e refaz o cálculo.
+        Quanto de cashback devolver depende da margem e do tempo de permanência.
+        O painel troca as premissas por segmento e refaz o cálculo.
       </p>
     </div>
 
@@ -190,7 +160,7 @@
           </svg>
         </span>
         <h3>Supermercado</h3>
-        <p>Margem baixa e ticket alto. É o segmento em que o teto de cortesia aperta mais — e o painel avisa quando a conta não fecha.</p>
+        <p>Margem baixa e ticket alto. O cashback converte bem porque a pessoa já ia encher o carrinho — o crédito só decide onde.</p>
       </article>
 
       <article class="cartao">
@@ -202,7 +172,7 @@
           </svg>
         </span>
         <h3>Pet shop</h3>
-        <p>Permanência longa e margem folgada. A recarga cabe inteira dentro do banho e tosa, sem a vaga virar estacionamento.</p>
+        <p>Permanência longa e margem folgada. A recarga cabe inteira dentro do banho e tosa, e o cashback volta como ração na saída.</p>
       </article>
 
       <article class="cartao">
@@ -244,7 +214,7 @@
           </svg>
         </span>
         <h3>Farmácia</h3>
-        <p>Visita curta. A cortesia rende pouco kWh por passagem, então o valor está no fluxo — e o painel mostra se ele existe.</p>
+        <p>Visita curta e recarga curta. O crédito costuma sobrar para a próxima passagem, e é isso que faz a pessoa voltar.</p>
       </article>
     </div>
   </div>
@@ -255,21 +225,23 @@
   <div class="envelope">
     <div class="cabeca-secao">
       <p class="olho">Como o retorno aparece</p>
-      <h2>A recarga é a isca.<br>O software é o que <span class="realce">prova que funcionou</span>.</h2>
+      <h2>A recarga se paga sozinha.<br>O cashback é o que <span class="realce">traz a pessoa para dentro</span>.</h2>
       <p>
-        No modelo padrão o motorista não paga: a loja absorve o custo como
-        marketing e ganha no consumo lá dentro. Só que marketing sem medida não
-        sobrevive à primeira revisão de orçamento.
+        A energia é vendida por kWh, então a vaga não custa à loja — ela se
+        banca. O que traz o motorista para dentro é o cashback: parte do que
+        ele gastou na recarga volta como crédito que só vale ali. E crédito
+        sem medida não sobrevive à primeira revisão de orçamento.
       </p>
     </div>
 
     <div class="bloco">
       <div>
-        <h3>A vaga traz quem não viria</h3>
+        <h3>O cashback traz para dentro quem só ia recarregar</h3>
         <ul class="passos">
           <li><strong>O motorista escolhe pelo mapa</strong>Ele procura onde recarregar, não onde comprar. A vaga é o que decide a parada.</li>
-          <li><strong>O cupom liga a recarga ao caixa</strong>Ao encerrar a sessão sai um código. Quem passa no caixa com ele vira uma venda atribuída, sem formulário nem cadastro.</li>
-          <li><strong>A atribuição vira número</strong>O painel soma o que essas visitas renderam e desconta a energia e a amortização do equipamento.</li>
+          <li><strong>Ele paga a recarga por kWh</strong>A energia é receita, não custo de marketing. A vaga se banca sem depender da loja aprovar um orçamento.</li>
+          <li><strong>Parte volta como crédito da loja</strong>No fim da sessão sai um código com o cashback daquela recarga. Ele só vale ali dentro — para usar, a pessoa entra.</li>
+          <li><strong>O resgate liga a recarga ao caixa</strong>Quem passa no caixa com o código vira uma venda atribuída, sem formulário nem cadastro.</li>
         </ul>
       </div>
       <figure class="bloco-figura">
@@ -280,11 +252,11 @@
 
     <div class="bloco is-invertido">
       <div>
-        <h3>O painel diz até onde a cortesia se paga</h3>
+        <h3>O painel diz quanto do crédito virou venda</h3>
         <ul class="passos">
-          <li><strong>Cada loja tem um teto diferente</strong>Ele depende da margem, do ticket e de quanto o carregador custou. Não é um número de tabela.</li>
-          <li><strong>O teto sai em kWh e em km</strong>"12,0 kWh" é abstrato para quem opera a loja; "cerca de 124 km de cortesia por visita" não é.</li>
-          <li><strong>Quando não fecha, o painel diz</strong>No supermercado o modelo costuma acusar prejuízo na cortesia aberta. O painel avisa em vez de deixar descobrir na conta de luz.</li>
+          <li><strong>Emitido contra resgatado</strong>Cashback que ninguém gastou não trouxe ninguém para dentro. A distância entre os dois números é o que diz se o percentual está certo.</li>
+          <li><strong>O que a visita rendeu além do crédito</strong>Se a pessoa gastou mais do que o cashback cobriu, a diferença é receita nova — e é ela que justifica o programa.</li>
+          <li><strong>Cada loja tem um percentual diferente</strong>Ele depende da margem, do ticket e de quanto o carregador custou. Não é número de tabela, e o painel recalcula com os dados da operação.</li>
         </ul>
       </div>
       <figure class="bloco-figura">
@@ -363,6 +335,51 @@
   </div>
 </footer>
 
-<script src="./site.js?v=20260906c"></script>
+<!-- ===================== assistente ===================== -->
+<div class="ia-chamariz" id="iaChamariz">Dúvida sobre o Smart Charge? Pode perguntar aqui.</div>
+
+<button class="ia-botao" id="iaBotao" type="button"
+        aria-label="Abrir a assistente do Smart Charge"
+        aria-haspopup="dialog" aria-expanded="false" aria-controls="iaJanela">
+  <bms-ai-entity state="idle" size="46" decorative></bms-ai-entity>
+</button>
+
+<section class="ia-janela" id="iaJanela" role="dialog" aria-modal="false"
+         aria-label="Assistente do Smart Charge" hidden>
+  <header class="ia-topo">
+    <bms-ai-entity state="idle" size="30" decorative></bms-ai-entity>
+    <span>
+      <strong>Assistente Smart Charge</strong>
+      <em id="iaEstado">Pronta para falar sobre o projeto</em>
+    </span>
+    <button class="ia-fechar" id="iaFechar" type="button" aria-label="Fechar assistente">×</button>
+  </header>
+
+  <div class="ia-mensagens" id="iaMensagens" aria-live="polite" aria-relevant="additions text"></div>
+
+  <div class="ia-sugestoes" id="iaSugestoes">
+    <button type="button">Como funciona o cashback?</button>
+    <button type="button">O que o painel mostra?</button>
+    <button type="button">Serve para a minha loja?</button>
+  </div>
+
+  <form class="ia-escrever" id="iaForm">
+    <label class="sr-only" for="iaTexto">Sua pergunta</label>
+    <textarea id="iaTexto" rows="1" maxlength="400"
+              placeholder="Pergunte sobre o Smart Charge..."></textarea>
+    <button class="ia-enviar" id="iaEnviar" type="submit" aria-label="Enviar pergunta">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 12h15M13 6l6 6-6 6"></path>
+      </svg>
+    </button>
+  </form>
+  <p class="ia-rodape">Ela fala sobre o produto e não acessa dados de nenhuma loja.</p>
+</section>
+
+<!-- type="module": o aiEntity.js exporta a classe, e como script comum o
+     navegador quebra no `export` e nunca registra <bms-ai-entity> -->
+<script type="module" src="./static/js/aiEntity.js?v=20260906e"></script>
+<script src="./site.js?v=20260906e"></script>
 </body>
 </html>

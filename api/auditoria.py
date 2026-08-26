@@ -234,6 +234,32 @@ def main() -> None:
            "loginGate" not in r.text and "loginGate" not in m.text,
            "porta de login presente numa tela pública")
 
+    # ---- a assistente do site ----
+    # Ela é pública E gasta dinheiro na OpenRouter, combinação que merece
+    # vigilância. Os testes abaixo são de graça de propósito: o limitador roda
+    # ANTES da chamada ao modelo, e pergunta vazia morre no 400 sem sair da
+    # máquina. Assim a auditoria confere o portão sem pagar por isso.
+    #
+    # O limite em si (10/h por IP) não é levado à exaustão aqui: fazer isso
+    # deixaria o IP de quem auditou sem assistente por uma hora, num serviço
+    # que está no ar. O que se confere é que o portão existe e responde.
+    v = anon.post(f"{API}/ia/publico", json={"pergunta": ""}, timeout=TEMPO)
+    checar("assistente do site não pede login", v.status_code != 401, f"HTTP {v.status_code}")
+    checar("assistente recusa pergunta vazia", v.status_code == 400, f"HTTP {v.status_code}")
+
+    # A rota pública não pode aceitar seletor de loja: se um dia alguém colar
+    # nela o contexto do banco, este teste é o que grita. Com pergunta vazia
+    # ela tem de morrer no mesmo 400 — sinal de que nem olhou o campo.
+    v = anon.post(f"{API}/ia/publico",
+                  json={"pergunta": "", "estabelecimento_id": 1}, timeout=TEMPO)
+    checar("assistente do site ignora estabelecimento_id",
+           v.status_code == 400, f"HTTP {v.status_code}")
+
+    # E a rota com banco continua exigindo sessão.
+    v = anon.post(f"{API}/ia/perguntar",
+                  json={"pergunta": "oi", "estabelecimento_id": 1}, timeout=TEMPO)
+    checar("assistente do painel continua exigindo login", v.status_code == 401, f"HTTP {v.status_code}")
+
     # HSTS só existe sobre https: em http local ele não deve aparecer, porque
     # ensinaria o navegador a recusar 127.0.0.1 por um ano.
     hsts = cab.get("strict-transport-security", "")

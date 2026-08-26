@@ -255,6 +255,11 @@ h3 { font-size: clamp(1.05rem, 1.6vw, 1.25rem); letter-spacing: -0.01em; }
 
 .barra .botao { min-height: 44px; padding: 0 22px; }
 
+/* "Acessar" existe duas vezes no HTML de propósito: um solto na barra, que é
+   o da direita, e um dentro da lista, que só serve para a gaveta do celular.
+   Sem esta regra os dois apareciam lado a lado no desktop. */
+.menu-acessar { display: none; }
+
 /* botão de menu: só existe no celular */
 .abrir-menu {
   display: none;
@@ -703,6 +708,7 @@ h3 { font-size: clamp(1.05rem, 1.6vw, 1.25rem); letter-spacing: -0.01em; }
   }
   .menu li:last-child a { border-bottom: 0; }
   .menu a:hover { border-bottom-color: rgba(255, 255, 255, 0.08); }
+  .menu-acessar { display: block; }   /* na gaveta ele assume */
   .menu .botao { width: 100%; margin-top: 8px; }
 
   .barra { gap: 12px; }
@@ -726,4 +732,270 @@ h3 { font-size: clamp(1.05rem, 1.6vw, 1.25rem); letter-spacing: -0.01em; }
 @media (prefers-reduced-motion: reduce) {
   .botao, .cartao, .cartao-heroi, .carrossel-janela img { transition: none; }
   .botao:hover, .cartao:hover, .cartao-heroi:hover { transform: none; }
+}
+
+/* ==========================================================================
+   A assistente do site
+
+   A esfera é a mesma do painel (orbe.css). O que é novo aqui é a janela de
+   conversa: no painel ela mora dentro do style.css da referência, que este
+   site não carrega.
+   ========================================================================== */
+.ia-botao {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  width: 62px; height: 62px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--preto);
+  box-shadow: 0 14px 34px rgba(13, 13, 15, 0.34);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.ia-botao:hover { transform: translateY(-3px); box-shadow: 0 20px 42px rgba(13, 13, 15, 0.42); }
+.ia-botao:focus-visible { outline: 3px solid var(--vermelho); outline-offset: 3px; }
+
+/* Um convite, uma vez. Some no primeiro clique e não volta — balão que
+   reaparece a cada rolagem é propaganda, não ajuda. */
+.ia-chamariz {
+  position: fixed;
+  right: 96px;
+  bottom: 34px;
+  z-index: 59;
+  max-width: 232px;
+  padding: 11px 15px;
+  border-radius: 14px 14px 2px 14px;
+  background: var(--preto);
+  color: #FFFFFF;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  box-shadow: 0 12px 30px rgba(13, 13, 15, 0.3);
+  animation: ia-chamariz-entra 0.45s ease both;
+}
+.ia-chamariz[hidden] { display: none; }
+@keyframes ia-chamariz-entra {
+  from { opacity: 0; transform: translateX(14px) scale(0.94); }
+  to   { opacity: 1; transform: none; }
+}
+
+.ia-janela {
+  position: fixed;
+  right: 22px;
+  bottom: 96px;
+  z-index: 61;
+  display: flex;
+  flex-direction: column;
+  width: min(392px, calc(100vw - 44px));
+  max-height: min(600px, calc(100dvh - 130px));
+  border: 1px solid var(--linha);
+  border-radius: 20px;
+  background: var(--superficie);
+  box-shadow: 0 28px 66px rgba(13, 13, 15, 0.26);
+  overflow: hidden;
+  animation: ia-janela-entra 0.24s ease both;
+}
+.ia-janela[hidden] { display: none; }
+@keyframes ia-janela-entra {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+.ia-topo {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 14px 16px;
+  background: var(--preto);
+  color: #FFFFFF;
+}
+.ia-topo strong { display: block; font-size: 0.95rem; }
+.ia-topo em { display: block; font-style: normal; font-size: 0.78rem; color: var(--sobre-escuro-2); }
+.ia-fechar {
+  margin-left: auto;
+  width: 34px; height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.ia-fechar:hover { background: rgba(255, 255, 255, 0.22); }
+
+.ia-mensagens {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  overflow-y: auto;
+  background: var(--fundo-suave);
+}
+/* Mesma convenção do painel: lado e cor dizem a mesma coisa, para quem não
+   distingue as duas cores continuar sabendo quem falou. */
+.ia-balao {
+  max-width: 88%;
+  padding: 9px 13px;
+  border-radius: 15px;
+  font-size: 0.89rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  animation: ia-balao-entra 0.2s ease both;
+}
+.ia-balao.is-pessoa {
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+  background: var(--superficie);
+  border: 1px solid var(--linha);
+}
+.ia-balao.is-ia {
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+  background: var(--vermelho-claro);
+  border: 1px solid rgba(225, 37, 27, 0.24);
+}
+.ia-balao.is-erro {
+  align-self: stretch;
+  max-width: none;
+  background: #FFF4F4;
+  border: 1px solid rgba(180, 22, 15, 0.3);
+  color: #6A231F;
+  font-size: 0.85rem;
+}
+@keyframes ia-balao-entra {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* três pontos enquanto a resposta não chega */
+.ia-pensando { display: inline-flex; gap: 4px; align-items: center; }
+.ia-pensando i {
+  width: 6px; height: 6px;
+  border-radius: 999px;
+  background: var(--vermelho-forte);
+  animation: ia-pensando 1s infinite ease-in-out both;
+}
+.ia-pensando i:nth-child(2) { animation-delay: 0.16s; }
+.ia-pensando i:nth-child(3) { animation-delay: 0.32s; }
+@keyframes ia-pensando {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+  40%           { opacity: 1;    transform: scale(1); }
+}
+
+/* atalhos de primeira pergunta, para ninguém encarar um campo vazio */
+.ia-sugestoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 0 16px 12px;
+  background: var(--fundo-suave);
+}
+.ia-sugestoes[hidden] { display: none; }
+.ia-sugestoes button {
+  padding: 7px 13px;
+  border: 1px solid var(--linha-forte);
+  border-radius: 999px;
+  background: var(--superficie);
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--texto-2);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.ia-sugestoes button:hover { border-color: var(--vermelho); color: var(--vermelho-forte); }
+
+.ia-escrever {
+  display: flex;
+  gap: 9px;
+  align-items: flex-end;
+  padding: 12px 14px;
+  border-top: 1px solid var(--linha);
+  background: var(--superficie);
+}
+.ia-escrever textarea {
+  flex: 1 1 auto;
+  min-height: 42px;
+  max-height: 110px;
+  padding: 10px 12px;
+  border: 1px solid var(--linha-forte);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 0.89rem;
+  color: var(--texto);
+  background: var(--fundo);
+  resize: none;
+}
+.ia-escrever textarea:focus-visible { outline: 2px solid var(--vermelho); outline-offset: -1px; }
+.ia-enviar {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 42px; height: 42px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--vermelho-forte);
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.ia-enviar:hover:not(:disabled) { background: #9C120C; }
+.ia-enviar:disabled { opacity: 0.45; cursor: not-allowed; }
+.ia-enviar svg { width: 19px; height: 19px; }
+
+.ia-rodape {
+  padding: 0 16px 12px;
+  font-size: 0.72rem;
+  color: var(--texto-3);
+  background: var(--superficie);
+}
+
+@media (max-width: 560px) {
+  /* No celular a janela ocupa a tela: 392px de largura numa tela de 375 já
+     não cabia, e conversa espremida num canto não se lê. */
+  .ia-janela {
+    right: 8px; left: 8px;
+    bottom: 8px;
+    width: auto;
+    max-height: calc(100dvh - 16px);
+  }
+  .ia-botao { right: 16px; bottom: 16px; width: 56px; height: 56px; }
+  .ia-chamariz { display: none; }
+}
+
+/* ==========================================================================
+   Entrada por rolagem
+
+   O padrão é o elemento JÁ visível: quem chega sem JavaScript vê a página
+   inteira. A classe .revelar só é posta pelo site.js, e só depois de ele
+   confirmar que o IntersectionObserver existe — senão o conteúdo ficaria
+   invisível para sempre, que é o modo clássico de esse efeito quebrar uma
+   página.
+   ========================================================================== */
+.revelar {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.6s cubic-bezier(0.22, 0.61, 0.36, 1),
+              transform 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition-delay: var(--atraso, 0s);
+  will-change: opacity, transform;
+}
+.revelar.is-dentro {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .revelar { opacity: 1; transform: none; transition: none; }
+  .ia-janela, .ia-balao, .ia-chamariz { animation: none; }
+  .ia-pensando i { animation: none; opacity: 0.7; }
+  .ia-botao:hover { transform: none; }
 }

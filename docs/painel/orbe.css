@@ -1,0 +1,294 @@
+/* ==========================================================================
+   A esfera da assistente, no site de apresentação
+
+   Extraído do style.css da referência: só as 18 regras de .bms-ai-entity e os
+   keyframes que elas usam. O site não carrega o style.css inteiro — são
+   447 KB para desenhar um dashboard, e os seletores dele (body, h1, .cartao)
+   brigariam com os desta página.
+
+   As cores NÃO vêm da referência, que faz a esfera ciano. Vêm do marca.css,
+   que já as repinta no vermelho — é o mesmo objeto que gira no canto do
+   painel, e é assim que ele continua sendo o mesmo aqui.
+
+   Gerado por extração, não copiado à mão. Se a esfera mudar na referência,
+   o caminho é reextrair.
+   ========================================================================== */
+
+:root {
+  --ai-orb-halo-white: rgba(255, 255, 255, 0.34);
+  --ai-orb-halo-ice: rgba(255, 235, 233, 0.28);
+  --ai-orb-halo-cyan: rgba(255, 90, 78, 0.16);
+  --ai-orb-halo-silver: rgba(238, 226, 225, 0.16);
+  --ai-orb-surface-core: rgba(255, 255, 255, 0.96);
+  --ai-orb-surface-mid: rgba(255, 238, 236, 0.84);
+  --ai-orb-surface-soft: rgba(250, 205, 200, 0.26);
+  --ai-orb-surface-white: rgba(255, 255, 255, 0.34);
+  --ai-orb-surface-ice: rgba(255, 226, 222, 0.28);
+  --ai-orb-surface-cyan: rgba(255, 90, 78, 0.16);
+  --ai-orb-surface-silver: rgba(242, 230, 229, 0.22);
+  --ai-orb-form-a: rgba(255, 255, 255, 0.64);
+  --ai-orb-form-b: rgba(255, 238, 236, 0.54);
+  --ai-orb-form-c: rgba(255, 226, 222, 0.48);
+  --ai-orb-form-d: rgba(255, 255, 255, 0.5);
+  --ai-orb-form-e: rgba(255, 200, 194, 0.34);
+  --ai-orb-form-f: rgba(255, 246, 245, 0.44);
+  --ai-orb-form-g: rgba(255, 255, 255, 0.34);
+  --ai-orb-idle-core: rgba(255, 255, 255, 0.98);
+  --ai-orb-idle-mid: rgba(255, 238, 236, 0.82);
+  --ai-orb-idle-soft: rgba(255, 90, 78, 0.22);
+  --ai-orb-thinking-core: rgba(225, 37, 27, 0.98);
+  --ai-orb-thinking-mid: rgba(180, 22, 15, 0.86);
+  --ai-orb-thinking-soft: rgba(225, 37, 27, 0.3);
+  --ai-orb-shadow-white: rgba(255, 255, 255, 0.54);
+  --ai-orb-shadow-cyan: rgba(255, 90, 78, 0.32);
+  --ai-orb-halo-cyan: rgba(255, 77, 66, 0.2);
+  --ai-orb-surface-cyan: rgba(255, 77, 66, 0.18);
+  --ai-orb-thinking-core: rgba(255, 77, 66, 0.98);
+  --ai-orb-thinking-mid: rgba(225, 37, 27, 0.86);
+  --ai-orb-thinking-soft: rgba(255, 77, 66, 0.32);
+  --ai-orb-shadow-cyan: rgba(255, 77, 66, 0.32);
+  --ai-orb-halo-white: rgba(180, 22, 15, 0.30);
+  --ai-orb-halo-ice: rgba(200, 34, 26, 0.28);
+  --ai-orb-halo-cyan: rgba(225, 37, 27, 0.20);
+  --ai-orb-halo-silver: rgba(214, 92, 84, 0.18);
+  --ai-orb-surface-core: rgba(163, 18, 12, 0.98);
+  --ai-orb-surface-mid: rgba(180, 22, 15, 0.90);
+  --ai-orb-surface-soft: rgba(204, 46, 38, 0.40);
+  --ai-orb-surface-white: rgba(190, 30, 22, 0.46);
+  --ai-orb-surface-ice: rgba(204, 46, 38, 0.40);
+  --ai-orb-surface-cyan: rgba(225, 37, 27, 0.30);
+  --ai-orb-surface-silver: rgba(214, 92, 84, 0.24);
+  --ai-orb-form-a: rgba(163, 18, 12, 0.78);
+  --ai-orb-form-b: rgba(180, 22, 15, 0.70);
+  --ai-orb-form-c: rgba(198, 40, 32, 0.60);
+  --ai-orb-form-d: rgba(212, 52, 44, 0.64);
+  --ai-orb-form-e: rgba(220, 96, 88, 0.42);
+  --ai-orb-form-f: rgba(190, 30, 22, 0.54);
+  --ai-orb-form-g: rgba(225, 37, 27, 0.46);
+  --ai-orb-idle-core: rgba(163, 18, 12, 0.99);
+  --ai-orb-idle-mid: rgba(180, 22, 15, 0.94);
+  --ai-orb-idle-soft: rgba(212, 52, 44, 0.40);
+  --ai-orb-shadow-white: rgba(163, 18, 12, 0.42);
+  --ai-orb-shadow-cyan: rgba(225, 37, 27, 0.34);
+  /* estado de alarme: a assistente do site nunca entra nele, mas a regra
+     que o usa ficaria inválida sem estas três */
+  --ai-orb-alarm-core: rgba(240, 182, 75, 0.98);
+  --ai-orb-alarm-mid: rgba(231, 163, 41, 0.84);
+  --ai-orb-alarm-soft: rgba(240, 182, 75, 0.28);
+}
+
+.bms-ai-entity {
+  --ai-entity-size: 36px;
+  --ai-orb-drift-speed: 8.4s;
+  --ai-orb-halo-speed: 9.6s;
+  --ai-orb-pulse-speed: 5.8s;
+  --ai-orb-rotate-speed: 13s;
+  --ai-orb-smoke-speed: 6.4s;
+  --ai-orb-breathe-speed: 5.2s;
+  --ai-orb-surface-core-current: var(--ai-orb-surface-core);
+  --ai-orb-surface-mid-current: var(--ai-orb-surface-mid);
+  --ai-orb-surface-soft-current: var(--ai-orb-surface-soft);
+  --ai-orb-form-a-current: var(--ai-orb-form-a);
+  --ai-orb-form-b-current: var(--ai-orb-form-b);
+  --ai-orb-form-c-current: var(--ai-orb-form-c);
+  --ai-orb-form-d-current: var(--ai-orb-form-d);
+  --ai-orb-form-e-current: var(--ai-orb-form-e);
+  --ai-orb-form-f-current: var(--ai-orb-form-f);
+  --ai-orb-form-g-current: var(--ai-orb-form-g);
+  --ai-orb-core-current: var(--ai-orb-idle-core);
+  --ai-orb-core-mid-current: var(--ai-orb-idle-mid);
+  --ai-orb-core-soft-current: var(--ai-orb-idle-soft);
+  --ai-orb-blur: clamp(4px, calc(var(--ai-entity-size) * 0.3125), 32px);
+  --ai-orb-form-blur: clamp(1px, calc(var(--ai-entity-size) * 0.046875), 6px);
+  --ai-orb-form-blur-rest: clamp(1px, calc(var(--ai-entity-size) * 0.053125), 7px);
+  --ai-orb-form-blur-expanded: clamp(1.5px, calc(var(--ai-entity-size) * 0.075), 10px);
+  --ai-orb-form-blur-settled: clamp(1.2px, calc(var(--ai-entity-size) * 0.059375), 8px);
+  --ai-orb-core-blur: clamp(0.4px, calc(var(--ai-entity-size) * 0.01875), 3px);
+  --ai-orb-shadow-tight: clamp(3px, calc(var(--ai-entity-size) * 0.1875), 24px);
+  --ai-orb-shadow-wide: clamp(7px, calc(var(--ai-entity-size) * 0.4375), 56px);
+  display: inline-grid;
+  place-items: center;
+  width: var(--ai-entity-size);
+  height: var(--ai-entity-size);
+  flex: 0 0 var(--ai-entity-size);
+  contain: layout style;
+  isolation: isolate;
+  overflow: visible;
+  vertical-align: middle;
+}
+.bms-ai-entity[interactive] {
+  border-radius: 48% 52% 51% 49%;
+  cursor: pointer;
+}
+.global-ai-launcher:hover .bms-ai-entity-visual {
+  transform: scale(1.04);
+}
+.global-ai-launcher:active .bms-ai-entity-visual {
+  transform: scale(0.965);
+}
+.bms-ai-entity[interactive]:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 3px;
+}
+.bms-ai-entity .ai-energy-field {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+.bms-ai-entity-visual {
+  transition: transform 0.16s ease;
+}
+.bms-ai-entity .ai-energy-field {
+  position: relative;
+  overflow: visible;
+  pointer-events: none;
+  isolation: isolate;
+  animation: ai-orb-drift var(--ai-orb-drift-speed) ease-in-out infinite;
+}
+.bms-ai-entity .ai-energy-field::before {
+  content: "";
+  position: absolute;
+  width: 150%;
+  height: 131.25%;
+  border-radius: 37% 63% 48% 52% / 54% 38% 62% 46%;
+  background:
+    radial-gradient(ellipse at 32% 46%, var(--ai-orb-halo-white), transparent 30%),
+    radial-gradient(ellipse at 60% 38%, var(--ai-orb-halo-ice), transparent 38%),
+    radial-gradient(ellipse at 62% 70%, var(--ai-orb-halo-cyan), transparent 42%),
+    radial-gradient(ellipse at 28% 76%, var(--ai-orb-halo-silver), transparent 44%);
+  filter: blur(var(--ai-orb-blur));
+  opacity: 0.56;
+  z-index: -1;
+  animation: ai-orb-halo var(--ai-orb-halo-speed) ease-in-out infinite;
+}
+.bms-ai-entity .ai-orb-icon {
+  position: relative;
+  display: block;
+  width: 87.5%;
+  height: 87.5%;
+  border-radius: 40% 60% 45% 55% / 58% 42% 62% 38%;
+  background:
+    radial-gradient(circle at 51% 49%, var(--ai-orb-surface-core-current) 0 16%, var(--ai-orb-surface-mid-current) 17% 25%, var(--ai-orb-surface-soft-current) 36%, transparent 58%),
+    radial-gradient(ellipse at 28% 28%, var(--ai-orb-surface-white), transparent 34%),
+    radial-gradient(ellipse at 72% 34%, var(--ai-orb-surface-ice), transparent 38%),
+    radial-gradient(ellipse at 72% 76%, var(--ai-orb-surface-cyan), transparent 44%),
+    radial-gradient(ellipse at 24% 74%, var(--ai-orb-surface-silver), transparent 46%);
+  filter:
+    drop-shadow(0 0 var(--ai-orb-shadow-tight) var(--ai-orb-shadow-white))
+    drop-shadow(0 0 var(--ai-orb-shadow-wide) var(--ai-orb-shadow-cyan));
+  animation:
+    ai-orb-pulse var(--ai-orb-pulse-speed) ease-in-out infinite,
+    ai-organic-rotate var(--ai-orb-rotate-speed) ease-in-out infinite;
+}
+.bms-ai-entity .ai-orb-icon::after {
+  content: "";
+  position: absolute;
+  inset: -12.5%;
+  border-radius: 33% 67% 41% 59% / 56% 34% 66% 44%;
+}
+.bms-ai-entity .ai-orb-icon::before {
+  background:
+    radial-gradient(ellipse at 18% 36%, var(--ai-orb-form-a-current), transparent 24%),
+    radial-gradient(ellipse at 37% 12%, var(--ai-orb-form-b-current), transparent 24%),
+    radial-gradient(ellipse at 68% 20%, var(--ai-orb-form-c-current), transparent 28%),
+    radial-gradient(ellipse at 88% 48%, var(--ai-orb-form-d-current), transparent 25%),
+    radial-gradient(ellipse at 70% 88%, var(--ai-orb-form-e-current), transparent 31%),
+    radial-gradient(ellipse at 28% 84%, var(--ai-orb-form-f-current), transparent 29%),
+    radial-gradient(ellipse at 48% 52%, var(--ai-orb-form-g-current), transparent 42%);
+  filter: blur(var(--ai-orb-form-blur));
+  opacity: 0.82;
+  animation: smokeExpand var(--ai-orb-smoke-speed) ease-in-out infinite;
+}
+.bms-ai-entity .ai-orb-icon::after {
+  inset: 25%;
+  border-radius: 47% 53% 45% 55% / 52% 46% 54% 48%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    var(--ai-orb-core-current) 0 38%,
+    var(--ai-orb-core-mid-current) 52%,
+    var(--ai-orb-core-soft-current) 72%,
+    transparent 100%
+  );
+  filter: blur(var(--ai-orb-core-blur));
+  opacity: 0.94;
+  animation: ai-orb-breathe var(--ai-orb-breathe-speed) ease-in-out infinite;
+}
+.bms-ai-entity[data-state="alert"] {
+  --ai-orb-core-current: var(--ai-orb-alarm-core);
+  --ai-orb-core-mid-current: var(--ai-orb-alarm-mid);
+  --ai-orb-core-soft-current: var(--ai-orb-alarm-soft);
+}
+.bms-ai-entity[data-paused="true"] *::after {
+  animation-play-state: paused !important;
+}
+.global-ai-launcher .bms-ai-entity-visual {
+  position: static;
+  width: 100%;
+  height: 100%;
+}
+.bms-ai-entity *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+.bms-ai-entity-visual {
+    opacity: 0.96;
+    transform: none !important;
+  }
+
+@keyframes ai-orb-breathe {
+  0%, 100% { opacity: 0.86; transform: scale(0.92); }
+  48% { opacity: 1; transform: scale(1.08); }
+}
+@keyframes ai-orb-drift {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  24% { transform: translate(0.8px, -0.8px) rotate(1.8deg); }
+  52% { transform: translate(-0.7px, 0.9px) rotate(-1.2deg); }
+  78% { transform: translate(0.5px, 0.2px) rotate(0.8deg); }
+}
+@keyframes ai-orb-halo {
+  0%, 100% { opacity: 0.42; transform: scale(0.82) rotate(-8deg); }
+  44% { opacity: 0.74; transform: scale(1.14) rotate(10deg); }
+}
+@keyframes ai-orb-pulse {
+  0%, 100% {
+    opacity: 0.9;
+    border-radius: 42% 58% 47% 53% / 57% 39% 61% 43%;
+    transform: scale(0.92);
+  }
+  36% {
+    opacity: 1;
+    border-radius: 31% 69% 55% 45% / 43% 62% 38% 57%;
+    transform: scale(1.13);
+  }
+  62% {
+    opacity: 0.96;
+    border-radius: 61% 39% 42% 58% / 48% 37% 63% 52%;
+    transform: scale(1.02);
+  }
+}
+@keyframes ai-organic-rotate {
+  0%, 100% { rotate: -1.2deg; }
+  32% { rotate: 3.4deg; }
+  67% { rotate: -2.6deg; }
+}
+@keyframes smokeExpand {
+  0%, 100% {
+    opacity: 0.62;
+    border-radius: 38% 62% 44% 56% / 58% 42% 61% 39%;
+    transform: translate(-0.5px, 0.4px) scale(0.76, 0.82);
+    filter: blur(var(--ai-orb-form-blur-rest));
+  }
+  44% {
+    opacity: 0.9;
+    border-radius: 68% 32% 56% 44% / 39% 65% 35% 61%;
+    transform: translate(0.9px, -0.8px) scale(1.22, 1.08);
+    filter: blur(var(--ai-orb-form-blur-expanded));
+  }
+  73% {
+    opacity: 0.76;
+    border-radius: 45% 55% 35% 65% / 62% 36% 64% 38%;
+    transform: translate(-0.8px, 0.7px) scale(1.04, 1.18);
+    filter: blur(var(--ai-orb-form-blur-settled));
+  }
+}
