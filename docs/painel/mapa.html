@@ -2,81 +2,98 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
 <title>Smart Charge — mapa de carregadores</title>
 <meta name="description" content="Mapa dos pontos de recarga Smart Charge. Aberto, sem cadastro e sem login.">
 <meta name="robots" content="noindex">
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260908c">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260908c">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260908c">
-<link rel="stylesheet" href="./static/leaflet/leaflet.css?v=20260908c">
-<link rel="stylesheet" href="./site.css?v=20260908c">
-<link rel="stylesheet" href="./mapa.css?v=20260908c">
+<meta name="theme-color" content="#0D0D0F">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260909c">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260909c">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260909c">
+<link rel="stylesheet" href="./static/leaflet/leaflet.css?v=20260909c">
+<link rel="stylesheet" href="./site.css?v=20260909c">
+<link rel="stylesheet" href="./mapa.css?v=20260909c">
 </head>
 <body class="pagina-mapa">
 
 <a class="pular" href="#lista">Pular para a lista de carregadores</a>
 
-<header class="mapa-topo">
-  <a class="marca" href="./">
-    <img src="./img/logo.png" alt="" width="30" height="30">
-    Smart Charge
-  </a>
-
-  <div class="mapa-topo-acoes">
-    <button class="mapa-botao-lista" id="botaoLista" type="button"
-            aria-expanded="false" aria-controls="painelLista">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-           stroke-linecap="round" aria-hidden="true">
-        <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"></path>
-      </svg>
-      <span>Lista</span>
-    </button>
-    <a class="botao botao-principal mapa-botao-painel" href="./dashboard.html">Acessar o painel</a>
-  </div>
-</header>
-
-<main class="mapa-palco">
+<div class="mapa-palco">
   <div id="mapa" role="application" aria-label="Mapa dos pontos de recarga Smart Charge"></div>
 
-  <!-- Enquanto o mapa carrega, e para sempre em quem tem JavaScript
-       desligado, esta lista é a página. Ela não é enfeite de reserva: é a
-       mesma informação dos pinos, em texto. -->
+  <!-- Barra de busca. No computador ela é o topo da página; no celular
+       flutua sobre o mapa, arredondada, como a do Google Maps. -->
+  <header class="mapa-topo">
+    <a class="mapa-voltar" href="./" aria-label="Voltar à apresentação">
+      <img src="./img/logo.png" alt="" width="26" height="26">
+      <span>Smart Charge</span>
+    </a>
+
+    <label class="mapa-busca">
+      <span class="sr-only">Buscar por nome, bairro ou segmento</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path>
+      </svg>
+      <input type="search" id="buscaPontos" placeholder="Buscar ponto de recarga" autocomplete="off">
+      <button class="mapa-busca-limpar" id="limparBusca" type="button" hidden aria-label="Limpar busca">×</button>
+    </label>
+
+    <a class="mapa-painel" href="./dashboard.html"><span>Painel</span></a>
+  </header>
+
+  <!-- Botão flutuante, na altura do polegar -->
+  <button class="mapa-fab" id="botaoLocal" type="button" aria-label="Centralizar na minha localização">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3.2"></circle>
+      <path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3"></path>
+      <circle cx="12" cy="12" r="7.5"></circle>
+    </svg>
+  </button>
+
+  <!-- A pílula chama a folha de volta quando ela está fechada. -->
+  <button class="mapa-pilula" id="botaoLista" type="button"
+          aria-expanded="false" aria-controls="painelLista">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" aria-hidden="true">
+      <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"></path>
+    </svg>
+    <span id="rotuloPilula">Lista</span>
+  </button>
+
+  <!-- Folha de baixo no celular; coluna da esquerda no computador. -->
   <aside class="mapa-lista" id="painelLista" aria-labelledby="tituloLista">
+    <div class="mapa-alca" id="alcaLista" role="separator" aria-label="Arraste para abrir ou fechar"></div>
+
     <div class="mapa-lista-topo">
       <div>
         <h1 id="tituloLista">Pontos de recarga</h1>
         <p id="contagemPontos">Carregando…</p>
       </div>
-      <button class="mapa-lista-fechar" id="fecharLista" type="button" aria-label="Fechar a lista">×</button>
+      <button class="mapa-lista-fechar" id="fecharLista" type="button" aria-label="Fechar a lista">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18"></path>
+        </svg>
+      </button>
     </div>
-
-    <label class="mapa-busca">
-      <span class="sr-only">Filtrar por nome, bairro ou segmento</span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-           stroke-linecap="round" aria-hidden="true">
-        <circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path>
-      </svg>
-      <input type="search" id="buscaPontos" placeholder="Filtrar por nome ou bairro" autocomplete="off">
-    </label>
 
     <ul class="mapa-pontos" id="lista"></ul>
   </aside>
 
-  <!-- O aviso de simulação fica ancorado no mapa, e não num rodapé: quem
-       está olhando o mapa nunca chega a um rodapé. -->
+  <!-- Ancorado no mapa, e não num rodapé: quem olha o mapa nunca chega a um. -->
   <p class="mapa-aviso" role="note">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="9"></circle><path d="M12 11v5.5"></path><path d="M12 7.6h.01"></path>
     </svg>
-    <span>Pontos simulados — localizações fictícias, para demonstração.</span>
+    <span>Pontos simulados — localizações fictícias.</span>
   </p>
-</main>
+</div>
 
-<!-- gerado pelo servidor: a chave dos tiles não mora no repositório -->
 <script src="./config.js"></script>
-<script src="./static/leaflet/leaflet.js?v=20260908c"></script>
-<script src="./mapa.js?v=20260908c"></script>
+<script src="./static/leaflet/leaflet.js?v=20260909c"></script>
+<script src="./mapa.js?v=20260909c"></script>
 </body>
 </html>

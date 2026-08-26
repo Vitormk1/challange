@@ -17,8 +17,7 @@
 
   /* --------------------------------------------------- dados simulados ---
      Gerador com semente: `Math.random()` daria um mapa diferente a cada F5,
-     e numa banca isso vira "o mapa mudou sozinho". Com semente, a mesma
-     tela sempre. */
+     e numa banca isso vira "o mapa mudou sozinho". */
   const semente = (n) => () => {
     n = (n * 1664525 + 1013904223) % 4294967296;
     return n / 4294967296;
@@ -44,20 +43,18 @@
 
   const PONTOS = LOJAS.map(([nome, segmento], i) => {
     const bairro = BAIRROS[Math.floor(rnd() * BAIRROS.length)];
-    const pot = POTENCIAS[Math.floor(rnd() * POTENCIAS.length)];
     return {
       id: i + 1,
       nome: `${nome} ${bairro}`,
       bairro,
       segmento,
-      // ~0,09° cobre uns 10 km, que é a mancha urbana que interessa aqui
-      lat: CENTRO[0] + (rnd() - 0.5) * 0.18,
+      lat: CENTRO[0] + (rnd() - 0.5) * 0.18,   // ~10 km de mancha urbana
       lng: CENTRO[1] + (rnd() - 0.5) * 0.18,
-      potencia: pot,
+      potencia: POTENCIAS[Math.floor(rnd() * POTENCIAS.length)],
       conector: CONECTORES[Math.floor(rnd() * CONECTORES.length)],
       vagas: 1 + Math.floor(rnd() * 3),
       livre: rnd() > 0.32,
-      preco: (0.79 + rnd() * 0.9),
+      preco: 0.79 + rnd() * 0.9,
       cashback: 5 + Math.floor(rnd() * 11),
     };
   });
@@ -65,29 +62,44 @@
   const num = (v, casas = 2) =>
     v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
 
-  /* ------------------------------------------------------------- mapa --- */
   const ICONE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M7 3h7a1 1 0 0 1 1 1v16H6V4a1 1 0 0 1 1-1Z"></path>
       <path d="M15 8h2.5a1.5 1.5 0 0 1 1.5 1.5V15a1.5 1.5 0 0 0 1.5 1.5"></path>
       <path d="m11 7-2 3.5h3L10 14"></path></svg>`;
 
-  const lista = document.getElementById("lista");
-  const contagem = document.getElementById("contagemPontos");
-  const busca = document.getElementById("buscaPontos");
+  const $ = id => document.getElementById(id);
+  const lista = $("lista");
+  const contagem = $("contagemPontos");
+  const busca = $("buscaPontos");
+  const limpar = $("limparBusca");
+  const painel = $("painelLista");
+  const pilula = $("botaoLista");
+  const rotuloPilula = $("rotuloPilula");
+  const alca = $("alcaLista");
+  const fechar = $("fecharLista");
+  const fab = $("botaoLocal");
 
+  const celular = () => matchMedia("(max-width: 860px)").matches
+                     && !matchMedia("(max-height: 460px) and (orientation: landscape)").matches;
+
+  /* ------------------------------------------------------------- mapa --- */
   let mapa = null;
   const marcadores = new Map();
   let ativo = null;
+  let marcadorLocal = null;
 
   if (typeof L !== "undefined") {
     mapa = L.map("mapa", {
       center: CENTRO,
       zoom: 12,
       zoomControl: false,
-      // o mundo não se repete de lado, e o zoom para de sair do Brasil
       worldCopyJump: false,
       minZoom: 3,
+      // no celular a rosquinha de zoom por scroll atrapalha mais que ajuda;
+      // pinça continua funcionando
+      scrollWheelZoom: !celular(),
+      tap: false,          // o Leaflet 1.9 já trata toque; o shim antigo duplica clique
     });
     L.control.zoom({ position: "bottomright" }).addTo(mapa);
 
@@ -95,9 +107,7 @@
        repositório, que é público e varrido por robô. Continua visível para
        quem abrir o código-fonte — chave de basemap é de cliente por natureza
        — e por isso merece restrição de domínio no painel da CARTO.
-
-       Sem chave, cai no endpoint anônimo, que funciona e é limitado. É o que
-       roda no ambiente local, onde ninguém precisa configurar nada. */
+       Sem chave, cai no endpoint anônimo, que funciona e é limitado. */
     const chave = (window.CARTO_KEY || "").trim();
     const tiles = chave
       ? `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${chave}`
@@ -106,23 +116,21 @@
     L.tileLayer(tiles, {
       maxZoom: chave ? 20 : 19,
       subdomains: "abcd",
-      // atribuição é obrigação de licença dos dois, não gentileza
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
     }).addTo(mapa);
 
     PONTOS.forEach(p => {
-      const icone = L.divIcon({
-        className: "marcador-pino",
-        html: `<span class="pino${p.livre ? "" : " is-ocupado"}">${ICONE}</span>`,
-        // 42 e não 34: o pino desenhado continua com 34, mas o elemento que
-        // recebe o toque é este — e 34px é menos do que um polegar acerta.
-        // A folga extra é transparente, então nada muda na aparência.
-        iconSize: [42, 42],
-        iconAnchor: [21, 38],
-        popupAnchor: [0, -34],
-      });
-      const m = L.marker([p.lat, p.lng], { icon: icone, title: p.nome }).addTo(mapa);
-      // o popup não pode ser mais largo que a tela menos as margens do mapa
+      const m = L.marker([p.lat, p.lng], {
+        title: p.nome,
+        icon: L.divIcon({
+          className: "marcador-pino",
+          html: `<span class="pino${p.livre ? "" : " is-ocupado"}">${ICONE}</span>`,
+          iconSize: [44, 44],
+          iconAnchor: [22, 40],
+          popupAnchor: [0, -36],
+        }),
+      }).addTo(mapa);
+
       m.bindPopup(`
         <div class="popup">
           <b>${p.nome}</b>
@@ -133,15 +141,20 @@
             <span>Cashback de <b>${p.cashback}%</b> para gastar na loja</span>
             <span>${p.livre ? `<b>${p.vagas} vaga(s) livre(s)</b>` : "Ocupado agora"}</span>
           </div>
-        </div>`, { maxWidth: Math.min(268, innerWidth - 56), autoPanPadding: [16, 16] });
+        </div>`, { maxWidth: Math.min(268, innerWidth - 56), autoPanPadding: [18, 18] });
+
       m.on("click", () => destacar(p.id, false));
       marcadores.set(p.id, m);
     });
+
+    // tocar no mapa recolhe a folha, como no Google Maps
+    mapa.on("click", () => { if (celular() && aberta()) irPara("fechada"); });
   } else {
-    // Leaflet não carregou: a lista assume a página inteira em vez de
-    // deixar uma faixa cinza onde o mapa deveria estar
-    document.getElementById("mapa").hidden = true;
+    // Leaflet não carregou: a lista assume a página inteira em vez de deixar
+    // uma faixa cinza onde o mapa deveria estar
+    $("mapa").hidden = true;
     document.querySelector(".mapa-palco").style.gridTemplateColumns = "minmax(0, 1fr)";
+    painel.style.transform = "none";
   }
 
   /* ------------------------------------------------------------ lista --- */
@@ -151,9 +164,11 @@
       ? PONTOS.filter(p => `${p.nome} ${p.bairro} ${p.segmento}`.toLowerCase().includes(t))
       : PONTOS;
 
+    limpar.hidden = !t;
     contagem.textContent = t
       ? `${vistos.length} de ${PONTOS.length} pontos`
       : `${PONTOS.length} pontos · ${PONTOS.filter(p => p.livre).length} livres agora`;
+    rotuloPilula.textContent = t ? `${vistos.length} resultados` : `${PONTOS.length} pontos`;
 
     if (!vistos.length) {
       lista.innerHTML = `<li class="mapa-vazio">Nada encontrado para essa busca.</li>`;
@@ -180,10 +195,10 @@
       b.addEventListener("click", () => destacar(Number(b.dataset.ponto), true)));
   }
 
-  /* Um só caminho para "este ponto agora é o escolhido", venha o clique do
-     pino ou da lista. Sem isso os dois lados discordam sobre o que está
+  /* Um só caminho para "este ponto agora é o escolhido", venha o toque do
+     pino ou da lista — senão os dois lados discordam sobre o que está
      selecionado. */
-  function destacar(id, moverMapa) {
+  function destacar(id, veioDaLista) {
     ativo = id;
     lista.querySelectorAll(".mapa-ponto").forEach(b =>
       b.classList.toggle("is-ativo", Number(b.dataset.ponto) === id));
@@ -191,48 +206,195 @@
 
     const m = marcadores.get(id);
     if (!m) return;
-    const el = m.getElement()?.querySelector(".pino");
-    if (el) el.classList.add("is-ativo");
+    m.getElement()?.querySelector(".pino")?.classList.add("is-ativo");
 
-    if (moverMapa && mapa) {
+    if (veioDaLista && mapa) {
+      // no celular a folha recolhe para o ponto aparecer; no computador não
+      // há o que recolher, e mexer na coluna seria gratuito
+      if (celular()) irPara("meia");
       mapa.flyTo(m.getLatLng(), Math.max(mapa.getZoom(), 15), { duration: 0.6 });
       m.openPopup();
-      if (gaveta()) fecharLista();
+    } else {
+      lista.querySelector(`[data-ponto="${id}"]`)?.scrollIntoView({ block: "nearest" });
     }
-    const item = lista.querySelector(`[data-ponto="${id}"]`);
-    if (item && !moverMapa) item.scrollIntoView({ block: "nearest" });
   }
 
-  busca.addEventListener("input", () => { desenhar(busca.value); if (ativo) destacar(ativo, false); });
+  busca.addEventListener("input", () => {
+    desenhar(busca.value);
+    if (celular() && busca.value.trim() && !aberta()) irPara("meia");
+  });
+  limpar.addEventListener("click", () => {
+    busca.value = "";
+    desenhar();
+    busca.focus();
+  });
   desenhar();
 
-  /* ------------------------------------------------- gaveta no celular --- */
-  const painel = document.getElementById("painelLista");
-  const botao = document.getElementById("botaoLista");
-  const fechar = document.getElementById("fecharLista");
-  const gaveta = () => matchMedia("(max-width: 860px)").matches;
+  /* ==========================================================================
+     A folha de baixo
 
-  function abrirLista() {
-    painel.classList.add("is-aberta");
-    botao.setAttribute("aria-expanded", "true");
-    busca.focus({ preventScroll: true });
+     Três alturas, como a do Google Maps: fechada (fora da tela), meia e
+     cheia. O que define qual está valendo é um translateY em pixels, e não
+     uma classe por estado — assim o dedo pode parar no meio do caminho e a
+     folha o acompanha sem pulo.
+
+     A versão anterior tinha uma alça que só era desenho. Quem tentava puxar
+     não conseguia nada, e o botão de fechar de 36px no canto não compensava:
+     a queixa que chegou foi "abri a lista e não consigo fechar".
+     ========================================================================== */
+  const ALTURAS = { fechada: 0, meia: 0.42, cheia: 0.86 };   // fração de 100dvh
+  let estado = "fechada";
+  let alturaFolha = 0;          // px visíveis, para o CSS mover os flutuantes
+
+  const alturaJanela = () => painel.getBoundingClientRect().height || innerHeight * 0.88;
+  const aberta = () => estado !== "fechada";
+
+  /* Quanto da folha aparece, em pixels. O CSS lê isto em --folha para subir o
+     botão de localização, o zoom e o aviso junto com ela. */
+  function aplicar(px, animando = true) {
+    const alt = alturaJanela();
+    alturaFolha = Math.max(0, Math.min(alt, px));
+    painel.classList.toggle("is-animando", animando);
+    painel.style.transform = `translateY(${alt - alturaFolha}px)`;
+    document.documentElement.style.setProperty("--folha", `${alturaFolha}px`);
   }
-  function fecharLista() {
-    painel.classList.remove("is-aberta");
-    botao.setAttribute("aria-expanded", "false");
+
+  function irPara(novo, animando = true) {
+    estado = novo;
+    aplicar(innerHeight * ALTURAS[novo], animando);
+    const abriu = aberta();
+    pilula.hidden = abriu;
+    pilula.setAttribute("aria-expanded", String(abriu));
+    painel.setAttribute("aria-hidden", String(!abriu && celular()));
+    if (abriu) painel.querySelector(".mapa-pontos").scrollTop = 0;
+    // o Leaflet precisa saber que a área útil mudou, senão o centro escorrega
+    if (mapa) setTimeout(() => mapa.invalidateSize({ pan: false }), 280);
   }
-  botao.addEventListener("click", () =>
-    painel.classList.contains("is-aberta") ? fecharLista() : abrirLista());
-  fechar.addEventListener("click", fecharLista);
+
+  pilula.addEventListener("click", () => irPara("meia"));
+  fechar.addEventListener("click", () => { irPara("fechada"); pilula.focus(); });
   addEventListener("keydown", e => {
-    if (e.key === "Escape" && gaveta() && painel.classList.contains("is-aberta")) {
-      fecharLista(); botao.focus();
+    if (e.key === "Escape" && celular() && aberta()) { irPara("fechada"); pilula.focus(); }
+  });
+
+  /* ---- o arrasto ----
+     Pointer events cobrem dedo, caneta e mouse com um código só. O
+     setPointerCapture é o que garante que o gesto continue sendo nosso
+     mesmo se o dedo sair de cima da alça no meio do caminho. */
+  let gesto = null;
+
+  const comecar = ev => {
+    if (!celular()) return;
+    gesto = { y: ev.clientY, base: alturaFolha, t: Date.now(), moveu: false };
+    alca.setPointerCapture?.(ev.pointerId);
+    painel.classList.remove("is-animando");
+  };
+
+  const mover = ev => {
+    if (!gesto) return;
+    const d = gesto.y - ev.clientY;          // para cima é positivo
+    if (Math.abs(d) > 3) gesto.moveu = true;
+    aplicar(gesto.base + d, false);
+    ev.preventDefault();
+  };
+
+  const soltar = ev => {
+    if (!gesto) return;
+    const d = gesto.y - ev.clientY;
+    const rapido = Date.now() - gesto.t < 260 && Math.abs(d) > 40;
+    const frac = alturaFolha / innerHeight;
+
+    // Gesto rápido manda na direção; gesto lento vai para a altura mais perto.
+    let destino;
+    if (rapido) {
+      destino = d > 0 ? (estado === "meia" ? "cheia" : "cheia")
+                      : (estado === "cheia" ? "meia" : "fechada");
+    } else {
+      destino = ["fechada", "meia", "cheia"].reduce((melhor, nome) =>
+        Math.abs(ALTURAS[nome] - frac) < Math.abs(ALTURAS[melhor] - frac) ? nome : melhor, "fechada");
+    }
+    gesto = null;
+    irPara(destino);
+  };
+
+  [alca, document.querySelector(".mapa-lista-topo")].forEach(el => {
+    if (!el) return;
+    el.addEventListener("pointerdown", comecar);
+    el.addEventListener("pointermove", mover);
+    el.addEventListener("pointerup", soltar);
+    el.addEventListener("pointercancel", soltar);
+  });
+
+  /* Rolar a lista até o topo e continuar puxando também fecha, que é o que a
+     folha do Maps faz. Sem isto o único jeito de fechar seria a alça. */
+  const rolo = painel.querySelector(".mapa-pontos");
+  let inicioRolo = null;
+  rolo.addEventListener("pointerdown", ev => {
+    inicioRolo = rolo.scrollTop <= 0 ? { y: ev.clientY, base: alturaFolha } : null;
+  });
+  rolo.addEventListener("pointermove", ev => {
+    if (!inicioRolo || !celular()) return;
+    const d = inicioRolo.y - ev.clientY;
+    if (d < -8) {                     // puxando para baixo com a lista no topo
+      painel.classList.remove("is-animando");
+      aplicar(inicioRolo.base + d, false);
     }
   });
-  // ao voltar para tela larga a gaveta some, e a classe não pode ficar presa
-  addEventListener("resize", () => { if (!gaveta()) fecharLista(); });
+  rolo.addEventListener("pointerup", ev => {
+    if (!inicioRolo || !celular()) { inicioRolo = null; return; }
+    const d = inicioRolo.y - ev.clientY;
+    inicioRolo = null;
+    if (d < -8) soltar(ev);
+  });
 
-  /* O mapa nasce dentro de um grid que só ganha altura depois do primeiro
-     layout; sem isto o Leaflet mede 0 e desenha os tiles fora de lugar. */
-  if (mapa) setTimeout(() => mapa.invalidateSize(), 60);
+  /* ---- onde estou ---- */
+  fab.addEventListener("click", () => {
+    if (!mapa || !navigator.geolocation) return;
+    fab.disabled = true;
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        fab.disabled = false;
+        fab.classList.add("is-ativo");
+        const onde = [pos.coords.latitude, pos.coords.longitude];
+        if (marcadorLocal) marcadorLocal.setLatLng(onde);
+        else marcadorLocal = L.marker(onde, {
+          icon: L.divIcon({ className: "marcador-local", html: '<span class="meu-local"></span>',
+                            iconSize: [18, 18], iconAnchor: [9, 9] }),
+          interactive: false,
+        }).addTo(mapa);
+        mapa.flyTo(onde, 14, { duration: 0.8 });
+      },
+      () => {
+        fab.disabled = false;
+        // Recusa ou falha não merece alarme: os pontos são fictícios, então
+        // "onde estou" é conforto, não requisito. O aviso diz o que houve e
+        // some sozinho.
+        const antes = document.querySelector(".mapa-aviso span");
+        const texto = antes.textContent;
+        antes.textContent = "Não consegui pegar sua localização.";
+        setTimeout(() => { antes.textContent = texto; }, 3200);
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 });
+  });
+
+  /* ---- estado inicial e giro de tela ---- */
+  function ajustar() {
+    if (celular()) {
+      irPara(estado, false);
+    } else {
+      // no computador a folha é coluna: sem transform, sem --folha
+      painel.style.transform = "";
+      painel.classList.remove("is-animando");
+      painel.removeAttribute("aria-hidden");
+      document.documentElement.style.setProperty("--folha", "0px");
+      pilula.hidden = true;
+    }
+    if (mapa) mapa.invalidateSize({ pan: false });
+  }
+
+  addEventListener("resize", ajustar);
+  addEventListener("orientationchange", () => setTimeout(ajustar, 220));
+  // o mapa nasce dentro de um grid que só ganha altura depois do primeiro
+  // layout; sem isto o Leaflet mede 0 e desenha os tiles fora de lugar
+  setTimeout(ajustar, 60);
 })();

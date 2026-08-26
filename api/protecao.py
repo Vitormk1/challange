@@ -187,7 +187,12 @@ CABECALHOS = {
     # parou de funcionar sem dizer nada: a política bloqueava antes de o
     # navegador sequer perguntar. `(self)` libera só esta origem, que é o
     # necessário para o reconhecimento de fala e nada além disso.
-    "Permissions-Policy": "geolocation=(), microphone=(self), camera=(), payment=()",
+    # `geolocation=(self)`: o mapa público tem um botão de "onde estou", e com
+    # a lista vazia o navegador barrava antes mesmo de perguntar — o mesmo erro
+    # que já tinha derrubado o microfone. `(self)` libera só esta origem, e o
+    # navegador continua pedindo permissão a quem usa; quem recusa perde só o
+    # centralizar, porque os pontos são fictícios e não dependem disso.
+    "Permissions-Policy": "geolocation=(self), microphone=(self), camera=(), payment=()",
 }
 
 # HSTS: o navegador passa a recusar http nesta origem por um ano, sem nem

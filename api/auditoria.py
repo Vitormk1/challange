@@ -215,6 +215,18 @@ def main() -> None:
     for nome in ["content-security-policy", "x-content-type-options",
                  "x-frame-options", "referrer-policy"]:
         checar(f"cabeçalho {nome}", nome in cab, cab.get(nome, "ausente")[:28])
+    # A Permissions-Policy é o cabeçalho que já quebrou o microfone uma vez:
+    # `microphone=()` é lista VAZIA, que proíbe toda origem inclusive a
+    # própria, e o navegador barra antes de perguntar. Depois que o mapa
+    # ganhou "onde estou", geolocation passou pelo mesmo caminho. O teste
+    # existe para que a diferença entre `()` e `(self)` nunca mais dependa de
+    # alguém lembrar.
+    pp = cab.get("permissions-policy", "")
+    checar("microfone liberado para a própria origem", "microphone=(self)" in pp, pp[:60])
+    checar("geolocalização liberada para a própria origem", "geolocation=(self)" in pp, pp[:60])
+    checar("câmera continua proibida", "camera=()" in pp, pp[:60])
+    checar("pagamento continua proibido", "payment=()" in pp, pp[:60])
+
     checar("CSP proíbe iframe de terceiro",
            "frame-ancestors 'none'" in cab.get("content-security-policy", ""))
     checar("apresentação é servida pela própria API", r.status_code == 200, f"HTTP {r.status_code}")

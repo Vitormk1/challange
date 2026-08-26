@@ -1,9 +1,20 @@
 /* ==========================================================================
    Smart Charge — mapa de carregadores
 
-   Carrega o site.css só pelos tokens de cor e pelo .botao; o layout aqui é
-   outro. Mapa é a única página do projeto em que o conteúdo ocupa a janela
-   inteira e não rola: quem rola é o mapa, por dentro.
+   Duas páginas no mesmo HTML:
+
+   No computador, coluna de lista à esquerda e mapa à direita, com uma barra
+   sólida no topo. É o desenho que aproveita a largura.
+
+   No celular — que é onde esta página vai viver, porque é o mapa que o
+   motorista abre na rua — o desenho é o do Google Maps: mapa ocupando tudo,
+   busca flutuando arredondada no topo, e uma FOLHA DE BAIXO que se arrasta
+   com o dedo entre três alturas.
+
+   A primeira versão tinha uma alça que parecia arrastável e não arrastava.
+   Quem tentava puxar não conseguia nada e concluía que a lista não fechava —
+   um botão de fechar de 36px no canto não salva uma folha que mente sobre o
+   próprio gesto. Aqui a alça arrasta de verdade (ver mapa.js).
    ========================================================================== */
 
 .pagina-mapa {
@@ -12,6 +23,8 @@
   height: 100dvh;
   overflow: hidden;
   background: var(--fundo-suave);
+  /* nada de puxar-para-recarregar nem de zoom duplo por engano no mapa */
+  overscroll-behavior: none;
 }
 
 .pular {
@@ -28,55 +41,104 @@
 }
 .pular:focus { left: 0; }
 
-/* --------------------------------------------------------------- topo --- */
-.mapa-topo {
+/* ==========================================================================
+   Computador
+   ========================================================================== */
+.mapa-palco {
   position: relative;
-  z-index: 500;          /* acima do mapa: o Leaflet usa até 400 */
+  height: 100dvh;
+  display: grid;
+  grid-template-columns: 364px minmax(0, 1fr);
+  grid-template-rows: 68px minmax(0, 1fr);
+}
+
+.mapa-topo {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  z-index: 500;                /* acima do mapa: o Leaflet usa até 400 */
   display: flex;
   align-items: center;
-  gap: 14px;
-  height: 66px;
+  gap: 16px;
   padding: 0 18px;
   background: var(--superficie);
   border-bottom: 1px solid var(--linha);
-  box-shadow: 0 1px 12px rgba(13, 13, 15, 0.06);
 }
-.mapa-topo .marca { color: var(--texto); font-size: 1.04rem; }
-.mapa-topo .marca img { width: 30px; height: 30px; }
-.mapa-topo-acoes { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-.mapa-botao-painel { min-height: 42px; padding: 0 18px; font-size: 0.9rem; }
 
-.mapa-botao-lista {
-  display: none;               /* só existe quando a lista vira gaveta */
+.mapa-voltar {
+  display: inline-flex;
   align-items: center;
-  gap: 7px;
-  min-height: 42px;
-  padding: 0 15px;
-  border: 1px solid var(--linha-forte);
-  border-radius: 999px;
-  background: var(--superficie);
-  font: inherit;
-  font-size: 0.9rem;
-  font-weight: 600;
+  gap: 9px;
+  text-decoration: none;
   color: var(--texto);
+  font-weight: 800;
+  font-size: 1.02rem;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.mapa-voltar img { width: 26px; height: 26px; }
+
+.mapa-busca {
+  position: relative;
+  flex: 1 1 auto;
+  max-width: 460px;
+  display: flex;
+  align-items: center;
+}
+.mapa-busca > svg {
+  position: absolute;
+  left: 13px;
+  width: 17px; height: 17px;
+  color: var(--texto-3);
+  pointer-events: none;
+}
+.mapa-busca input {
+  width: 100%;
+  height: 44px;
+  padding: 0 40px 0 38px;
+  border: 1px solid var(--linha-forte);
+  border-radius: 12px;
+  background: var(--fundo);
+  font: inherit;
+  /* 16px: abaixo disso o Safari dá zoom ao focar o campo, e o mapa sai de
+     lugar sem ninguém ter pedido */
+  font-size: 16px;
+  color: var(--texto);
+}
+.mapa-busca input:focus-visible { outline: 2px solid var(--vermelho); outline-offset: -1px; }
+.mapa-busca input::-webkit-search-cancel-button { display: none; }
+.mapa-busca-limpar {
+  position: absolute;
+  right: 6px;
+  width: 32px; height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--texto-3);
   cursor: pointer;
 }
-.mapa-botao-lista svg { width: 17px; height: 17px; }
+.mapa-busca-limpar:hover { background: var(--fundo-suave); color: var(--texto); }
 
-/* --------------------------------------------------------------- palco --- */
-.mapa-palco {
-  position: relative;
-  height: calc(100dvh - 66px);
-  display: grid;
-  grid-template-columns: 356px minmax(0, 1fr);
+.mapa-painel {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: var(--vermelho-forte);
+  color: #FFF;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
 }
-/* `grid-row: 1` nos dois, e não só `grid-column`. Sem isso a colocação
-   automática punha o mapa na coluna 2 da linha 1 e a lista, que pede a
-   coluna 1, não podia voltar atrás — abria uma segunda linha. A grade ficava
-   com `0px 834px` e o mapa herdava a linha de altura zero. */
+.mapa-painel:hover { background: #9C120C; }
+
 #mapa {
   grid-column: 2;
-  grid-row: 1;
+  grid-row: 2;
   height: 100%;
   background: #E8E9ED;         /* cor do tile antes de ele chegar */
 }
@@ -84,7 +146,7 @@
 /* --------------------------------------------------------------- lista --- */
 .mapa-lista {
   grid-column: 1;
-  grid-row: 1;
+  grid-row: 2;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -92,71 +154,37 @@
   border-right: 1px solid var(--linha);
   z-index: 450;
 }
+.mapa-alca { display: none; }          /* só existe na folha do celular */
+
 .mapa-lista-topo {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 20px 18px 14px;
+  padding: 18px 18px 12px;
 }
-.mapa-lista-topo h1 { font-size: 1.24rem; letter-spacing: -0.02em; }
-.mapa-lista-topo p { margin: 5px 0 0; font-size: 0.86rem; color: var(--texto-3); }
-.mapa-lista-fechar {
-  display: none;
-  margin-left: auto;
-  width: 36px; height: 36px;
-  border: 0;
-  border-radius: 10px;
-  background: var(--fundo-suave);
-  font-size: 1.4rem;
-  line-height: 1;
-  color: var(--texto-2);
-  cursor: pointer;
-}
-
-.mapa-busca {
-  position: relative;
-  display: block;
-  margin: 0 18px 12px;
-}
-.mapa-busca svg {
-  position: absolute;
-  left: 13px; top: 50%;
-  width: 17px; height: 17px;
-  transform: translateY(-50%);
-  color: var(--texto-3);
-  pointer-events: none;
-}
-.mapa-busca input {
-  width: 100%;
-  height: 44px;
-  padding: 0 14px 0 38px;
-  border: 1px solid var(--linha-forte);
-  border-radius: 12px;
-  background: var(--fundo);
-  font: inherit;
-  font-size: 0.9rem;
-  color: var(--texto);
-}
-.mapa-busca input:focus-visible { outline: 2px solid var(--vermelho); outline-offset: -1px; }
+.mapa-lista-topo h1 { font-size: 1.18rem; letter-spacing: -0.02em; }
+.mapa-lista-topo p { margin: 4px 0 0; font-size: 0.85rem; color: var(--texto-3); }
+.mapa-lista-fechar { display: none; }
 
 .mapa-pontos {
   flex: 1 1 auto;
   min-height: 0;
   margin: 0;
-  padding: 0 12px 18px;
+  padding: 0 10px 18px;
   list-style: none;
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .mapa-ponto {
   width: 100%;
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr);
+  grid-template-columns: 40px minmax(0, 1fr);
   gap: 12px;
   padding: 12px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   border: 1px solid transparent;
-  border-radius: 13px;
+  border-radius: 14px;
   background: none;
   font: inherit;
   text-align: left;
@@ -169,22 +197,17 @@
 .mapa-ponto-marca {
   display: grid;
   place-items: center;
-  width: 38px; height: 38px;
-  border-radius: 11px;
+  width: 40px; height: 40px;
+  border-radius: 12px;
   background: var(--preto);
   color: #FFF;
 }
-.mapa-ponto-marca svg { width: 19px; height: 19px; }
-.mapa-ponto b { display: block; font-size: 0.93rem; }
-.mapa-ponto small {
-  display: block;
-  margin-top: 2px;
-  font-size: 0.81rem;
-  color: var(--texto-3);
-}
-.mapa-ponto-selos { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.mapa-ponto-marca svg { width: 20px; height: 20px; }
+.mapa-ponto b { display: block; font-size: 0.94rem; }
+.mapa-ponto small { display: block; margin-top: 2px; font-size: 0.81rem; color: var(--texto-3); }
+.mapa-ponto-selos { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
 .selo {
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 600;
@@ -195,9 +218,14 @@
 .selo.is-ocupado { background: var(--vermelho-claro); color: #8A1616; }
 .mapa-vazio { padding: 22px 14px; font-size: 0.88rem; color: var(--texto-3); }
 
+/* ------------------------------------------------------ flutuantes ------- */
+.mapa-fab, .mapa-pilula { display: none; }   /* só no celular */
+
 /* --------------------------------------------------------------- pinos --- */
-/* O pino é um div com HTML dentro (L.divIcon), não uma imagem: assim ele usa
-   o vermelho da marca e continua nítido em tela retina, sem gerar PNG. */
+/* O pino é um div com HTML dentro (L.divIcon), não uma imagem: usa o vermelho
+   da marca, fica nítido em tela retina e não gera PNG. O elemento que recebe
+   o toque tem 44px; o desenho tem 34 e vai centralizado nele. */
+.marcador-pino { display: grid; place-items: center; background: none; border: 0; }
 .pino {
   display: grid;
   place-items: center;
@@ -211,10 +239,19 @@
 }
 .pino svg { width: 17px; height: 17px; color: #FFF; transform: rotate(45deg); }
 .pino.is-ocupado { background: var(--carvao); }
-.pino.is-ativo { transform: rotate(-45deg) scale(1.22); }
-.marcador-pino { background: none; border: 0; }
+.pino.is-ativo { transform: rotate(-45deg) scale(1.24); z-index: 5; }
 
-.leaflet-popup-content-wrapper { border-radius: 14px; box-shadow: 0 12px 34px rgba(13, 13, 15, 0.22); }
+/* ponto azul de "você está aqui", como o do Google Maps */
+.meu-local {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #1A73E8;
+  border: 3px solid #FFF;
+  box-shadow: 0 0 0 1px rgba(26, 115, 232, 0.35), 0 2px 8px rgba(13, 13, 15, 0.3);
+}
+.marcador-local { background: none; border: 0; }
+
+.leaflet-popup-content-wrapper { border-radius: 16px; box-shadow: 0 12px 34px rgba(13, 13, 15, 0.22); }
 .leaflet-popup-content { margin: 14px 16px; font-family: var(--fonte); }
 .popup b { display: block; font-size: 0.96rem; color: var(--texto); }
 .popup small { display: block; margin-top: 3px; font-size: 0.82rem; color: var(--texto-3); }
@@ -225,171 +262,228 @@
 .mapa-aviso {
   position: absolute;
   left: 50%;
-  bottom: 16px;
+  bottom: 14px;
   z-index: 460;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 8px;
   margin: 0;
-  padding: 8px 14px;
+  padding: 7px 14px;
   border-radius: 999px;
   background: rgba(13, 13, 15, 0.86);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: #FFF;
-  font-size: 0.79rem;
+  font-size: 0.77rem;
   line-height: 1.3;
   box-shadow: 0 6px 20px rgba(13, 13, 15, 0.24);
-  /* passa clique para o mapa: é um aviso, não um controle */
-  pointer-events: none;
+  pointer-events: none;        /* é aviso, não controle: o clique é do mapa */
 }
 .mapa-aviso svg { flex: 0 0 auto; width: 15px; height: 15px; opacity: 0.85; }
 
-/* a atribuição do Leaflet é obrigação de licença; só encolhe */
+/* atribuição é obrigação de licença; só encolhe */
 .leaflet-control-attribution { font-size: 0.66rem; background: rgba(255,255,255,0.82); }
 .leaflet-control-attribution a { color: var(--texto-2); }
 
 /* ==========================================================================
-   Celular
+   Celular — o desenho do Google Maps
 
-   A lista deixa de ser coluna e vira gaveta por cima do mapa: numa tela de
-   375 não há como dar 356px a ela sem sobrar mapa nenhum.
+   Mapa em tela cheia por baixo de tudo. A busca flutua. A lista vira folha
+   de baixo com três alturas, arrastável pela alça.
    ========================================================================== */
 @media (max-width: 860px) {
-  .mapa-topo { height: 60px; padding: 0 14px; gap: 10px; }
-  .mapa-topo .marca { font-size: 0.98rem; }
-  .mapa-botao-lista { display: inline-flex; }
-  .mapa-botao-painel { padding: 0 14px; font-size: 0.85rem; }
-
-  .mapa-palco { grid-template-columns: minmax(0, 1fr); height: calc(100dvh - 60px); }
+  /* Uma célula só: tudo empilha por cima do mapa. */
+  .mapa-palco { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
   #mapa { grid-column: 1; grid-row: 1; }
 
+  /* ---- busca flutuante ---- */
+  .mapa-topo {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+    margin: max(10px, env(safe-area-inset-top)) 10px 0;
+    padding: 8px 10px;
+    gap: 8px;
+    border: 0;
+    border-radius: 16px;
+    box-shadow: 0 4px 18px rgba(13, 13, 15, 0.18);
+    /* a barra não pode capturar o toque do mapa em volta dela */
+    height: auto;
+  }
+  .mapa-voltar span { display: none; }        /* só a logo, como o Maps */
+  .mapa-voltar img { width: 28px; height: 28px; }
+  .mapa-busca { max-width: none; }
+  .mapa-busca input {
+    height: 42px;
+    border: 0;
+    background: none;
+    padding-left: 34px;
+  }
+  .mapa-busca > svg { left: 8px; }
+  .mapa-painel { padding: 0 14px; min-height: 38px; font-size: 0.84rem; }
+
+  /* ---- botão flutuante ---- */
+  .mapa-fab {
+    position: absolute;
+    right: 12px;
+    z-index: 470;
+    display: grid;
+    place-items: center;
+    width: 46px; height: 46px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--superficie);
+    color: var(--texto-2);
+    box-shadow: 0 3px 14px rgba(13, 13, 15, 0.22);
+    cursor: pointer;
+    /* Sobe junto com a folha — o JS escreve --folha com a altura visível
+       dela — e fica ACIMA da pilha de zoom, que ocupa o mesmo canto. Medida
+       real da pilha: 92px de altura mais a margem própria do Leaflet, que a
+       põe a 37px do fundo. 146 deixa 17px de respiro entre os dois; 78 e 118
+       ainda se sobrepunham numa tela de 320. */
+    bottom: calc(var(--folha, 0px) + 146px);
+    transition: bottom 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+  .mapa-fab svg { width: 22px; height: 22px; }
+  .mapa-fab.is-ativo { color: #1A73E8; }
+
+  /* os controles de zoom acompanham o mesmo movimento */
+  .leaflet-bottom.leaflet-right {
+    bottom: calc(var(--folha, 0px) + 12px);
+    transition: bottom 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+  .leaflet-touch .leaflet-bar a,
+  .leaflet-control-zoom a { width: 44px; height: 44px; line-height: 44px; font-size: 1.3rem; }
+  .leaflet-control-zoom { margin-right: 12px !important; }
+
+  /* ---- pílula que chama a folha de volta ---- */
+  .mapa-pilula {
+    position: absolute;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom) + 16px);
+    z-index: 470;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 20px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--preto);
+    color: #FFF;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    box-shadow: 0 6px 20px rgba(13, 13, 15, 0.3);
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .mapa-pilula svg { width: 17px; height: 17px; }
+  /* some quando a folha está aberta, sem sair do fluxo de foco de repente */
+  .mapa-pilula[hidden] { display: none; }
+
+  /* ---- a folha ---- */
   .mapa-lista {
     grid-column: 1;
     grid-row: 1;
     align-self: end;
-    max-height: 74%;
+    z-index: 480;
+    height: 88dvh;             /* altura máxima; o translate define o que aparece */
     border-right: 0;
-    border-radius: 20px 20px 0 0;
-    box-shadow: 0 -10px 34px rgba(13, 13, 15, 0.22);
-    transform: translateY(101%);
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -8px 30px rgba(13, 13, 15, 0.2);
+    /* fechada por padrão: a página abre no mapa, como o Maps */
+    transform: translateY(100%);
+  }
+  /* A transição só existe fora do arrasto. Durante o gesto o JS tira esta
+     classe, senão o dedo puxa e a folha chega atrasada, com borracha. */
+  .mapa-lista.is-animando {
     transition: transform 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
   }
-  .mapa-lista.is-aberta { transform: none; }
-  .mapa-lista-fechar { display: block; }
-  .mapa-lista-topo { padding: 16px 16px 12px; }
 
-  /* com a gaveta fechada o aviso sobe um pouco, para não encostar na borda */
-  .mapa-aviso { bottom: 12px; font-size: 0.74rem; padding: 7px 12px; }
-}
-
-@media (max-width: 420px) {
-  /* "Acessar o painel" não cabe ao lado do logo e do botão de lista */
-  .mapa-botao-painel { font-size: 0; padding: 0 13px; }
-  .mapa-botao-painel::after { content: "Painel"; font-size: 0.85rem; }
-  .mapa-aviso { left: 12px; right: 12px; transform: none; justify-content: center; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mapa-lista, .mapa-ponto, .pino { transition: none; }
-}
-
-/* ==========================================================================
-   Celular — a passada de verdade
-
-   Esta página vai ser aberta quase só no telefone: é o mapa que o motorista
-   consulta na rua. O bloco acima já fazia a lista virar gaveta; aqui estão
-   as três colisões que só apareceram medindo, mais o que um mapa precisa
-   quando quem toca é um dedo.
-   ========================================================================== */
-
-/* O pino desenhado tem 34px, mas o elemento que recebe o toque tem 42 (ver
-   iconSize no mapa.js). A folga é transparente e centraliza o desenho. */
-.marcador-pino { display: grid; place-items: center; }
-
-@media (max-width: 860px) {
-  /* O aviso estava embaixo, no meio, e colidia com DUAS coisas: os controles
-     de zoom (canto inferior direito) e a atribuição do Leaflet (rodapé do
-     mapa). Subir para o topo resolve as duas de uma vez — e é melhor assim,
-     porque a ressalva passa a ser lida antes de a pessoa acreditar nos
-     pontos, não depois. */
-  .mapa-aviso {
-    top: 12px;
-    bottom: auto;
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
-    max-width: calc(100% - 24px);
-    text-align: center;
+  /* ---- alça: agora arrasta de verdade ---- */
+  .mapa-alca {
+    display: block;
+    flex: 0 0 auto;
+    padding: 10px 0 6px;
+    cursor: grab;
+    /* o navegador não pode rolar a página enquanto o dedo está na alça */
+    touch-action: none;
   }
-
-  /* Botão de zoom de 30x30 é alvo de mouse. No dedo, 44.
-     O seletor precisa ser `.leaflet-touch .leaflet-bar a`: é o que a folha do
-     Leaflet usa, e um `.leaflet-control-zoom a` sozinho perde para ele. */
-  .leaflet-touch .leaflet-bar a,
-  .leaflet-control-zoom a {
-    width: 44px; height: 44px;
-    line-height: 44px;
-    font-size: 1.3rem;
-  }
-  .leaflet-control-zoom { margin-right: 12px !important; margin-bottom: 12px !important; }
-
-  /* A gaveta sobe por cima do mapa; a atribuição tem de continuar legível
-     enquanto ela está fechada, e sair da frente quando ela abre. */
-  .leaflet-control-attribution { margin-bottom: 2px !important; }
-
-  /* Alça de arrastar: sem ela a gaveta parece um card preso, e não uma folha
-     que sobe. É desenho, não controle — quem abre e fecha é o botão do topo
-     e o toque no ponto. */
-  .mapa-lista::before {
+  .mapa-alca::before {
     content: "";
     display: block;
-    width: 38px; height: 4px;
-    margin: 8px auto 0;
+    width: 40px; height: 5px;
+    margin: 0 auto;
     border-radius: 999px;
     background: var(--linha-forte);
-    flex: 0 0 auto;
   }
-  .mapa-lista-topo { padding-top: 10px; }
+  .mapa-alca:active { cursor: grabbing; }
 
-  /* Respiro para o entalhe e para a barra de gestos do aparelho. */
-  .mapa-topo { padding-left: max(14px, env(safe-area-inset-left));
-               padding-right: max(14px, env(safe-area-inset-right)); }
-  .mapa-pontos { padding-bottom: max(18px, env(safe-area-inset-bottom)); }
-}
+  .mapa-lista-topo { padding: 2px 14px 10px; touch-action: none; }
+  .mapa-lista-topo h1 { font-size: 1.06rem; }
 
-@media (max-width: 420px) {
+  .mapa-lista-fechar {
+    display: grid;
+    place-items: center;
+    margin-left: auto;
+    width: 40px; height: 40px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--fundo-suave);
+    color: var(--texto-2);
+    cursor: pointer;
+  }
+  .mapa-lista-fechar svg { width: 18px; height: 18px; }
+
+  .mapa-pontos { padding: 0 8px calc(env(safe-area-inset-bottom) + 20px); }
+  .mapa-ponto { padding: 11px 10px; }
+
+  /* o aviso sobe junto com a folha, e sai da frente da pílula */
   .mapa-aviso {
-    left: 10px; right: 10px;
-    transform: none;
-    max-width: none;
-    justify-content: center;
+    bottom: calc(var(--folha, 0px) + 70px);
     font-size: 0.72rem;
+    padding: 6px 12px;
+    max-width: calc(100% - 20px);
+    transition: bottom 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
   }
-  /* Numa tela dessas o nome do ponto é o que importa; os selos podem quebrar
-     em duas linhas sem prejuízo, mas o cartão não pode ficar estreito. */
-  .mapa-pontos { padding-left: 8px; padding-right: 8px; }
-  .mapa-ponto { grid-template-columns: 34px minmax(0, 1fr); gap: 10px; padding: 11px 10px; }
-  .mapa-ponto-marca { width: 34px; height: 34px; border-radius: 10px; }
+  .leaflet-control-attribution { margin-bottom: 0 !important; }
 }
 
-/* Celular deitado: sobra largura e falta altura. A gaveta ocupando 74% deixa
-   o mapa numa tira inútil, então ela vira coluna de novo. */
+@media (max-width: 400px) {
+  .mapa-painel span { font-size: 0.8rem; }
+  .mapa-topo { margin-left: 8px; margin-right: 8px; padding: 7px 8px; }
+  .mapa-aviso { font-size: 0.69rem; }
+}
+
+/* Celular deitado: falta altura. A folha volta a ser coluna, senão sobra uma
+   tira de mapa que não serve para nada. */
 @media (max-height: 460px) and (orientation: landscape) and (max-width: 860px) {
-  .mapa-palco { grid-template-columns: 290px minmax(0, 1fr); }
+  .mapa-palco { grid-template-columns: 280px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
   #mapa { grid-column: 2; }
+  .mapa-topo {
+    grid-column: 2;
+    margin: 8px 8px 0;
+  }
   .mapa-lista {
     grid-column: 1;
-    max-height: none;
+    grid-row: 1;
     align-self: stretch;
+    height: 100%;
     border-radius: 0;
     border-right: 1px solid var(--linha);
     box-shadow: none;
-    transform: none;
+    transform: none !important;
   }
-  .mapa-lista::before { display: none; }
-  .mapa-lista-fechar { display: none; }
-  .mapa-botao-lista { display: none; }
-  .mapa-aviso { left: auto; right: 12px; transform: none; }
+  .mapa-alca, .mapa-lista-fechar, .mapa-pilula { display: none; }
+  .mapa-fab { bottom: 12px; }
+  .leaflet-bottom.leaflet-right { bottom: 12px; }
+  .mapa-aviso { bottom: 10px; left: auto; right: 12px; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mapa-lista.is-animando, .mapa-ponto, .pino,
+  .mapa-fab, .mapa-aviso, .leaflet-bottom.leaflet-right { transition: none; }
 }
