@@ -323,8 +323,14 @@ h3 { font-size: clamp(1.05rem, 1.6vw, 1.25rem); letter-spacing: -0.01em; }
   background: var(--vermelho-forte);
 }
 .cartao-heroi-icone svg { width: 26px; height: 26px; }
-.cartao-heroi strong { display: block; font-size: 1rem; }
-.cartao-heroi span {
+/* Escopado em .cartao-heroi-texto, e não em `.cartao-heroi span`. A versão
+   antiga pegava também o <span> do ícone: `.cartao-heroi span` tem
+   especificidade (0,1,1) e vencia o (0,1,0) de .cartao-heroi-icone, trocando
+   o `display: grid` que centraliza por `block`. O pino ficava encostado no
+   canto superior esquerdo do quadrado vermelho em vez de no meio. */
+.cartao-heroi-texto { min-width: 0; }
+.cartao-heroi-texto strong { display: block; font-size: 1rem; }
+.cartao-heroi-texto span {
   display: block;
   margin-top: 4px;
   font-size: 0.88rem;
@@ -975,27 +981,125 @@ h3 { font-size: clamp(1.05rem, 1.6vw, 1.25rem); letter-spacing: -0.01em; }
    Entrada por rolagem
 
    O padrão é o elemento JÁ visível: quem chega sem JavaScript vê a página
-   inteira. A classe .revelar só é posta pelo site.js, e só depois de ele
+   inteira. As classes só são postas pelo site.js, e só depois de ele
    confirmar que o IntersectionObserver existe — senão o conteúdo ficaria
    invisível para sempre, que é o modo clássico de esse efeito quebrar uma
    página.
+
+   Cada bloco entra de um lado. A direção não é enfeite: ela acompanha de
+   onde o elemento está na composição — a coluna da esquerda entra pela
+   esquerda, a imagem da direita pela direita, o título sobe. Movimento que
+   contraria o layout confunde em vez de guiar.
+
+   `--and` é a distância percorrida. No celular ela encolhe: 34px de deslo-
+   camento lateral numa tela de 375 é um oitavo da largura, e a translação
+   ficaria maior que o respiro da página.
    ========================================================================== */
-.revelar {
+.rev {
+  --and: 30px;
   opacity: 0;
-  transform: translateY(22px);
-  transition: opacity 0.6s cubic-bezier(0.22, 0.61, 0.36, 1),
-              transform 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: opacity 0.62s cubic-bezier(0.22, 0.61, 0.36, 1),
+              transform 0.62s cubic-bezier(0.22, 0.61, 0.36, 1);
   transition-delay: var(--atraso, 0s);
   will-change: opacity, transform;
 }
-.revelar.is-dentro {
-  opacity: 1;
-  transform: none;
-}
+.rev-b { transform: translateY(var(--and)); }                 /* sobe */
+.rev-c { transform: translateY(calc(var(--and) * -1)); }      /* desce */
+.rev-e { transform: translateX(calc(var(--and) * -1)); }      /* vem da esquerda */
+.rev-d { transform: translateX(var(--and)); }                 /* vem da direita */
+.rev-z { transform: scale(0.94); }                            /* cresce */
+
+.rev.is-dentro { opacity: 1; transform: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .revelar { opacity: 1; transform: none; transition: none; }
+  .rev { opacity: 1; transform: none !important; transition: none; }
   .ia-janela, .ia-balao, .ia-chamariz { animation: none; }
   .ia-pensando i { animation: none; opacity: 0.7; }
   .ia-botao:hover { transform: none; }
+}
+
+/* ==========================================================================
+   Celular — a passada de densidade
+
+   O que vem antes deste bloco já cabia na tela: nada estourava, nada rolava
+   de lado. O que faltava era o resto — respiro proporcional ao aparelho, e
+   os dois lugares em que um elemento fixo encosta no conteúdo.
+   ========================================================================== */
+@media (max-width: 760px) {
+  /* A translação de entrada encolhe junto com a tela. 30px numa tela de 375
+     é um doze avos da largura: o bloco entrava vindo de fora da margem, e o
+     overflow-x do body escondia o estrago sem desfazê-lo. */
+  .rev { --and: 16px; }
+
+  /* Densidade. 64px de respiro entre seções é medida de monitor; no celular
+     ele empurra o conteúdo seguinte para fora da tela sem ganhar nada. */
+  .secao { padding: 52px 0; }
+  .cabeca-secao { margin-bottom: 26px; }
+  .cabeca-secao p { margin-top: 12px; }
+
+  /* O herói ocupava 94% da tela: o visitante via a capa e mais nada, sem
+     sinal de que havia página abaixo. Aparado, sobra uma faixa da seção
+     seguinte à vista, que é o que convida a rolar. */
+  .heroi-corpo { padding: 44px 0 30px; }
+  .heroi-corpo p { margin-top: 16px; }
+  .heroi-acoes { margin-top: 24px; gap: 10px; }
+  .cartao-heroi {
+    gap: 13px;
+    padding: 14px;
+    margin-bottom: 20px;
+  }
+  .cartao-heroi-icone { width: 46px; height: 46px; border-radius: 13px; }
+  .cartao-heroi-icone svg { width: 22px; height: 22px; }
+  .cartao-heroi-texto strong { font-size: 0.94rem; }
+  .cartao-heroi-texto span { font-size: 0.83rem; }
+  /* a seta é enfeite e come 22px de largura numa linha que já está apertada */
+  .cartao-heroi-seta { display: none; }
+
+  .cartao { padding: 22px; }
+  .bloco + .bloco { margin-top: 40px; }
+  .passos li { padding-left: 40px; margin-bottom: 15px; }
+  .passos li::before { width: 27px; height: 27px; }
+
+  /* A esfera é fixa e estava por cima da linha de copyright. O rodapé passa
+     a reservar a altura dela mais folga, para nada do conteúdo terminar
+     debaixo de um botão que não sai do lugar. */
+  .rodape { padding-bottom: 96px; }
+
+  .chamada { padding: 46px 0; }
+  .chamada p { margin-top: 14px; }
+  .chamada-acoes { margin-top: 26px; gap: 10px; }
+}
+
+/* Aparelho pequeno de verdade (SE, aparelhos de 5"). Aqui o que quebra
+   primeiro é a manchete, que tem duas palavras longas e não pode hifenizar
+   no meio de "Transformando". */
+@media (max-width: 380px) {
+  /* A manchete tem o piso do clamp em 2,1rem, e num aparelho de 320 isso a
+     deixa em duas linhas altas que sozinhas empurram o herói para 100% da
+     tela. Baixar o piso devolve os pixels que fazem a seção seguinte
+     aparecer — e 1,85rem numa tela dessas ainda é manchete. */
+  h1 { font-size: 1.85rem; }
+  .heroi-corpo p { font-size: 0.95rem; }
+  .heroi-corpo { padding: 30px 0 22px; }
+  .cartao-heroi { padding: 12px; }
+  .cartao-heroi-icone { width: 42px; height: 42px; }
+  .secao { padding: 44px 0; }
+  .cartao { padding: 20px; }
+  .passos li { padding-left: 36px; }
+}
+
+/* Celular deitado: a tela tem 375px de altura, e um herói de 90% dela deixa
+   a manchete sem lugar. Aqui o que sobra é largura, não altura. */
+@media (max-height: 460px) and (orientation: landscape) {
+  .heroi-corpo { padding: 26px 0 18px; }
+  .heroi-corpo p { margin-top: 12px; }
+  .heroi-acoes { margin-top: 18px; }
+  .cartao-heroi { margin-bottom: 16px; padding: 12px; }
+  .secao { padding: 40px 0; }
+  /* A janela é ancorada por `bottom`, então altura demais empurra o topo
+     dela para fora da tela — foi o que aconteceu: 344px de altura com
+     bottom:96 numa tela de 360 punha o cabeçalho em y = -80, e o botão de
+     fechar ficava inalcançável. O teto desconta a faixa do botão (96 + 8)
+     para a janela caber entre ele e o topo. */
+  .ia-janela { max-height: calc(100dvh - 104px); }
 }

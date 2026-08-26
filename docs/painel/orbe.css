@@ -1,7 +1,7 @@
 /* ==========================================================================
    A esfera da assistente, no site de apresentação
 
-   Extraído do style.css da referência: só as 18 regras de .bms-ai-entity e os
+   Extraído do style.css da referência: as regras de .bms-ai-entity e os
    keyframes que elas usam. O site não carrega o style.css inteiro — são
    447 KB para desenhar um dashboard, e os seletores dele (body, h1, .cartao)
    brigariam com os desta página.
@@ -10,8 +10,12 @@
    que já as repinta no vermelho — é o mesmo objeto que gira no canto do
    painel, e é assim que ele continua sendo o mesmo aqui.
 
-   Gerado por extração, não copiado à mão. Se a esfera mudar na referência,
-   o caminho é reextrair.
+   Gerado por extração. A primeira tentativa lia o seletor com um regex de
+   uma linha só, e por isso perdeu toda regra escrita como lista quebrada —
+   entre elas `.bms-ai-entity-visual, .bms-ai-entity .ai-energy-field`, que é
+   quem dá tamanho ao desenho. O resultado foi uma bola preta: os gradientes
+   estavam lá, aplicados a caixas de 0x0. Se for reextrair, o seletor tem de
+   poder atravessar quebras de linha.
    ========================================================================== */
 
 :root {
@@ -70,8 +74,7 @@
   --ai-orb-idle-soft: rgba(212, 52, 44, 0.40);
   --ai-orb-shadow-white: rgba(163, 18, 12, 0.42);
   --ai-orb-shadow-cyan: rgba(225, 37, 27, 0.34);
-  /* estado de alarme: a assistente do site nunca entra nele, mas a regra
-     que o usa ficaria inválida sem estas três */
+
   --ai-orb-alarm-core: rgba(240, 182, 75, 0.98);
   --ai-orb-alarm-mid: rgba(231, 163, 41, 0.84);
   --ai-orb-alarm-soft: rgba(240, 182, 75, 0.28);
@@ -120,17 +123,17 @@
   border-radius: 48% 52% 51% 49%;
   cursor: pointer;
 }
-.global-ai-launcher:hover .bms-ai-entity-visual {
+.bms-ai-entity[interactive]:hover .bms-ai-entity-visual, .global-ai-launcher:hover .bms-ai-entity-visual {
   transform: scale(1.04);
 }
-.global-ai-launcher:active .bms-ai-entity-visual {
+.bms-ai-entity[interactive]:active .bms-ai-entity-visual, .global-ai-launcher:active .bms-ai-entity-visual {
   transform: scale(0.965);
 }
 .bms-ai-entity[interactive]:focus-visible {
   outline: 2px solid var(--accent-cyan);
   outline-offset: 3px;
 }
-.bms-ai-entity .ai-energy-field {
+.bms-ai-entity-visual, .bms-ai-entity .ai-energy-field {
   display: grid;
   place-items: center;
   width: 100%;
@@ -181,7 +184,7 @@
     ai-orb-pulse var(--ai-orb-pulse-speed) ease-in-out infinite,
     ai-organic-rotate var(--ai-orb-rotate-speed) ease-in-out infinite;
 }
-.bms-ai-entity .ai-orb-icon::after {
+.bms-ai-entity .ai-orb-icon::before, .bms-ai-entity .ai-orb-icon::after {
   content: "";
   position: absolute;
   inset: -12.5%;
@@ -214,12 +217,33 @@
   opacity: 0.94;
   animation: ai-orb-breathe var(--ai-orb-breathe-speed) ease-in-out infinite;
 }
+.bms-ai-entity:is( [data-state="listening"], [data-state="thinking"], [data-state="responding"] ) {
+  --ai-orb-drift-speed: 2.8s;
+  --ai-orb-halo-speed: 3.4s;
+  --ai-orb-pulse-speed: 2s;
+  --ai-orb-rotate-speed: 3.2s;
+  --ai-orb-smoke-speed: 1.9s;
+  --ai-orb-breathe-speed: 1.7s;
+  --ai-orb-surface-core-current: var(--ai-orb-thinking-core);
+  --ai-orb-surface-mid-current: var(--ai-orb-thinking-mid);
+  --ai-orb-surface-soft-current: var(--ai-orb-thinking-soft);
+  --ai-orb-form-a-current: var(--ai-orb-thinking-core);
+  --ai-orb-form-b-current: var(--ai-orb-thinking-mid);
+  --ai-orb-form-c-current: var(--ai-orb-thinking-mid);
+  --ai-orb-form-d-current: var(--ai-orb-thinking-core);
+  --ai-orb-form-e-current: var(--ai-orb-thinking-soft);
+  --ai-orb-form-f-current: var(--ai-orb-thinking-mid);
+  --ai-orb-form-g-current: var(--ai-orb-thinking-soft);
+  --ai-orb-core-current: var(--ai-orb-thinking-core);
+  --ai-orb-core-mid-current: var(--ai-orb-thinking-mid);
+  --ai-orb-core-soft-current: var(--ai-orb-thinking-soft);
+}
 .bms-ai-entity[data-state="alert"] {
   --ai-orb-core-current: var(--ai-orb-alarm-core);
   --ai-orb-core-mid-current: var(--ai-orb-alarm-mid);
   --ai-orb-core-soft-current: var(--ai-orb-alarm-soft);
 }
-.bms-ai-entity[data-paused="true"] *::after {
+.bms-ai-entity[data-paused="true"] *, .bms-ai-entity[data-paused="true"] *::before, .bms-ai-entity[data-paused="true"] *::after {
   animation-play-state: paused !important;
 }
 .global-ai-launcher .bms-ai-entity-visual {
@@ -227,14 +251,6 @@
   width: 100%;
   height: 100%;
 }
-.bms-ai-entity *::after {
-    animation: none !important;
-    transition: none !important;
-  }
-.bms-ai-entity-visual {
-    opacity: 0.96;
-    transform: none !important;
-  }
 
 @keyframes ai-orb-breathe {
   0%, 100% { opacity: 0.86; transform: scale(0.92); }
@@ -291,4 +307,13 @@
     transform: translate(-0.8px, 0.7px) scale(1.04, 1.18);
     filter: blur(var(--ai-orb-form-blur-settled));
   }
+}
+
+/* A referência também para a esfera para quem pediu menos movimento.
+   Sem este bloco a bolinha continuaria girando ali. */
+@media (prefers-reduced-motion: reduce) {
+  .bms-ai-entity *, .bms-ai-entity *::before, .bms-ai-entity *::after {animation: none !important;
+    transition: none !important;}
+  .bms-ai-entity-visual {opacity: 0.96;
+    transform: none !important;}
 }

@@ -121,44 +121,123 @@
   }
 
   /* ------------------------------------------------------ entrada por rolagem ---
-     A classe .revelar é posta AQUI e não no HTML, de propósito. Ela esconde o
-     elemento (opacity 0), e quem depende do HTML para escondê-lo entrega uma
-     página em branco a quem carregou sem JavaScript ou num navegador sem
-     IntersectionObserver. Pondo por script, e só depois de confirmar que o
-     observador existe, o pior caso vira "sem animação" em vez de "sem site".
+     As classes são postas AQUI e não no HTML, de propósito. Elas zeram a
+     opacidade, e quem depende do HTML para isso entrega uma página em branco
+     a quem carregou sem JavaScript ou num navegador sem IntersectionObserver.
+     Pondo por script, e só depois de confirmar que o observador existe, o pior
+     caso vira "sem animação" em vez de "sem site".
 
-     Só os blocos abaixo da dobra entram animados: animar o herói faria a
-     primeira coisa que a pessoa vê piscar depois de já estar lá. */
-  const podeObservar = "IntersectionObserver" in window
+     A direção de cada bloco acompanha onde ele está na composição: coluna da
+     esquerda entra pela esquerda, imagem da direita pela direita, título sobe.
+     Movimento que contraria o layout confunde em vez de guiar — por isso os
+     blocos alternados invertem junto com o layout deles.
+
+     O herói fica de fora: animar a primeira coisa que a pessoa vê faria a
+     página piscar depois de já estar montada. */
+  const podeAnimar = "IntersectionObserver" in window
     && !matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  if (podeObservar) {
-    const alvos = [];
-    document.querySelectorAll("main > section, .rodape").forEach(secao => {
-      const cabeca = secao.querySelector(".cabeca-secao, .duas-colunas > div:first-child");
-      if (cabeca) alvos.push([cabeca, 0]);
+  if (podeAnimar) {
+    const PASSO = 70;        // ms entre irmãos de uma mesma leva
+    const TETO = 5;          // acima disso o último item da lista demora demais
+    const fila = [];
+    const por = (raiz, sel) => [...raiz.querySelectorAll(sel)];
 
-      // filhos em cascata: cada um entra um pouco depois do anterior, com
-      // teto de 5 passos — acima disso o último item demora demais
-      const grupos = secao.querySelectorAll(
-        ".grade-cartoes > .cartao, .bloco, .carrossel, .celular, .rodape-grade > div");
-      grupos.forEach((no, i) => alvos.push([no, Math.min(i, 5) * 80]));
+    /* marcar(elemento, direção, atraso) — a fila é montada antes de tocar no
+       DOM para nenhum elemento ser marcado duas vezes por dois seletores que
+       se sobrepõem (um .cartao também é filho de .grade-cartoes). */
+    const marcar = (no, dir, atraso = 0) => {
+      if (!no || fila.some(f => f.no === no)) return;
+      fila.push({ no, dir, atraso });
+    };
+    const cascata = (nos, dir, base = 0) =>
+      nos.forEach((no, i) => marcar(no, typeof dir === "function" ? dir(i) : dir,
+                                    base + Math.min(i, TETO) * PASSO));
+
+    document.querySelectorAll("main > section").forEach(secao => {
+      // cabeçalho da seção: sobe, e o texto dele vem logo atrás
+      const cabeca = secao.querySelector(".cabeca-secao");
+      if (cabeca) {
+        marcar(cabeca.querySelector(".olho"), "e");
+        marcar(cabeca.querySelector("h2"), "b", 60);
+        // :not(.olho) porque o olho TAMBÉM é um <p>, e é o primeiro: sem
+        // isto o querySelector devolvia ele de novo, a guarda de duplicata
+        // recusava, e o parágrafo de corpo nunca entrava na fila
+        marcar(cabeca.querySelector("p:not(.olho)"), "b", 130);
+      }
+
+      // carrossel do painel: cresce no lugar, que é o gesto de "olhe isto"
+      marcar(secao.querySelector(".carrossel"), "z", 120);
+      marcar(secao.querySelector(".legenda-carrossel"), "b", 260);
+
+      // duas colunas: texto pela esquerda, aparelho pela direita
+      const duas = secao.querySelector(".duas-colunas");
+      if (duas) {
+        const col = duas.querySelector(":scope > div");
+        if (col) {
+          marcar(col.querySelector(".olho"), "e");
+          marcar(col.querySelector("h2"), "e", 70);
+          marcar(col.querySelector("p:not(.olho)"), "e", 140);
+          cascata(por(col, ".lista-marcada li"), "e", 210);
+        }
+        marcar(duas.querySelector(".celular"), "d", 120);
+      }
+
+      // grade de segmentos: esquerda, baixo, direita, e repete — a variação
+      // é o que faz a grade entrar como grade e não como uma lista
+      cascata(por(secao, ".grade-cartoes > .cartao"),
+              i => ["e", "b", "d"][i % 3]);
+
+      // blocos alternados: cada metade entra do lado em que ela já está
+      por(secao, ".bloco").forEach(bloco => {
+        const invertido = bloco.classList.contains("is-invertido");
+        const texto = bloco.querySelector(":scope > div");
+        const figura = bloco.querySelector(".bloco-figura");
+        if (texto) {
+          marcar(texto.querySelector("h3"), invertido ? "d" : "e");
+          cascata(por(texto, ".passos li"), invertido ? "d" : "e", 90);
+        }
+        marcar(figura, invertido ? "e" : "d", 80);
+      });
     });
+
+    // chamada final: desce do alto, para destoar do resto e fechar a página
+    const chamada = document.querySelector(".chamada .envelope");
+    if (chamada) {
+      marcar(chamada.querySelector("h2"), "c");
+      marcar(chamada.querySelector("p"), "c", 80);
+      marcar(chamada.querySelector(".chamada-acoes"), "b", 170);
+    }
+
+    // rodapé: colunas em cascata da esquerda
+    cascata(por(document, ".rodape-grade > div"), "e");
+    marcar(document.querySelector(".rodape-fim"), "b", 260);
 
     const observador = new IntersectionObserver((entradas, obs) => {
       entradas.forEach(e => {
         if (!e.isIntersecting) return;
         e.target.classList.add("is-dentro");
-        obs.unobserve(e.target);          // entra uma vez; não repete na volta
+        obs.unobserve(e.target);      // entra uma vez; não repete na volta
       });
-    }, { rootMargin: "0px 0px -12% 0px", threshold: 0.06 });
+    }, { rootMargin: "0px 0px -10% 0px", threshold: 0.05 });
 
-    alvos.forEach(([no, atraso]) => {
-      if (no.classList.contains("revelar")) return;
-      no.classList.add("revelar");
+    fila.forEach(({ no, dir, atraso }) => {
+      no.classList.add("rev", `rev-${dir}`);
       if (atraso) no.style.setProperty("--atraso", `${atraso}ms`);
       observador.observe(no);
     });
+
+    /* Rede de segurança: o observador não dispara para o que já está na tela
+       em navegador que restaura a rolagem no meio da página, e não dispara de
+       jeito nenhum se a aba abrir em segundo plano. Passado um tempo, o que
+       ainda estiver invisível dentro da janela entra sem esperar. */
+    setTimeout(() => {
+      fila.forEach(({ no }) => {
+        if (no.classList.contains("is-dentro")) return;
+        const r = no.getBoundingClientRect();
+        if (r.top < innerHeight && r.bottom > 0) no.classList.add("is-dentro");
+      });
+    }, 1200);
   }
 
   /* ------------------------------------------------------------- assistente ---
