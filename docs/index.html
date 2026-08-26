@@ -217,7 +217,7 @@
           <li>Quem volta, quem gasta mais, em que horário</li>
           <li>Aviso antes de estourar o contrato de energia</li>
           <li>Qual ponto está com defeito ou com fila</li>
-          <li>Ligar cada carregador em cortesia ou em cobrança por kWh</li>
+          <li>Definir preço por kWh e percentual de cashback de cada carregador</li>
         </ul>
       </div>
       <div class="screen">
@@ -225,7 +225,7 @@
         <h3 style="margin:0">Telinha na vaga</h3>
         <ul>
           <li>Quanto falta para 80% e para encher</li>
-          <li>Se é cortesia da casa ou quanto vai custar</li>
+          <li>Quanto está custando e quanto já voltou como crédito da loja</li>
           <li>Quantos quilômetros já entraram</li>
           <li>QR que leva a tela para o celular e dá desconto na loja</li>
         </ul>
@@ -254,9 +254,9 @@
     <div class="body">
       <p>É muito mais fácil um dono de loja aprovar isso do que virar vendedor de energia — o que exigiria maquininha, nota fiscal e competir com Shell e EZVolt, que já têm rede montada.</p>
       <p><strong>Mas repare no terceiro número.</strong> Ele é o que decide se essa história funciona, e a maior parte das apresentações sobre recarga em comércio simplesmente não olha para ele. A gente olhou, e o resultado muda o projeto — está logo abaixo.</p>
-      <p><strong>A cortesia tem um teto de energia, não de tempo.</strong> Seis quilowatt-hora — uns 62 km — por conta da casa, custando R$ 4,73 à loja. Quem quiser mais, estende comprando: <strong>cada real gasto libera mais energia, na proporção da margem daquela loja.</strong></p>
-      <p>Por construção, a energia liberada nunca custa mais que o lucro da compra que a liberou. <strong>É impossível dar prejuízo.</strong></p>
-      <p>Teto por tempo, que era o desenho anterior, não funcionava: quanto mais a pessoa fica, mais energia entra — e o lucro da compra é fixo. Num restaurante com duas horas de permanência, a conta virava negativa.</p>
+      <p><strong>O motorista paga a energia, e parte volta como crédito da loja.</strong> A vaga deixa de ser despesa de marketing e passa a se bancar sozinha: a energia é vendida com margem. O que traz a pessoa para dentro é o cashback — uma fatia do que ela pagou, que <strong>só vale ali</strong>.</p>
+      <p>O percentual é calculado por loja: margem da energia mais o lucro da visita, menos a amortização do equipamento, sobre o valor médio da recarga. <strong>Acima do teto, o programa passa a consumir o próprio retorno</strong> — e o painel avisa antes disso acontecer.</p>
+      <p><strong>O desenho anterior era cortesia:</strong> energia de graça até um teto, absorvida pela loja. Ele saiu por dois motivos. Dependia de o lojista renovar um orçamento de marketing todo mês, e o teto que se pagava variava tanto entre segmentos que no supermercado dava negativo. Vendendo a energia, o mesmo supermercado passa a ter folga para devolver crédito.</p>
     </div>
 
     <h3 style="margin-top:34px">Mas isso carrega o carro de verdade?</h3>
@@ -278,8 +278,8 @@
       <p>Uma ida ao mercado devolve <strong>de 17 a 47 quilômetros</strong>. Para quem roda na cidade, isso é o dia inteiro — e custa <strong>R$ 3,59</strong> para a loja.</p>
     </div>
     <div class="body" style="margin-top:16px">
-      <p>Por isso a cortesia é medida <strong>em tempo, não em energia</strong>. Um teto em kWh nunca seria atingido: para levar 25 kWh a pessoa teria de ficar mais de três horas parada na loja. "Grátis enquanto você faz compras, até 2 horas" é o limite real — e é o que qualquer um entende sem explicação.</p>
-      <p>E a tela fala em quilômetros, não em kWh. <em>"Em meia hora são uns 32 km"</em> diz alguma coisa. <em>"3,04 kWh"</em> não diz nada.</p>
+      <p>Por isso o cashback é um <strong>percentual do valor</strong>, e não um valor fixo: recarga de R$ 8 e recarga de R$ 60 não merecem o mesmo incentivo, e o percentual acompanha as duas sem tabela.</p>
+      <p>E a tela fala em reais e em quilômetros, não em kWh. <em>"Você já tem R$ 2,40 de crédito"</em> diz alguma coisa. <em>"3,04 kWh"</em> não diz nada.</p>
     </div>
 
     <h3 style="margin-top:34px">De onde sai o teto de 6 kWh</h3>
@@ -323,7 +323,7 @@
       <p>Nada disso invalida o modelo — <strong>invalida usar o mesmo desenho para todo mundo.</strong> E aponta para a função mais valiosa do produto.</p>
     </div>
     <div class="pull">
-      <p>O painel calcula, com o ticket e a margem daquela loja, <strong>quantos minutos de cortesia ela pode dar sem perder dinheiro</strong> — e configura o ponto sozinho.</p>
+      <p>O painel calcula, com o ticket e a margem daquela loja, <strong>até que percentual de cashback ela pode devolver sem perder dinheiro</strong> — e configura o ponto sozinho.</p>
       <p>Nenhum concorrente faz isso, porque nenhum deles sabe quanto a loja fatura. Nós sabemos.</p>
     </div>
 
@@ -431,23 +431,23 @@
     <h3>O painel do lojista</h3>
     <div class="body">
       <p>Já está pronto e navegável. Primeira dobra respondendo o retorno, situação dos carregadores ao vivo, sessões, clientes, vendas atribuídas e financeiro. O lojista monta o próprio painel: arrasta os cards, puxa o canto para redimensionar, guarda mais de uma versão e escolhe se ela é dele ou de toda a loja. Tudo fica no banco, então abrir em outro computador devolve a mesma tela. São três acessos: quem desenvolve vê todas as lojas, o gerente manda na dele, e o operador vê tudo menos o financeiro e não altera nada.</p>
-      <p>Tem <strong>tour guiado</strong> na primeira visita, <strong>tema claro e escuro</strong>, troca de estabelecimento e configurações. E a peça que mais importa: <strong>a calculadora que diz quanto de cortesia aquela loja aguenta</strong>, a partir da margem e do ticket dela.</p>
+      <p>Tem <strong>tour guiado</strong> na primeira visita, <strong>tema claro e escuro</strong>, troca de estabelecimento e configurações. E a peça que mais importa: <strong>a calculadora que diz quanto de cashback aquela loja aguenta devolver</strong>, a partir da margem, do ticket e da margem da energia.</p>
     </div>
     <div class="pull">
       <p><a href="painel/dashboard.html">Abrir o painel →</a> · <a href="painel/">ver a apresentação</a><br>
-      <span style="font-size:.86rem;color:var(--ink-3)">Dados de demonstração, com semente fixa. Troque o segmento em Configurações para ver a conta mudar — no supermercado, ele avisa que a cortesia não se paga.</span></p>
+      <span style="font-size:.86rem;color:var(--ink-3)">Dados de demonstração, com semente fixa. Troque a margem em Configurações para ver o teto de cashback mudar.</span></p>
     </div>
   </section>
 
   <section>
     <h3>Cada carregador tem seu modelo</h3>
     <div class="body">
-      <p>O modelo de cortesia é o nosso foco, mas ele não serve para todo mundo — e não faz sentido obrigar a loja a escolher um só para o estabelecimento inteiro.</p>
+      <p>O percentual de cashback é configurado por ponto, e não pela loja inteira: não faz sentido obrigar o estabelecimento a tratar a vaga da frente e a dos fundos igual.</p>
       <p><strong>No painel, o dono liga cada carregador em um dos dois modos</strong>, e muda quando quiser:</p>
     </div>
     <div class="screens">
       <div class="screen">
-        <span class="tag">Modo cortesia</span>
+        <span class="tag">Cashback</span>
         <h3 style="margin:0">Isca comercial</h3>
         <p style="font-size:.92rem;color:var(--ink-2)">Teto gratuito em kWh, estendido pela compra. Para a vaga da frente, que atrai cliente.</p>
       </div>
@@ -458,20 +458,20 @@
       </div>
     </div>
     <div class="body" style="margin-top:20px">
-      <p>Uma padaria pode ter a vaga da calçada em cortesia e a de trás cobrando. Um posto de estrada usa só o modo pago. Um pet shop usa só cortesia.</p>
-      <p><strong>Isso abre o produto para qualquer tipo de negócio</strong> sem abrir mão do foco: quem tem margem alta compra pela cortesia, quem não tem compra pela cobrança. E a telinha muda sozinha conforme o modo do ponto.</p>
+      <p>Uma padaria pode devolver 12% na vaga da calçada e 4% na de trás. Um posto de estrada devolve zero e vive da energia. Um pet shop, com margem folgada, devolve o máximo que a conta aguenta.</p>
+      <p><strong>Isso abre o produto para qualquer tipo de negócio</strong> sem abrir mão do foco: quem tem margem alta devolve mais e enche a loja, quem não tem devolve pouco e ainda assim vende energia com margem.</p>
     </div>
   </section>
 
   <section>
     <h3>A telinha da vaga</h3>
     <div class="body">
-      <p>Já está pronta e funcionando, nos dois modos. Mostra a carga atual, a que horas chega a 80% e a que horas enche, e — conforme o modo do ponto — quantos quilômetros de cortesia ainda restam ou quanto já custou.</p>
+      <p>Já está pronta e funcionando. Mostra a carga atual, a que horas chega a 80% e a que horas enche, quanto já custou e — com o mesmo destaque — quanto já voltou como crédito da loja.</p>
       <p>A conta roda <strong>dentro da própria telinha</strong>, não no servidor. É de propósito: quando a internet da loja cai, a tela continua certa. Tela apagada ao lado da vaga é pior que nenhuma tela.</p>
       <p>A mesma página serve os três lugares: o monitor na parede, o celular do motorista pelo QR, e a demonstração emoldurada. Muda só o enquadramento, não o código.</p>
     </div>
     <div class="pull">
-      <p><a href="vaga/">Telinha em modo cortesia →</a><br>
+      <p><a href="vaga/">Telinha da vaga →</a><br>
       <a href="vaga/?modo=pago">Telinha em modo por kWh →</a><br>
       <a href="vaga/?full=1">Em tela cheia, como fica na parede →</a><br>
       <span style="font-size:.86rem;color:var(--ink-3);display:inline-block;margin-top:10px">O cenário muda pela barra de endereço:<br>
@@ -529,7 +529,7 @@
       <div class="row">
         <span class="n">Quem entra</span>
         <span class="t">Três papéis, decididos no servidor</span>
-        <span class="d">O dono vê tudo e troca de loja; o gerente edita a própria loja e vê o financeiro; o operador vê quase tudo e <strong>não altera nada</strong>. Esconder um botão é conforto para quem usa — o que impede de verdade é a requisição voltar 403. Margem e ticket nem chegam no JSON do operador: são os dois números de onde saem lucro e teto de cortesia. Senhas em <code>scrypt</code>, sessão no banco, seis tentativas de login por e-mail em cinco minutos. <strong>54 verificações automatizadas</strong> disparam requisições reais contra o serviço publicado e conferem cada uma dessas regras.</span>
+        <span class="d">O dono vê tudo e troca de loja; o gerente edita a própria loja e vê o financeiro; o operador vê quase tudo e <strong>não altera nada</strong>. Esconder um botão é conforto para quem usa — o que impede de verdade é a requisição voltar 403. Margem e ticket nem chegam no JSON do operador: são os dois números de onde saem lucro e teto de cashback. Senhas em <code>scrypt</code>, sessão no banco, seis tentativas de login por e-mail em cinco minutos. <strong>54 verificações automatizadas</strong> disparam requisições reais contra o serviço publicado e conferem cada uma dessas regras.</span>
       </div>
       <div class="row">
         <span class="n">Assistente</span>
@@ -565,7 +565,7 @@
       <li><strong>A telinha da vaga.</strong> É a mais simples e a que mais impressiona em demonstração.</li>
       <li><strong>O painel do dono.</strong> Começar pela primeira tela: retorno, sessões, ocupação.</li>
       <li><strong>A previsão de verdade.</strong> Calibrar com o dado medido no laboratório e mostrar o erro no painel.</li>
-      <li><strong>As regras comerciais.</strong> Cortesia condicionada, taxa de ociosidade, modo pago.</li>
+      <li><strong>As regras comerciais.</strong> Preço por kWh, percentual de cashback, taxa de ociosidade.</li>
       <li><strong>Os avisos.</strong> Contrato de energia, ponto fora do ar, consumo estranho.</li>
     </ol>
     <div class="body" style="margin-top:16px">

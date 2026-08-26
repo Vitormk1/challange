@@ -7,6 +7,7 @@
 -- configurar o que o lojista controla.
 --
 -- Aplicar:  python api/db.py --aplicar
+
 -- ===========================================================================
 
 -- --------------------------------------------------------------------------
@@ -53,7 +54,7 @@ CREATE INDEX IF NOT EXISTS ix_sessoes_web_usuario ON sessoes_web (usuario_id);
 
 -- --------------------------------------------------------------------------
 -- o estabelecimento. Margem e ticket ficam aqui porque são o que define o
--- teto de cortesia que cada loja aguarda sem prejuízo.
+-- percentual de cashback que cada loja aguenta devolver sem prejuízo.
 -- --------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS estabelecimentos (
   id                    bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -79,7 +80,7 @@ CREATE TABLE IF NOT EXISTS usuarios_estabelecimentos (
 
 -- --------------------------------------------------------------------------
 -- os pontos de recarga. A regra comercial fica no PONTO, não na loja: a mesma
--- loja pode ter a vaga da frente em cortesia e a dos fundos cobrando.
+-- loja pode ter a vaga da frente devolvendo 10% e a dos fundos devolvendo 5%.
 -- --------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS carregadores (
   id                    bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -88,16 +89,15 @@ CREATE TABLE IF NOT EXISTS carregadores (
   numero_serie          text          UNIQUE,
   potencia_kw           numeric(6,2)  NOT NULL DEFAULT 7.40 CHECK (potencia_kw > 0),
   conector              text          NOT NULL DEFAULT 'Tipo 2',
-  modo                  text          NOT NULL DEFAULT 'cortesia'
-                                      CHECK (modo IN ('cortesia','pago')),
-  -- modo cortesia: teto de ENERGIA, não de tempo. Teto por tempo não sobrevive
-  -- a permanência longa, porque o lucro da compra é fixo e a energia não.
-  teto_cortesia_kwh     numeric(6,2)  NOT NULL DEFAULT 6.00 CHECK (teto_cortesia_kwh >= 0),
-  -- extensão proporcional: cada real gasto libera (margem / tarifa) kWh, então
-  -- a energia liberada nunca custa mais que o lucro que a gerou.
-  kwh_por_real          numeric(6,4)  NOT NULL DEFAULT 0.1270 CHECK (kwh_por_real >= 0),
-  -- modo pago
-  preco_kwh_brl         numeric(6,4)  CHECK (preco_kwh_brl IS NULL OR preco_kwh_brl >= 0),
+  -- Todo ponto cobra por kWh. Não existe mais recarga de graça: a energia é
+  -- receita, e a vaga se banca sem depender de a loja aprovar um orçamento
+  -- de marketing todo mês.
+  preco_kwh_brl         numeric(6,4)  NOT NULL DEFAULT 1.2000 CHECK (preco_kwh_brl >= 0),
+  -- O que traz a pessoa para dentro: parte do que ela pagou volta como
+  -- crédito que só vale nesta loja. Percentual e não valor fixo, porque
+  -- recarga pequena e recarga grande não merecem o mesmo incentivo.
+  cashback_pct          numeric(5,2)  NOT NULL DEFAULT 8.00
+                                      CHECK (cashback_pct BETWEEN 0 AND 100),
   -- vale nos dois: evita que a vaga vire estacionamento
   carencia_min          integer       NOT NULL DEFAULT 15 CHECK (carencia_min >= 0),
   taxa_ociosidade_min   numeric(6,2)  NOT NULL DEFAULT 0.20 CHECK (taxa_ociosidade_min >= 0),
@@ -137,7 +137,8 @@ CREATE TABLE IF NOT EXISTS sessoes (
   energia_kwh        numeric(8,3)  NOT NULL DEFAULT 0 CHECK (energia_kwh >= 0),
   soc_inicial        numeric(4,3)  CHECK (soc_inicial BETWEEN 0 AND 1),
   soc_final          numeric(4,3)  CHECK (soc_final BETWEEN 0 AND 1),
-  modo               text          NOT NULL CHECK (modo IN ('cortesia','pago')),
+  -- quanto desta recarga voltou como crédito da loja
+  cashback_brl       numeric(8,2)  NOT NULL DEFAULT 0 CHECK (cashback_brl >= 0),
   -- o que a previsão disse, para o painel medir o próprio erro
   previsao_fim       timestamptz,
   previsao_custo_brl numeric(8,2),
@@ -153,8 +154,9 @@ CREATE INDEX IF NOT EXISTS ix_sessoes_cliente    ON sessoes (cliente_id) WHERE c
 CREATE INDEX IF NOT EXISTS ix_sessoes_inicio     ON sessoes (inicio DESC);
 
 -- --------------------------------------------------------------------------
--- cupons: o vínculo entre a recarga e a venda. É o que resolve a atribuição
--- sem pedir CPF nem cupom de papel — o cliente escaneia porque ganha desconto.
+-- cupons: o crédito de cashback, e o vínculo entre a recarga e a venda ao
+-- mesmo tempo. Resolve a atribuição sem pedir CPF: o cliente digita o código
+-- porque é o dinheiro dele de volta. `desconto_brl` é o valor do crédito.
 -- --------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS cupons (
   id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -259,11 +261,68 @@ CREATE TRIGGER tg_limite_paineis
   BEFORE INSERT OR UPDATE ON paineis
   FOR EACH ROW EXECUTE FUNCTION limite_paineis_compartilhados();
 
+-- ===========================================================================
+-- Cortesia sai, cashback entra
+--
+-- O modelo antigo tinha dois modos por ponto: 'cortesia' (energia de graca
+-- ate um teto em kWh, absorvida pela loja como marketing) e 'pago'. O novo
+-- tem um so: todo mundo paga por kWh, e parte volta como credito da loja.
+--
+-- A migracao e destrutiva de proposito. Manter as colunas antigas "por via
+-- das duvidas" deixaria duas verdades no banco, e a primeira consulta que
+-- esquecesse de filtrar por modo voltaria a misturar os dois modelos.
+--
+-- Quem tinha ponto em cortesia (preco_kwh_brl nulo) recebe a tarifa da loja
+-- com uma margem de 40%, que e o preco de partida sugerido, e 8% de cashback.
+-- ===========================================================================
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'carregadores' AND column_name = 'modo') THEN
+
+    ALTER TABLE carregadores ADD COLUMN IF NOT EXISTS
+      cashback_pct numeric(5,2) NOT NULL DEFAULT 8.00;
+
+    -- ponto que era cortesia nao tinha preco: ganha um, derivado da tarifa
+    UPDATE carregadores c
+       SET preco_kwh_brl = COALESCE(c.preco_kwh_brl, ROUND(e.tarifa_kwh_brl * 1.40, 4))
+      FROM estabelecimentos e
+     WHERE e.id = c.estabelecimento_id;
+    UPDATE carregadores SET preco_kwh_brl = 1.2000 WHERE preco_kwh_brl IS NULL;
+
+    ALTER TABLE carregadores ALTER COLUMN preco_kwh_brl SET NOT NULL;
+    ALTER TABLE carregadores ALTER COLUMN preco_kwh_brl SET DEFAULT 1.2000;
+    ALTER TABLE carregadores DROP COLUMN modo;
+    ALTER TABLE carregadores DROP COLUMN IF EXISTS teto_cortesia_kwh;
+    ALTER TABLE carregadores DROP COLUMN IF EXISTS kwh_por_real;
+    ALTER TABLE carregadores ADD CONSTRAINT carregadores_cashback_pct_check
+      CHECK (cashback_pct BETWEEN 0 AND 100);
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'sessoes' AND column_name = 'modo') THEN
+    -- a visão de detalhe le sessoes.modo e segura a coluna; ela e recriada
+    -- logo adiante, ja com cashback_brl no lugar
+    DROP VIEW IF EXISTS vw_sessoes_detalhe;
+    ALTER TABLE sessoes ADD COLUMN IF NOT EXISTS
+      cashback_brl numeric(8,2) NOT NULL DEFAULT 0;
+    -- sessao antiga em cortesia nao cobrou nada, entao nao gerou credito;
+    -- a que era paga gera o cashback padrao sobre o que foi cobrado
+    UPDATE sessoes SET cashback_brl = ROUND(valor_cobrado_brl * 0.08, 2)
+     WHERE modo = 'pago';
+    ALTER TABLE sessoes DROP COLUMN modo;
+  END IF;
+END $$;
+
 -- --------------------------------------------------------------------------
 -- visões que o painel consome direto
 -- --------------------------------------------------------------------------
+-- DROP antes do CREATE: `CREATE OR REPLACE VIEW` recusa mudar a LISTA de
+-- colunas, e esta mudou (modo saiu, cashback_brl entrou). Sem o drop, o
+-- schema falha em todo banco que já existia.
+DROP VIEW IF EXISTS vw_sessoes_detalhe;
 CREATE OR REPLACE VIEW vw_sessoes_detalhe AS
-SELECT s.id, s.inicio, s.fim, s.energia_kwh, s.modo, s.situacao,
+SELECT s.id, s.inicio, s.fim, s.energia_kwh, s.cashback_brl, s.situacao,
        s.custo_energia_brl, s.valor_cobrado_brl, s.minutos_ocioso,
        c.id  AS carregador_id, c.nome AS carregador, c.potencia_kw,
        e.id  AS estabelecimento_id, e.nome AS estabelecimento,

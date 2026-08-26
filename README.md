@@ -72,7 +72,7 @@ api/
   auditoria.py      dispara requisições reais contra a API e diz o que passou
 ai/
   charge_curve.py   previsão de tempo de recarga (o núcleo do produto)
-  break_even.py     a cortesia se paga? ponto de equilíbrio por segmento
+  break_even.py     até que percentual de cashback se paga, por segmento
 render.yaml         a configuração do serviço, versionada
 ```
 
@@ -135,8 +135,8 @@ O `sslmode=require` não é opcional: o Aiven recusa conexão em texto puro.
 
 | Tabela | Seção | O que guarda |
 |---|---|---|
-| `estabelecimentos` | Estabelecimentos | margem, ticket e tarifa — é daqui que sai o teto de cortesia |
-| `carregadores` | Carregadores | um modelo comercial por ponto: cortesia ou por kWh |
+| `estabelecimentos` | Estabelecimentos | margem, ticket e tarifa — é daqui que sai o teto de cashback |
+| `carregadores` | Carregadores | preço por kWh e percentual de cashback, por ponto |
 | `sessoes` | Sessões | cada recarga, com a previsão que foi mostrada ao motorista |
 | `leituras` | Leituras | potência e carga de 5 em 5 minutos |
 | `clientes` | Clientes | apelido e veículo; a identidade fica só como hash |
@@ -171,7 +171,7 @@ usa; o que impede de verdade é a requisição voltar 403.
 
 O operador **vê** todas as outras seções, inclusive vendas e cupons — ele não
 altera nada. E margem e ticket médio não chegam nem no JSON dele: são os dois
-números de onde saem lucro, saldo e teto de cortesia, e mandá-los para o
+números de onde saem lucro, saldo e teto de cashback, e mandá-los para o
 navegador seria devolver o Financeiro pela janela.
 
 ### Painéis: quantos cabem
@@ -237,7 +237,7 @@ chave doada. Ela fica no `.env`, e quem fala com a OpenRouter é o servidor.
 
 O modelo não escreve SQL. O servidor calcula um retrato da loja — carregadores,
 totais, pico de horário, clientes frequentes, e, para quem pode, o financeiro
-e o teto de cortesia — e manda pronto. Duas consequências:
+e o teto de cashback — e manda pronto. Duas consequências:
 
 1. **Escopo.** O retrato é sempre de uma loja que o usuário tem. Perguntar da
    loja do vizinho volta 403 antes de chegar no modelo.
@@ -389,13 +389,23 @@ comparação usa o mesmo código**, e o erro contra o realizado aparece no paine
 
 ## Modelo de negócio
 
-**Padrão: recarga como isca comercial.** O motorista não paga; a loja absorve o
-custo como marketing e ganha no consumo dentro do estabelecimento. Com cortesia
-condicionada — grátis até X kWh mediante compra mínima, tarifa de ociosidade
-depois de cheio — para a vaga não virar estacionamento.
+**Recarga paga, com cashback na loja.** O motorista paga a energia por kWh — a
+vaga se banca sozinha, sem depender de a loja aprovar um orçamento de marketing
+todo mês. Parte do que ele gastou volta como crédito que **só vale ali dentro**,
+e é esse crédito que o traz para o caixa. Tarifa de ociosidade depois de cheio,
+para a vaga não virar estacionamento.
 
-**Modo alternativo: pagamento por kWh**, com divisão de receita. Fica disponível
-como configuração por ponto, para estacionamento pago e posto de estrada.
+O percentual de cashback é configurado por ponto, e o painel calcula até onde
+ele se paga: margem da energia + lucro da visita − amortização do equipamento,
+sobre o valor médio cobrado por recarga. O teto é travado em 100%, porque
+devolver mais do que a pessoa pagou não é cashback.
+
+> **Modelo anterior, descontinuado.** Até 2026 havia um modo "cortesia": a
+> energia saía de graça até um teto em kWh e a loja absorvia o custo como
+> marketing. Saiu porque dependia de o lojista renovar um orçamento de
+> marketing, e porque o teto que se paga variava demais entre segmentos — no
+> supermercado ele frequentemente dava negativo. Vendendo a energia, o mesmo
+> supermercado passa a ter folga para devolver crédito.
 
 A justificativa completa está no [dossiê](docs/index.html#modelo). O resumo: no
 modelo de isca, **o software é obrigatório** — sem medir o retorno o lojista não

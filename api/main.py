@@ -209,7 +209,7 @@ def exigir(u: dict, acao: str) -> None:
 
 
 # Margem e ticket são a rentabilidade da loja: é deles que saem lucro, saldo e
-# teto de cortesia. Quem não vê financeiro não recebe os dois — se recebesse,
+# teto de cashback. Quem não vê financeiro não recebe os dois — se recebesse,
 # a conta seria refeita no navegador em três linhas, e esconder a seção teria
 # sido teatro.
 CAMPOS_DE_LUCRO = ("margem_liquida_pct", "ticket_medio_brl")
@@ -354,8 +354,8 @@ PREENCHIDOS_PELO_SERVIDOR = {
 }
 
 CAMPOS_EDITAVEIS = {
-    "carregadores": {"nome", "numero_serie", "potencia_kw", "conector", "modo",
-                     "teto_cortesia_kwh", "kwh_por_real", "preco_kwh_brl",
+    "carregadores": {"nome", "numero_serie", "potencia_kw", "conector",
+                     "preco_kwh_brl", "cashback_pct",
                      "carencia_min", "taxa_ociosidade_min", "ativo"},
     "clientes": {"apelido", "modelo_veiculo", "bateria_kwh", "consentimento_lgpd"},
     "vendas": {"valor_brl", "cupom_id", "sessao_id", "momento"},
@@ -700,20 +700,25 @@ SELECT json_build_object(
                     tarifa_kwh_brl, demanda_contratada_kw
                FROM estabelecimentos WHERE id = %(e)s) t),
   'carregadores', (SELECT coalesce(json_agg(t ORDER BY t.nome), '[]'::json) FROM (
-             SELECT nome, potencia_kw, conector, modo, teto_cortesia_kwh,
-                    preco_kwh_brl, carencia_min, taxa_ociosidade_min, ativo
+             SELECT nome, potencia_kw, conector, preco_kwh_brl, cashback_pct,
+                    carencia_min, taxa_ociosidade_min, ativo
                FROM carregadores WHERE estabelecimento_id = %(e)s) t),
   'operacao', (SELECT to_json(t) FROM (
              SELECT count(*) AS sessoes,
                     COALESCE(sum(s.energia_kwh), 0) AS energia_kwh,
                     COALESCE(sum(s.custo_energia_brl), 0) AS custo_energia_brl,
                     COALESCE(sum(s.valor_cobrado_brl), 0) AS recarga_cobrada_brl,
+                    COALESCE(sum(s.cashback_brl), 0) AS cashback_brl,
                     count(DISTINCT s.cliente_id) AS clientes
                FROM sessoes s JOIN carregadores c ON c.id = s.carregador_id
               WHERE c.estabelecimento_id = %(e)s) t),
   'vendas', (SELECT to_json(t) FROM (
-             SELECT count(*) AS n, COALESCE(sum(valor_brl), 0) AS total
-               FROM vendas WHERE estabelecimento_id = %(e)s) t),
+             SELECT count(*) AS n, COALESCE(sum(valor_brl), 0) AS total,
+                    -- o crédito que de fato voltou ao caixa, e não o emitido
+                    COALESCE(sum(cu.desconto_brl) FILTER (WHERE cu.usado_em IS NOT NULL), 0)
+                      AS com_cupom
+               FROM vendas v LEFT JOIN cupons cu ON cu.id = v.cupom_id
+              WHERE v.estabelecimento_id = %(e)s) t),
   'cupons', (SELECT to_json(t) FROM (
              SELECT count(*) AS emitidos, count(cu.usado_em) AS usados
                FROM cupons cu JOIN sessoes s ON s.id = cu.sessao_id
@@ -776,7 +781,7 @@ def contexto_da_loja(estabelecimento_id: int, papel: str) -> dict:
         # financeira inventada em volta.
         ctx["financeiro_indisponivel"] = (
             "Este usuário é operador. Margem, ticket, lucro, saldo, custo e o "
-            "cálculo do teto de cortesia foram retirados deste contexto de "
+            "cálculo do teto de cashback foram retirados deste contexto de "
             "propósito. Não calcule, não estime e não deduza nenhum desses "
             "valores: responda que essa parte é do gerente.")
         return ctx
@@ -787,8 +792,10 @@ def contexto_da_loja(estabelecimento_id: int, papel: str) -> dict:
     lucro_visita = COMPRAM * (NOVOS * ticket + (1 - NOVOS) * UPLIFT * ticket) * margem / 100
     sobra = lucro_visita - AMORT
     lucro = float(vendas["total"]) * margem / 100
+    # o cashback devolvido é dinheiro que saiu: entra no saldo com sinal
+    # negativo, senão o painel mostraria o retorno sem o custo que o gerou
     saldo = (lucro + float(op["recarga_cobrada_brl"]) - float(op["custo_energia_brl"])
-             - op["sessoes"] * AMORT)
+             - op["sessoes"] * AMORT - float(op.get("cashback_brl") or 0))
 
     ctx["loja"].update({"margem_liquida_pct": margem, "ticket_medio_brl": ticket})
     ctx["financeiro"] = {
@@ -798,15 +805,42 @@ def contexto_da_loja(estabelecimento_id: int, papel: str) -> dict:
         "recarga_cobrada_brl": float(op["recarga_cobrada_brl"]),
         "custo_energia_brl": float(op["custo_energia_brl"]),
         "custo_equipamento_brl": round(op["sessoes"] * AMORT, 2),
+        "cashback_devolvido_brl": round(float(op.get("cashback_brl") or 0), 2),
         "saldo_brl": round(saldo, 2),
     }
-    ctx["teto_de_cortesia"] = {
+    # Até onde o cashback se paga.
+    #
+    # Cada visita traz três coisas para a loja: a margem da energia vendida, o
+    # lucro da compra que a pessoa faz enquanto carrega, e o custo do
+    # equipamento diluído. O que sobra é o teto do crédito a devolver — acima
+    # dele o programa passa a consumir o próprio retorno.
+    #
+    # O percentual sai do valor médio cobrado por recarga, e não de um número
+    # de tabela: 10% numa recarga de R$ 8 e 10% numa de R$ 60 não custam a
+    # mesma coisa.
+    sessoes = max(1, op["sessoes"])
+    margem_recarga = float(op["recarga_cobrada_brl"]) - float(op["custo_energia_brl"])
+    cobrado_por_visita = float(op["recarga_cobrada_brl"]) / sessoes
+    sobra_cashback = margem_recarga / sessoes + lucro_visita - AMORT
+    cashback_dado = float(op.get("cashback_brl") or 0)
+
+    ctx["cashback"] = {
+        "devolvido_brl": round(cashback_dado, 2),
+        "resgatado_brl": float(vendas.get("com_cupom") or 0),
+        "margem_da_recarga_brl": round(margem_recarga, 2),
         "lucro_por_visita_brl": round(lucro_visita, 2),
         "amortizacao_por_sessao_brl": AMORT,
-        "sobra_por_visita_brl": round(sobra, 2),
-        "teto_kwh": round(max(0.0, sobra / tarifa), 2),
-        "teto_km": round(max(0.0, sobra / tarifa) * KM_KWH),
-        "se_paga": sobra > 0,
+        "cobrado_por_visita_brl": round(cobrado_por_visita, 2),
+        "teto_por_visita_brl": round(max(0.0, sobra_cashback), 2),
+        # Travado em 100: devolver mais do que a pessoa pagou não é cashback,
+        # é pagar para ela carregar. Quando a conta bruta passa de 100% o que
+        # isso diz é outra coisa — que a visita se paga mesmo devolvendo a
+        # recarga inteira — e essa frase vale mais que o número solto.
+        "teto_pct": round(min(100.0, max(0.0, sobra_cashback) / cobrado_por_visita * 100), 1)
+                    if cobrado_por_visita > 0 else 0.0,
+        "cobre_a_recarga_inteira": cobrado_por_visita > 0
+                                   and sobra_cashback >= cobrado_por_visita,
+        "se_paga": sobra_cashback > 0,
     }
     return ctx
 
@@ -814,22 +848,36 @@ def contexto_da_loja(estabelecimento_id: int, papel: str) -> dict:
 INSTRUCOES = """Você é a assistente do painel Smart Charge.
 
 O QUE É O PRODUTO
-A loja instala um carregador de carro elétrico para atrair cliente. Cada
-ponto tem um dos dois modelos:
-- cortesia: a energia sai de graça até um teto em kWh, e a loja ganha na
-  compra que a pessoa faz enquanto carrega.
-- pago: cobra por kWh, para quem só quer a tomada.
+A loja instala um carregador de carro elétrico para atrair cliente. O
+motorista PAGA a recarga por kWh — a energia é receita, não custo de
+marketing — e parte do que ele gastou volta como CASHBACK: crédito que só
+vale dentro daquela loja. O crédito é o que traz a pessoa para dentro.
+
+NÃO existe recarga de graça nem "teto de cortesia". Esse modelo foi
+descontinuado. Quem perguntar por ele está usando um termo que morreu:
+CORRIJA antes de responder, e nunca devolva um número como se a pergunta
+fizesse sentido. O contexto tem um campo `cashback.teto_por_visita_brl` —
+ele é o teto do CASHBACK, não da cortesia, e chamá-lo de cortesia é errado.
+
+  Pergunta: "qual o teto de cortesia da minha loja?"
+  Resposta: "Cortesia não existe mais — agora o motorista paga a recarga por
+  kWh e parte volta como crédito da loja. O teto do cashback aqui é R$ 16,83
+  por visita, ou até 100% do valor da recarga.""
 
 COMO SE SABE QUE VALEU
-No fim da recarga a tela emite um cupom de desconto. A pessoa digita o código
-no caixa. É esse código que liga a venda àquela recarga — por isso existe
-"venda atribuída". Sem cupom digitado, a venda não entra na conta.
+No fim da recarga a tela emite um código com o cashback daquela sessão. A
+pessoa digita o código no caixa para usar o crédito. É esse código que liga a
+venda àquela recarga — por isso existe "venda atribuída". Sem código
+digitado, a venda não entra na conta.
 
-DE ONDE SAI O TETO DE CORTESIA
-lucro por visita = 0,90 x (0,20 x ticket + 0,80 x 0,12 x ticket) x margem%
-Tira R$ 1,11 de amortização do equipamento por sessão e divide pela tarifa de
-energia. Se sobrar menos que zero, a cortesia não se paga naquela loja e o
-caminho honesto é cobrar por kWh.
+DE ONDE SAI O TETO DE CASHBACK
+Cada visita traz três coisas: a margem da energia vendida, o lucro da compra
+feita enquanto carrega, e o custo do equipamento diluído (R$ 1,11 por sessão).
+  lucro por visita = 0,90 x (0,20 x ticket + 0,80 x 0,12 x ticket) x margem%
+  teto por visita = margem da recarga + lucro por visita - 1,11
+O percentual sai desse teto dividido pelo valor médio cobrado por recarga.
+Acima dele o programa passa a consumir o próprio retorno. Os números prontos
+estão em `cashback` no contexto — use os de lá, não refaça a conta.
 
 REGRAS QUE O PRODUTO NÃO QUEBRA
 - a recarga nunca é pausada; a taxa de vaga ocupada cobra o espaço, não a energia
@@ -855,20 +903,20 @@ COMO RESPONDER
 - Se falta o número, diga qual número falta — não diga que "não há contexto".
   Quem pergunta não sabe o que é contexto.
 - Se o contexto trouxer "financeiro_indisponivel", obedeça: nada de margem,
-  lucro, saldo, custo ou teto de cortesia, nem por dedução. Diga que essa
+  lucro, saldo, custo ou teto de cashback, nem por dedução. Diga que essa
   parte é do gerente, sem rodeio e sem pedir desculpa.
 - Formato brasileiro: R$ 1.234,56 e 11,9 kWh — vírgula decimal, ponto de
   milhar. Diga a autonomia em km quando ajudar a entender.
 
 EXEMPLOS DO TOM CERTO
 Pergunta: "olá"
-Resposta: "Olá! Posso olhar o retorno, a energia entregue, os carregadores e
-os clientes desta loja. O que você quer saber?"
+Resposta: "Olá! Posso olhar o retorno, o cashback, a energia entregue, os
+carregadores e os clientes desta loja. O que você quer saber?"
 
 Pergunta: "como funciona o cupom?"
-Resposta: "No fim da recarga a tela mostra um código de desconto. A pessoa
-digita esse código no caixa, e é ele que liga a compra àquela recarga — é
-assim que a venda entra como atribuída."
+Resposta: "No fim da recarga a tela mostra um código com o cashback daquela
+sessão. A pessoa digita esse código no caixa para usar o crédito, e é ele que
+liga a compra àquela recarga — é assim que a venda entra como atribuída."
 
 Pergunta: "quantos carros passaram no mês passado?"
 Resposta: "O painel me mostra o total do período todo, não separado por mês.

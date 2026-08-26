@@ -201,8 +201,8 @@
 
 <p class="caption">
   Telinha da vaga ·
-  <a href="?">cortesia</a> ·
-  <a href="?modo=pago">por kWh</a> ·
+  <a href="?">padrao</a> ·
+  <a href="?cashback=0">sem cashback</a> ·
   <a href="?full=1">tela cheia</a>
 </p>
 
@@ -233,25 +233,17 @@ const cfg = {
   eff:        0.92,
   tailRatio:  0.15,
   soc:       +(P.get('soc')      || 0.30),
-  mode:       P.get('modo')  || 'cortesia',    // cortesia | pago
-  priceKwh:  +(P.get('preco')    || 0.95),
-  /* A cortesia e limitada por TEMPO, nao por energia. Um teto em kWh nunca
-     seria alcancado: para levar 25 kWh num ponto de 7,4 kW a pessoa teria de
-     ficar 3h22 na loja, e a visita media a um supermercado brasileiro dura
-     30 a 45 minutos. Tempo, alem de ser o limite real, e o que o cliente
-     entende sem precisar de explicacao. */
-  /* A recarga NUNCA pausa. O teto e de ENERGIA, nao de tempo: quanto mais a
-     pessoa fica, mais energia entra, e o lucro da compra e fixo — um teto por
-     tempo deixava a loja no prejuizo em permanencias longas.
+  priceKwh:  +(P.get('preco')    || 1.60),
+  /* O motorista PAGA a recarga, por kWh. Nao existe mais recarga de graca:
+     a energia e receita da loja, e a vaga se banca sozinha.
 
-     O teto sai da conta do lucro incremental da sessao (ai/break_even.py):
-     6 kWh custam R$ 4,73 a loja e valem ~62 km para o cliente.
+     O que traz a pessoa para dentro e o cashback: uma fatia do que ela pagou
+     volta como credito que so vale nesta loja. Percentual e nao valor fixo,
+     porque recarga pequena e recarga grande nao merecem o mesmo incentivo.
 
-     Passado o teto, a recarga continua e passa a ser cobrada — ou o cliente
-     estende a cortesia comprando: cada real gasto libera (margem / tarifa)
-     kWh, entao a energia liberada nunca custa mais que o lucro que a gerou. */
-  freeKwh:   +(P.get('gratis')   || 6),        // teto de cortesia, em kWh
-  kwhPerBrl: +(P.get('porreal')  || 0.127),    // kWh liberados por R$ 1 de compra
+     A recarga NUNCA pausa. Depois de cheio a vaga passa a ser cobrada por
+     minuto, e isso cobra o ESPACO, nao a energia. */
+  cashbackPct: +(P.get('cashback') ?? 10),     // % do valor que volta como credito
   idleFee:   +(P.get('ocioso')   || 0.20),     // R$ por minuto de vaga ocupada
   graceMin:  +(P.get('carencia') || 15),
   kmPerKwh:  +(P.get('kmkwh')    || 10.4),
@@ -296,11 +288,10 @@ function relative(hours){
 const start = cfg.soc;
 let soc = cfg.soc;
 let idleMinutes = 0;       // vaga ocupada depois de o carro encher
-let purchaseBrl = +(P.get('compra') || 0);   // compra ja registrada no caixa
 let last = performance.now();
 
-/* Cortesia total: o teto base mais o que a compra do cliente liberou. */
-const freeAllowanceKwh = () => cfg.freeKwh + purchaseBrl * cfg.kwhPerBrl;
+/* O credito que esta recarga ja gerou, em reais. */
+const cashbackBrl = kwh => kwh * cfg.priceKwh * cfg.cashbackPct / 100;
 
 const $ = id => document.getElementById(id);
 $('spot').textContent  = cfg.spot;
@@ -309,48 +300,31 @@ $('store').textContent = cfg.store;
 /* ------------------------------------------------------------------
    O painel de custo.
 
-   No modelo padrao a recarga e cortesia da loja — entao a tela NAO diz
-   "voce vai pagar". A unica coisa que o motorista pode pagar e a vaga
-   ocupada depois de cheio, e so passada a carencia. Cobrar pela energia
-   so acontece no modo pago, que e configuracao de cada ponto.
+   A recarga e paga, entao a tela diz quanto esta custando. O que ela mostra
+   junto, e com o mesmo destaque, e quanto ja voltou como credito da loja —
+   porque e esse numero que faz a pessoa entrar em vez de so carregar.
+
+   A vaga ocupada depois de cheio continua sendo cobrada por minuto, passada
+   a carencia: isso cobra o ESPACO, nao a energia.
 ------------------------------------------------------------------ */
 function renderCost(deliveredKwh, isFull){
   const label = $('costLabel'), value = $('cost'), note = $('costNote');
+  const energia = deliveredKwh * cfg.priceKwh;
+  const ocioso = Math.max(0, idleMinutes - cfg.graceMin) * cfg.idleFee;
+  const credito = cashbackBrl(deliveredKwh);
 
-  if (cfg.mode === 'pago'){
-    label.textContent = 'Custo até agora';
-    value.textContent = brl(deliveredKwh * cfg.priceKwh);
-    value.className = 'v amber';
-    const previsto = deliveredKwh + Math.max(0, (1 - soc) * cfg.batteryKwh);
-    note.textContent = isFull
-      ? `${brl(cfg.priceKwh)} por kWh`
-      : `${brl(cfg.priceKwh)} por kWh · cheio dá ${brl(previsto * cfg.priceKwh)}`;
+  label.textContent = ocioso > 0 ? 'A pagar (com vaga ocupada)' : 'Custo até agora';
+  value.textContent = brl(energia + ocioso);
+  value.className = 'v amber';
+
+  if (ocioso > 0){
+    note.textContent = `${brl(cfg.idleFee)} por minuto de vaga ocupada`;
     return;
   }
-
-  // --- cortesia com teto de energia ---
-  const teto = freeAllowanceKwh();
-  const excedente = Math.max(0, deliveredKwh - teto);
-  const cobravel = Math.max(0, idleMinutes - cfg.graceMin) * cfg.idleFee
-                 + excedente * cfg.priceKwh;
-
-  if (cobravel > 0){
-    label.textContent = 'A pagar';
-    value.textContent = brl(cobravel);
-    value.className = 'v amber';
-    note.textContent = excedente > 0
-      ? `cortesia de ${teto.toFixed(1).replace('.',',')} kWh usada · compre mais para estender`
-      : `${brl(cfg.idleFee)} por minuto de vaga ocupada`;
-    return;
-  }
-
-  const restam = teto - deliveredKwh;
-  label.textContent = 'Custo';
-  value.textContent = 'Cortesia da casa';
-  value.className = 'v free';
-  note.textContent = purchaseBrl > 0
-    ? `sua compra de ${brl(purchaseBrl)} estendeu · faltam ${Math.round(restam * cfg.kmPerKwh)} km`
-    : `grátis até ${teto.toFixed(0)} kWh · faltam ${Math.round(restam * cfg.kmPerKwh)} km`;
+  const previsto = deliveredKwh + Math.max(0, (1 - soc) * cfg.batteryKwh);
+  note.textContent = cfg.cashbackPct > 0
+    ? `${brl(cfg.priceKwh)}/kWh · ${brl(credito)} já voltaram como crédito da loja`
+    : `${brl(cfg.priceKwh)} por kWh · cheio dá ${brl(previsto * cfg.priceKwh)}`;
 }
 
 function render(){
@@ -385,13 +359,13 @@ function render(){
      Dolphin Mini leva cerca de 47 km — um dia inteiro de rodagem urbana. */
   if (isFull){
     $('hint').textContent = 'Carro cheio. Pode liberar a vaga para o próximo.';
-  } else if (cfg.mode === 'pago'){
-    $('hint').textContent = 'Pode ir às compras. A gente avisa quando encher.';
+  } else if (cfg.cashbackPct > 0){
+    const credito = cashbackBrl(delivered);
+    $('hint').textContent = credito >= 0.5
+      ? `Você já tem ${brl(credito)} de crédito para gastar aqui dentro. Mostre o código no caixa.`
+      : `${cfg.cashbackPct}% desta recarga voltam como crédito da loja. A gente avisa quando encher.`;
   } else {
-    const restam = Math.max(0, freeAllowanceKwh() - delivered);
-    $('hint').textContent = restam > 0.2
-      ? `Cortesia da casa: ${Math.round(restam * cfg.kmPerKwh)} km por nossa conta. A gente avisa quando encher.`
-      : 'Cada R$ 50 de compra libera mais 6 km de cortesia. É só mostrar o código no caixa.';
+    $('hint').textContent = 'Pode ir às compras. A gente avisa quando encher.';
   }
 }
 

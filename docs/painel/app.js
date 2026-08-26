@@ -16,9 +16,9 @@
       a tela de login diz isso, e é só o que ela faz.
    ========================================================================== */
 
-import "./static/js/aiEntity.js?v=20260905j";
-import { createTourModule } from "./static/js/tour.js?v=20260905j";
-import { api, BASE, ErroApi } from "./api.js?v=20260905j";
+import "./static/js/aiEntity.js?v=20260908b";
+import { createTourModule } from "./static/js/tour.js?v=20260908b";
+import { api, BASE, ErroApi } from "./api.js?v=20260908b";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -42,10 +42,34 @@ const gravar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } c
 
 /* regras de negócio — as mesmas de ai/break_even.py e de api/main.py */
 const COMPRAM = 0.90, UPLIFT = 0.12, NOVOS = 0.20, KM_KWH = 10.4, AMORT = 1.11;
-function tetoCortesia(margemPct, ticket, tarifa){
+/* Até onde o cashback se paga.
+   Cada visita traz a margem da energia vendida mais o lucro da compra feita
+   enquanto carrega, e paga o equipamento diluído. O que sobra é o teto do
+   crédito — acima dele o programa passa a consumir o próprio retorno.
+   O percentual sai do valor médio cobrado por recarga, e não de tabela: 10%
+   numa recarga de R$ 8 e 10% numa de R$ 60 não custam a mesma coisa. */
+function tetoCashback(margemPct, ticket, margemRecargaPorVisita, cobradoPorVisita){
   const lucro = COMPRAM * (NOVOS * ticket + (1 - NOVOS) * UPLIFT * ticket) * (margemPct / 100);
-  const sobra = lucro - AMORT;
-  return { lucro, sobra, kwh: Math.max(0, sobra / (tarifa || 0.789)) };
+  const sobra = margemRecargaPorVisita + lucro - AMORT;
+  const bruto = cobradoPorVisita > 0 ? Math.max(0, sobra) / cobradoPorVisita * 100 : 0;
+  // Travado em 100: devolver mais do que a pessoa pagou não é cashback, é
+  // pagar para ela carregar. Passar de 100 diz outra coisa — que a visita se
+  // paga mesmo devolvendo a recarga inteira — e quem conta isso é a frase.
+  return { lucro, sobra, pct: Math.min(100, bruto), cobreTudo: bruto >= 100 };
+}
+
+/* O teto de uma loja depende da operação dela, não só do cadastro: a margem
+   da energia vendida e o valor médio cobrado saem das sessões. */
+function tetoDaLoja(e){
+  const ses = sessoesDaLoja(e.id);
+  const n = Math.max(1, ses.length);
+  const recarga = ses.reduce((a,s) => a + Number(s.valor_cobrado_brl||0), 0);
+  const energia = ses.reduce((a,s) => a + Number(s.energia_kwh||0), 0);
+  const margemRecarga = (recarga - energia * Number(e.tarifa_kwh_brl||0.789)) / n;
+  const cobrado = recarga / n;
+  const r = tetoCashback(Number(e.margem_liquida_pct||0), Number(e.ticket_medio_brl||0),
+                         margemRecarga, cobrado);
+  return {...r, margemRecarga, cobrado};
 }
 
 /* limites da grade: 20 colunas, linhas de 76px */
@@ -70,9 +94,13 @@ const state = {
 
 const loja = () => state.dados.estabelecimentos.find(e => e.id === state.estabelecimentoId) || {};
 const daLoja = (lista, campo = "estabelecimento_id") => lista.filter(r => r[campo] === state.estabelecimentoId);
-const carregadoresDaLoja = () => daLoja(state.dados.carregadores);
-const sessoesDaLoja = () => {
-  const ids = new Set(carregadoresDaLoja().map(c => c.id));
+const carregadoresDaLoja = (id = state.estabelecimentoId) =>
+  state.dados.carregadores.filter(c => c.estabelecimento_id === id);
+/* O id é opcional e cai na loja aberta. Ele existe porque a tabela de
+   estabelecimentos calcula uma linha por loja, e sem ele todas as linhas
+   mostrariam os números da loja atual. */
+const sessoesDaLoja = (id = state.estabelecimentoId) => {
+  const ids = new Set(carregadoresDaLoja(id).map(c => c.id));
   return state.dados.sessoes.filter(s => ids.has(s.carregador_id));
 };
 const ui = secao => (state.tabela[secao] ||= { busca:"", ordem:null, selecionados:new Set() });
@@ -110,9 +138,8 @@ const TABELAS = {
     colunas: [
       {r:"Nome", k:"nome", v:l => esc(l.nome)},
       {r:"Potência", k:"potencia_kw", v:l => `${num(l.potencia_kw,1)} kW`},
-      {r:"Modelo", k:"modo", v:l => chip(l.modo === "cortesia" ? "Cortesia" : "Por kWh", l.modo === "cortesia" ? "warning" : "info")},
-      {r:"Teto", k:"teto_cortesia_kwh", v:l => l.modo === "cortesia" ? `${num(l.teto_cortesia_kwh,1)} kWh · ${Math.round(l.teto_cortesia_kwh*KM_KWH)} km` : `<span class="table-cell-muted">—</span>`},
-      {r:"Preço", k:"preco_kwh_brl", v:l => l.modo === "pago" ? `${brl(l.preco_kwh_brl)}/kWh` : `<span class="table-cell-muted">—</span>`},
+      {r:"Preço", k:"preco_kwh_brl", v:l => `${brl(l.preco_kwh_brl)}/kWh`},
+      {r:"Cashback", k:"cashback_pct", v:l => chip(`${num(l.cashback_pct,1)}%`, Number(l.cashback_pct) > 0 ? "info" : "neutral")},
       {r:"Conector", k:"conector", v:l => esc(l.conector)},
       {r:"Ativo", k:"ativo", v:l => l.ativo ? "sim" : "não"},
     ],
@@ -121,13 +148,12 @@ const TABELAS = {
       {k:"numero_serie", r:"Número de série", t:"text"},
       {k:"potencia_kw", r:"Potência (kW)", t:"number", passo:"0.1"},
       {k:"conector", r:"Conector", t:"select", opcoes:[["Tipo 2","Tipo 2"],["CCS2","CCS2"],["GB/T","GB/T"]]},
-      {k:"modo", r:"Modelo de cobrança", t:"select", opcoes:[["cortesia","Cortesia"],["pago","Por kWh"]],
-       ajuda:"Cortesia atrai cliente para a loja. Por kWh cobra de quem só quer a tomada."},
-      {k:"teto_cortesia_kwh", r:"Teto de cortesia (kWh)", t:"number", passo:"0.5",
-       ajuda:"Quanta energia sai de graça por visita. O Financeiro calcula o teto que se paga."},
+      {k:"cashback_pct", r:"Cashback (%)", t:"number", passo:"0.5",
+       ajuda:"Quanto do valor da recarga volta como crédito da loja. O Financeiro calcula o teto que se paga."},
       {k:"kwh_por_real", r:"kWh por R$ 1 de compra", t:"number", passo:"0.001",
        ajuda:"Quem gasta mais na loja leva mais energia, proporcionalmente."},
-      {k:"preco_kwh_brl", r:"Preço por kWh (modo pago)", t:"number", passo:"0.01"},
+      {k:"preco_kwh_brl", r:"Preço por kWh", t:"number", passo:"0.01",
+       ajuda:"O motorista paga por kWh. A energia é receita, não custo de marketing."},
       {k:"carencia_min", r:"Carência depois de cheio (min)", t:"number"},
       {k:"taxa_ociosidade_min", r:"Taxa de vaga ocupada (R$/min)", t:"number", passo:"0.01",
        ajuda:"Cobra a vaga, nunca a energia — a recarga não para."},
@@ -141,7 +167,7 @@ const TABELAS = {
     colunas: [
       {r:"Início", k:"inicio", v:l => dataHora(l.inicio)},
       {r:"Carregador", k:"carregador_id", v:l => nomeCarregador(l.carregador_id)},
-      {r:"Modelo", k:"modo", v:l => chip(l.modo === "cortesia" ? "Cortesia" : "Por kWh", l.modo === "cortesia" ? "warning" : "info")},
+      {r:"Cashback", k:"cashback_brl", v:l => Number(l.cashback_brl) > 0 ? brl(l.cashback_brl) : `<span class="table-cell-muted">—</span>`},
       {r:"Energia", k:"energia_kwh", v:l => `${num(l.energia_kwh,1)} kWh`},
       {r:"Autonomia", k:"energia_kwh", v:l => `${Math.round(l.energia_kwh*KM_KWH)} km`},
       {r:"Custo", k:"custo_energia_brl", v:l => brl(l.custo_energia_brl)},
@@ -225,15 +251,15 @@ const TABELAS = {
       {r:"Ticket médio", k:"ticket_medio_brl", v:l => brl(l.ticket_medio_brl)},
       {r:"Tarifa", k:"tarifa_kwh_brl", v:l => `${brl(l.tarifa_kwh_brl)}/kWh`},
       {r:"Demanda", k:"demanda_contratada_kw", v:l => l.demanda_contratada_kw ? `${num(l.demanda_contratada_kw,0)} kW` : `<span class="table-cell-muted">—</span>`},
-      {r:"Teto que se paga", k:"teto", ord: l => tetoCortesia(l.margem_liquida_pct, l.ticket_medio_brl, l.tarifa_kwh_brl).kwh,
-       v:l => { const r = tetoCortesia(l.margem_liquida_pct, l.ticket_medio_brl, l.tarifa_kwh_brl);
-                return r.kwh > 0.4 ? `${num(r.kwh,1)} kWh` : chip("não se paga","critical"); }},
+      {r:"Cashback que se paga", k:"teto", ord: l => tetoDaLoja(l).pct,
+       v:l => { const r = tetoDaLoja(l);
+                return r.pct >= 0.5 ? `${num(r.pct,1)}%` : chip("não se paga","critical"); }},
     ],
     campos: [
       {k:"nome", r:"Nome", t:"text", obrigatorio:true},
       {k:"segmento", r:"Segmento", t:"select", opcoes:[["pet","Pet shop e clínica"],["restaurante","Restaurante"],["academia","Academia"],["farmacia","Farmácia"],["mercado","Supermercado"],["cafe","Cafeteria"],["outro","Outro"]]},
       {k:"margem_liquida_pct", r:"Margem líquida (%)", t:"number", passo:"0.1",
-       ajuda:"É daqui que sai o teto de cortesia. Margem baixa não sustenta energia de graça."},
+       ajuda:"É daqui que sai o teto de cashback. Margem baixa não sustenta crédito alto."},
       {k:"ticket_medio_brl", r:"Ticket médio (R$)", t:"number", passo:"1"},
       {k:"tarifa_kwh_brl", r:"Tarifa de energia (R$/kWh)", t:"number", passo:"0.0001"},
       {k:"demanda_contratada_kw", r:"Demanda contratada (kW)", t:"number", passo:"1",
@@ -274,7 +300,7 @@ function erroPrevisao(s){
    justamente os cards que mais importam. */
 const CARDS = {
   retorno:  {t:"Lucro atribuído × custo", g:"Retorno",  tam:"large", cols:11, rows:4, min:{cols:7, rows:3}, mob:3, financeiro:true},
-  teto:     {t:"Teto de cortesia",        g:"Retorno",  tam:"large", cols:9,  rows:4, min:{cols:5, rows:3}, mob:3, financeiro:true},
+  cashback: {t:"Teto de cashback",        g:"Retorno",  tam:"large", cols:9,  rows:4, min:{cols:5, rows:3}, mob:3, financeiro:true},
   horas:    {t:"Sessões por hora",        g:"Operação", tam:"large", cols:11, rows:4, min:{cols:7, rows:3}, mob:3},
   pontos:   {t:"Carregadores",            g:"Operação", tam:"large", cols:9,  rows:4, min:{cols:5, rows:3}, mob:3},
   previsao: {t:"Erro da previsão",        g:"Operação", tam:"large", cols:9,  rows:4, min:{cols:7, rows:3}, mob:3},
@@ -291,7 +317,7 @@ const minimoDoCard = id => CARDS[id]?.min || {cols: MIN_COLS, rows: MIN_ROWS};
 const cardVisivel = id => CARDS[id] && (!CARDS[id].financeiro || pode("ver_financeiro"));
 
 const layoutPadrao = () => (pode("ver_financeiro")
-  ? ["retorno","teto","lucro","sessoes","clientes","energia"]
+  ? ["retorno","cashback","lucro","sessoes","clientes","energia"]
   : ["horas","pontos","sessoes","clientes","energia","cupons"]
 ).map(id => ({id, grupo:CARDS[id].tam, cols:CARDS[id].cols, rows:CARDS[id].rows, config:{}}));
 
@@ -1584,18 +1610,21 @@ function metricas(){
   const ses = sessoesDaLoja(), ven = daLoja(state.dados.vendas), e = loja();
   const energia = ses.reduce((a,s) => a + Number(s.energia_kwh||0), 0);
   const receita = ven.reduce((a,v) => a + Number(v.valor_brl||0), 0);
-  // ponto em cortesia devolve dinheiro pela loja; ponto pago devolve no caixa
-  // do próprio carregador. Somar só um dos dois faz a conta mentir.
   const recarga = ses.reduce((a,s) => a + Number(s.valor_cobrado_brl||0), 0);
+  // o crédito devolvido é dinheiro que saiu: entra no saldo com sinal
+  // negativo, senão o painel mostra o retorno sem o custo que o gerou
+  const cashback = ses.reduce((a,s) => a + Number(s.cashback_brl||0), 0);
   const lucro = receita * Number(e.margem_liquida_pct || 0) / 100;
   const custoEnergia = energia * Number(e.tarifa_kwh_brl || 0.789);
   const custoEquip = ses.length * AMORT;
   const cupons = state.dados.cupons;
-  return { ses, ven, energia, receita, recarga, lucro, custoEnergia, custoEquip,
+  const usados = cupons.filter(c => c.usado_em);
+  return { ses, ven, energia, receita, recarga, lucro, custoEnergia, custoEquip, cashback,
            cuponsEmitidos: cupons.length,
-           cuponsUsados: cupons.filter(c => c.usado_em).length,
-           temCortesia: carregadoresDaLoja().some(c => c.modo === "cortesia"),
-           saldo: lucro + recarga - custoEnergia - custoEquip,
+           cuponsUsados: usados.length,
+           cashbackResgatado: usados.reduce((a,c) => a + Number(c.desconto_brl||0), 0),
+           margemRecarga: recarga - custoEnergia,
+           saldo: lucro + recarga - custoEnergia - custoEquip - cashback,
            clientes: new Set(ses.map(s => s.cliente_id).filter(Boolean)).size };
 }
 function kpi(eyebrow, titulo, valor, meta, tom = ""){
@@ -1638,9 +1667,9 @@ function corpoCard(id, config){
                        ${cabecaCard("Agora","Carregadores")}
                        <div id="pontosAoVivo" class="lista-rolavel"></div></div>`;
     case "curva":    return corpoCurva(id, config);
-    case "teto":     return `<div class="trend-card">
-                       ${cabecaCard("Cortesia","Quanto esta loja aguenta dar")}
-                       <div id="tetoCard"></div></div>`;
+    case "cashback": return `<div class="trend-card">
+                       ${cabecaCard("Cashback","Quanto esta loja aguenta devolver")}
+                       <div id="cashbackCard"></div></div>`;
     default: return "";
   }
 }
@@ -1917,23 +1946,25 @@ function desenharGraficos(){
       <div class="linha-ponto">
         <div class="linha-ponto-copy">
           <strong>${esc(c.nome)}</strong>
-          <span>${num(c.potencia_kw,1)} kW · ${c.modo === "cortesia" ? `cortesia até ${num(c.teto_cortesia_kwh,1)} kWh` : `${brl(c.preco_kwh_brl)}/kWh`}</span>
+          <span>${num(c.potencia_kw,1)} kW · ${brl(c.preco_kwh_brl)}/kWh · ${num(c.cashback_pct,1)}% de volta</span>
         </div>
         ${chip(c.ativo ? "ativo" : "inativo", c.ativo ? "ok" : "offline")}
-        <a class="ghost-button" href="../vaga/?vaga=${encodeURIComponent(c.nome)}&loja=${encodeURIComponent(e.nome||"")}&modo=${c.modo}&full=1" target="_blank" rel="noopener">Telinha</a>
+        <a class="ghost-button" href="../vaga/?vaga=${encodeURIComponent(c.nome)}&loja=${encodeURIComponent(e.nome||"")}&cashback=${c.cashback_pct}&preco=${c.preco_kwh_brl}&full=1" target="_blank" rel="noopener">Telinha</a>
       </div>`).join("")
       : `<div class="empty-state">Nenhum carregador cadastrado.</div>`;
   }
 
-  if ($("#tetoCard")){
-    const r = tetoCortesia(Number(e.margem_liquida_pct||0), Number(e.ticket_medio_brl||0), Number(e.tarifa_kwh_brl||0.789));
-    $("#tetoCard").innerHTML = r.kwh > 0.4
-      ? `<p class="dashboard-kpi-meta">Cada visita gera <strong>${brl(r.lucro)}</strong> de lucro. Tirando o equipamento, sobram <strong>${brl(r.sobra)}</strong>.</p>
-         <strong class="dashboard-kpi-value">${num(r.kwh,1)} kWh</strong>
-         <p class="dashboard-kpi-meta">cerca de ${Math.round(r.kwh*KM_KWH)} km de cortesia por visita</p>`
-      : `<p class="dashboard-kpi-meta">Cada visita gera <strong>${brl(r.lucro)}</strong> — menos do que o equipamento custa por sessão (${brl(AMORT)}).</p>
+  if ($("#cashbackCard")){
+    const r = tetoDaLoja(e);
+    $("#cashbackCard").innerHTML = r.pct >= 0.5
+      ? `<p class="dashboard-kpi-meta">Cada visita deixa <strong>${brl(r.sobra)}</strong> depois da energia, da compra e do equipamento.</p>
+         <strong class="dashboard-kpi-value">${num(r.pct,1)}%</strong>
+         <p class="dashboard-kpi-meta">${r.cobreTudo
+             ? `a visita se paga mesmo devolvendo a recarga inteira (${brl(r.cobrado)} em média)`
+             : `de cashback por recarga, sobre os ${brl(r.cobrado)} médios cobrados`}</p>`
+      : `<p class="dashboard-kpi-meta">Cada visita deixa <strong>${brl(r.sobra)}</strong> — não sobra para devolver crédito.</p>
          <strong class="dashboard-kpi-value" style="color:var(--status-critical)">Não se paga</strong>
-         <p class="dashboard-kpi-meta">Com esta margem e este ticket, o caminho é cobrar por kWh.</p>`;
+         <p class="dashboard-kpi-meta">Com esta margem e este ticket, o cashback consome o retorno.</p>`;
   }
 }
 
@@ -1943,16 +1974,17 @@ function desenharGraficos(){
 function renderFinanceiro(){
   if (!podeVer("financeiro")) return;
   const e = loja(), m = metricas();
-  const r = tetoCortesia(Number(e.margem_liquida_pct||0), Number(e.ticket_medio_brl||0), Number(e.tarifa_kwh_brl||0.789));
+  const r = tetoDaLoja(e);
   const saldo = m.saldo;
   const veredito = saldo > 0
-    ? (m.temCortesia ? "a cortesia está se pagando" : "os pontos pagos cobrem o custo")
-    : (m.temCortesia ? "a cortesia está grande demais" : "o preço por kWh não cobre o custo");
+    ? "o cashback está se pagando"
+    : "o cashback está grande demais para esta margem";
   const blocos = [
     ["Entrou","Lucro atribuído", brl(m.lucro), `${m.ven.length} vendas com cupom`, ""],
     ["Entrou","Recarga cobrada", brl(m.recarga), "pontos que cobram por kWh", ""],
     ["Saiu","Energia", brl(m.custoEnergia), `${num(m.energia,0)} kWh a ${brl(e.tarifa_kwh_brl)}/kWh`, "warning"],
     ["Saiu","Equipamento", brl(m.custoEquip), `${brl(AMORT)} por sessão, 5 anos`, "warning"],
+    ["Saiu","Cashback devolvido", brl(m.cashback), `${brl(m.cashbackResgatado)} já resgatados no caixa`, "warning"],
     [saldo > 0 ? "No azul" : "No vermelho","Saldo", brl(saldo), veredito, saldo > 0 ? "ok" : "critical"],
   ];
   $("#screen-financeiro").innerHTML = `
@@ -1966,14 +1998,16 @@ function renderFinanceiro(){
           `<div class="dashboard-card dashboard-card-metric" style="grid-column:span 4;grid-row:span 2">${kpi(a,b,c,d,t)}</div>`).join("")}
       </div>
       <div class="table-section-banner">
-        <strong>Teto de cortesia recomendado:</strong>
-        ${r.kwh > 0.4
-          ? ` ${num(r.kwh,1)} kWh por visita — cerca de ${Math.round(r.kwh*KM_KWH)} km.
-              Sai de uma margem de ${num(e.margem_liquida_pct,1)}% sobre um ticket de ${brl(e.ticket_medio_brl)}:
-              ${brl(r.lucro)} de lucro por visita, menos ${brl(AMORT)} do equipamento, dividido pela tarifa de ${brl(e.tarifa_kwh_brl)}/kWh.`
-          : ` neste cenário a cortesia não se paga. Com margem de ${num(e.margem_liquida_pct,1)}% e ticket de ${brl(e.ticket_medio_brl)},
-              cada visita gera ${brl(r.lucro)} — abaixo dos ${brl(AMORT)} que o equipamento custa por sessão.
-              Aqui o modelo honesto é cobrar por kWh.`}
+        <strong>Cashback recomendado:</strong>
+        ${r.pct >= 0.5
+          ? ` até ${num(r.pct,1)}% do valor da recarga.${r.cobreTudo
+              ? " Nesta loja o retorno da visita cobre a recarga inteira — 100% é o teto prático, não o da conta." : ""}
+              Sai da margem de ${num(e.margem_liquida_pct,1)}% sobre um ticket de ${brl(e.ticket_medio_brl)}:
+              ${brl(r.lucro)} de lucro por visita, mais ${brl(r.margemRecarga)} de margem na energia,
+              menos ${brl(AMORT)} do equipamento — sobre os ${brl(r.cobrado)} médios cobrados por recarga.`
+          : ` neste cenário o cashback não se paga. Com margem de ${num(e.margem_liquida_pct,1)}% e ticket de ${brl(e.ticket_medio_brl)},
+              cada visita deixa ${brl(r.sobra)} depois do equipamento.
+              Aqui o caminho é subir o preço por kWh antes de devolver crédito.`}
       </div>
     </article>`;
 }
@@ -2044,7 +2078,7 @@ function saudarAssistente(){
   $("#globalAiChatMessages").innerHTML = "";
   state.conversa = [];
   dizer(pode("ver_financeiro")
-    ? "Pergunte sobre o retorno, o teto de cortesia, os carregadores ou os clientes desta loja."
+    ? "Pergunte sobre o retorno, o cashback, os carregadores ou os clientes desta loja."
     : "Pergunte sobre as recargas, os carregadores e os clientes. O financeiro é com o gerente.",
     "assistant");
 }

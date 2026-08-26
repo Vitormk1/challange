@@ -117,7 +117,7 @@ Mais `SECOES_BLOQUEADAS`, que hoje tira `financeiro` do operador. Tudo em `api/a
 
 **O corte de dados é no servidor, não na tela.** Para quem não tem `ver_financeiro`,
 `sem_financeiro()` remove `margem_liquida_pct` e `ticket_medio_brl` da resposta — são os dois
-números de onde saem lucro, saldo e teto de cortesia, e mandá-los para o navegador refaria o
+números de onde saem lucro, saldo e teto de cashback, e mandá-los para o navegador refaria o
 Financeiro inteiro em três linhas de JavaScript. Esconder a seção seria teatro.
 
 O painel lê `permissoes` e esconde botões, mas **cada endpoint confere de novo** (`exigir()`,
@@ -168,15 +168,15 @@ quais lojas a pessoa vê. `main` ignora esta tabela e vê todas as ativas.
 
 **`estabelecimentos`** — a loja. `nome`, `segmento`, `cnpj`, **`margem_liquida_pct`**,
 **`ticket_medio_brl`**, `tarifa_kwh_brl`, `demanda_contratada_kw`, `ativo`. Os dois campos em
-negrito são a rentabilidade: é deles que sai o teto de cortesia, e são eles que o operador não
+negrito são a rentabilidade: é deles que sai o teto de cashback, e são eles que o operador não
 recebe. Criado só por `main`.
 
 **`carregadores`** — o ponto de recarga. `nome`, `numero_serie` (único), `potencia_kw`, `conector`,
-**`modo`** (`cortesia`/`pago`), `teto_cortesia_kwh`, `kwh_por_real`, `preco_kwh_brl`,
+**`preco_kwh_brl`** (todo ponto cobra), **`cashback_pct`** (quanto volta como crédito),
 `carencia_min`, `taxa_ociosidade_min`, `ativo`.
 
 > **A regra comercial mora no ponto, não na loja.** A mesma loja pode ter a vaga da frente em
-> cortesia (atrai cliente) e a dos fundos cobrando por kWh (quem só quer a tomada).
+> devolvendo 12% de cashback e a dos fundos devolvendo 5%.
 
 **`clientes`** — quem carrega. `identificador_hash`, `apelido`, `modelo_veiculo`, `bateria_kwh`,
 `primeira_visita`, `ultima_visita`, `visitas`, `consentimento_lgpd`.
@@ -299,7 +299,7 @@ guarda. Uma preferência nova não exige mexer no servidor.
 3. Enquanto carrega, uma linha em `leituras` a cada 5 minutos.
 4. Fim da recarga: `fim`, `energia_kwh`, `soc_final`, `custo_energia_brl` e — se o ponto for `pago`
    — `valor_cobrado_brl`.
-5. Ponto em **cortesia** emite um `cupom` com código curto. A pessoa digita no caixa.
+5. **Toda recarga** emite um `cupom` com o cashback daquela sessão. A pessoa digita no caixa.
 6. O caixa lança a `venda` com o `cupom_id`. **É só aqui que a venda vira "atribuída".**
 7. **Painel**: `GET /dados` traz tudo, `metricas()` soma no navegador e os cards desenham. Não há
    WebSocket — é carregamento explícito, como no BMS.
@@ -315,7 +315,7 @@ guarda. Uma preferência nova não exige mexer no servidor.
 
 O modelo **não escreve SQL**. `SQL_CONTEXTO` monta um retrato da loja numa consulta só —
 carregadores, totais, pico de horário, clientes frequentes, precisão da previsão e, para quem pode,
-financeiro e teto de cortesia. Duas consequências:
+financeiro e teto de cashback. Duas consequências:
 
 1. **Escopo.** O retrato é sempre de uma loja que o usuário tem; `exigir_loja()` roda antes.
 2. **Corte por papel de verdade.** Para o operador as chaves de dinheiro **não entram no contexto**.

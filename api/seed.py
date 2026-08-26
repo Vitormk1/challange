@@ -1,7 +1,7 @@
 """Popula o banco com 30 dias de operação de três lojas.
 
 Os segmentos não foram escolhidos ao acaso: eles mostram o contraste que o
-painel precisa deixar claro — pet shop paga a cortesia com folga, restaurante
+painel precisa deixar claro — pet shop devolve 12% com folga, restaurante
 paga na conta, supermercado não paga. É o resultado de ai/break_even.py
 virando dado.
 
@@ -40,20 +40,24 @@ LOJAS = [
     ("Supermercado Bom Preço", "mercado",      2.9, 140.0, 220.0),
 ]
 
-# (nome, kW, modo, teto kWh, preço R$/kWh)
+# (nome, kW, preço R$/kWh, cashback %)
+#
+# Todo ponto cobra. O que muda entre eles é quanto volta como crédito, e isso
+# acompanha a margem do segmento: pet shop tem folga para devolver 12%, o
+# mercado trabalha com 2,9% de margem e não aguenta o mesmo.
 CARREGADORES = {
     "pet": [
-        ("Vaga 1 — frente",  7.40, "cortesia", 6.0, None),
-        ("Vaga 2 — lateral", 7.40, "cortesia", 6.0, None),
+        ("Vaga 1 — frente",  7.40, 1.60, 12.0),
+        ("Vaga 2 — lateral", 7.40, 1.60, 12.0),
     ],
     "restaurante": [
-        ("Vaga do salão", 7.40, "cortesia", 4.0, None),
-        ("Vaga da rua",  11.00, "pago",     0.0, 1.90),
+        ("Vaga do salão", 7.40, 1.70, 10.0),
+        ("Vaga da rua",  11.00, 1.90,  6.0),
     ],
     "mercado": [
-        ("Estacionamento A", 22.00, "pago", 0.0, 1.75),
-        ("Estacionamento B", 22.00, "pago", 0.0, 1.75),
-        ("Vaga rápida",      50.00, "pago", 0.0, 2.40),
+        ("Estacionamento A", 22.00, 1.75, 4.0),
+        ("Estacionamento B", 22.00, 1.75, 4.0),
+        ("Vaga rápida",      50.00, 2.40, 3.0),
     ],
 }
 
@@ -71,7 +75,7 @@ APELIDOS = ["Ana", "Bruno", "Carla", "Diego", "Elis", "Fábio", "Gabi", "Heitor"
 # computador para outro exatamente como a pessoa deixou.
 CARDS_PADRAO = [
     {"id": "retorno",  "grupo": "large", "cols": 11, "rows": 4, "config": {}},
-    {"id": "teto",     "grupo": "large", "cols": 9,  "rows": 4, "config": {}},
+    {"id": "cashback", "grupo": "large", "cols": 9,  "rows": 4, "config": {}},
     {"id": "lucro",    "grupo": "small", "cols": 5,  "rows": 2, "config": {}},
     {"id": "sessoes",  "grupo": "small", "cols": 5,  "rows": 2, "config": {}},
     {"id": "clientes", "grupo": "small", "cols": 5,  "rows": 2, "config": {}},
@@ -208,16 +212,16 @@ def semear() -> None:
         linhas_carregador, meta_carregador = [], []
         for pos, (estab_id, loja) in enumerate(zip(estab_ids, LOJAS), start=1):
             segmento = loja[1]
-            for i, (cnome, kw, modo, teto, preco) in enumerate(CARREGADORES[segmento], start=1):
+            for i, (cnome, kw, preco, cashback) in enumerate(CARREGADORES[segmento], start=1):
                 linhas_carregador.append((
                     estab_id, cnome, f"GW-{pos:02d}{i:02d}-{random.randint(1000, 9999)}",
-                    kw, modo, teto, preco, True))
-                meta_carregador.append({"estab": estab_id, "kw": float(kw), "modo": modo,
-                                        "teto": float(teto), "preco": float(preco or 0)})
+                    kw, preco, cashback, True))
+                meta_carregador.append({"estab": estab_id, "kw": float(kw),
+                                        "preco": float(preco), "cashback": float(cashback)})
         ids_carregador = inserir(
             cur, "carregadores",
-            ["estabelecimento_id", "nome", "numero_serie", "potencia_kw", "modo",
-             "teto_cortesia_kwh", "preco_kwh_brl", "ativo"],
+            ["estabelecimento_id", "nome", "numero_serie", "potencia_kw",
+             "preco_kwh_brl", "cashback_pct", "ativo"],
             linhas_carregador, devolve_id=True)
         for meta, cid in zip(meta_carregador, ids_carregador):
             meta["id"] = cid
@@ -261,29 +265,29 @@ def semear() -> None:
                                    else random.uniform(0.3, 0.8))
                     energia = min(ponto["kw"] * permanencia * random.uniform(0.85, 0.98),
                                   cliente["bateria"] * 0.6)
-                    if ponto["modo"] == "cortesia":
-                        energia = min(energia, ponto["teto"])
                     energia = round(energia, 3)
 
                     fim = comeco + timedelta(hours=energia / ponto["kw"])
                     # a previsão erra alguns minutos — é isso que a coluna mostra
                     previsao = fim + timedelta(minutes=random.randint(-9, 12))
                     custo = round(energia * TARIFA, 2)
-                    cobrado = round(energia * ponto["preco"], 2) if ponto["modo"] == "pago" else 0.0
+                    cobrado = round(energia * ponto["preco"], 2)
+                    cashback = round(cobrado * ponto["cashback"] / 100, 2)
                     soc_i = round(random.uniform(0.15, 0.55), 3)
                     soc_f = round(min(0.98, soc_i + energia / cliente["bateria"]), 3)
 
                     linhas_sessao.append((
                         ponto["id"], cliente["id"], comeco, fim, energia, soc_i, soc_f,
-                        ponto["modo"], previsao, cobrado or custo, custo, cobrado,
+                        cashback, previsao, cobrado, custo, cobrado,
                         random.choice([0, 0, 0, 8, 20, 35]), "concluida"))
                     meta_sessao.append({"estab": estab_id, "ponto": ponto, "cliente": cliente,
                                         "inicio": comeco, "fim": fim, "custo": custo,
+                                        "cashback": cashback,
                                         "soc_i": soc_i, "ticket": ticket})
         ids_sessao = inserir(
             cur, "sessoes",
             ["carregador_id", "cliente_id", "inicio", "fim", "energia_kwh", "soc_inicial",
-             "soc_final", "modo", "previsao_fim", "previsao_custo_brl", "custo_energia_brl",
+             "soc_final", "cashback_brl", "previsao_fim", "previsao_custo_brl", "custo_energia_brl",
              "valor_cobrado_brl", "minutos_ocioso", "situacao"],
             linhas_sessao, devolve_id=True)
         for meta, sid in zip(meta_sessao, ids_sessao):
@@ -303,15 +307,17 @@ def semear() -> None:
                 ["carregador_id", "sessao_id", "momento", "potencia_kw", "soc"],
                 linhas_leitura)
 
-        # ---- cupons: a cortesia gera cupom, e é o cupom que liga a recarga à venda ----
+        # ---- cupons: TODA recarga gera crédito, e é o crédito que liga a
+        #      recarga à venda. No modelo antigo só a cortesia gerava cupom,
+        #      e as sessões pagas ficavam sem rastro no caixa.
         usados: set[str] = set()
         linhas_cupom, meta_cupom = [], []
         for s in meta_sessao:
-            if s["ponto"]["modo"] != "cortesia":
+            if s["cashback"] <= 0:
                 continue
             comprou = random.random() < COMPRAM
             usado = s["inicio"] + timedelta(minutes=random.randint(10, 90))
-            linhas_cupom.append((codigo_cupom(usados), s["id"], s["custo"], s["inicio"],
+            linhas_cupom.append((codigo_cupom(usados), s["id"], s["cashback"], s["inicio"],
                                  usado if comprou else None, s["inicio"] + timedelta(days=7)))
             meta_cupom.append({"sessao": s, "comprou": comprou, "usado": usado})
         ids_cupom = inserir(
