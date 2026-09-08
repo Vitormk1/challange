@@ -239,6 +239,9 @@ def main() -> None:
     checar("painel do lojista continua no ar", d.status_code == 200, f"HTTP {d.status_code}")
     m = anon.get(f"{API}/painel/mapa.html", timeout=TEMPO)
     checar("mapa de carregadores responde", m.status_code == 200, f"HTTP {m.status_code}")
+    f = anon.get(f"{API}/painel/anuncio.html", timeout=TEMPO)
+    checar("o filme responde", f.status_code == 200, f"HTTP {f.status_code}")
+    checar("o filme é público", "loginGate" not in f.text)
 
     # As duas telas abertas não podem pedir sessão: a apresentação é pública
     # por definição, e o mapa foi especificado como acessível sem login.

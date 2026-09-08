@@ -1,0 +1,575 @@
+/* ==========================================================================
+   Smart Charge — o filme
+
+   Peça de motion, não página: o conteúdo ocupa a janela e não rola. Quem
+   conduz o tempo é o anuncio.js, numa linha do tempo só; aqui ficam a
+   composição e o estado de repouso de cada cena.
+
+   Tudo é dimensionado em `vmin` de propósito. Um anúncio precisa manter a
+   proporção entre título, texto e imagem quer a pessoa esteja num monitor
+   deitado ou num celular em pé — e `vmin` é a única unidade que acompanha a
+   MENOR dimensão, que é a que aperta. Com `vw` o texto explodiria no
+   monitor; com `vh`, no celular deitado.
+   ========================================================================== */
+
+:root {
+  --vermelho: #E1251B;
+  --vermelho-forte: #B4160F;
+  --preto: #08080A;
+  --grafite: #131317;
+  --branco: #F7F7F8;
+  --cinza: #9A9AA6;
+  --fonte: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+           "Helvetica Neue", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+.pagina-anuncio {
+  margin: 0;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--preto);
+  color: var(--branco);
+  font-family: var(--fonte);
+  -webkit-font-smoothing: antialiased;
+  /* o filme não é para ser selecionado com o dedo enquanto roda */
+  user-select: none;
+}
+
+img { display: block; max-width: 100%; }
+
+/* ==========================================================================
+   Palco e cenas
+   ========================================================================== */
+.palco {
+  position: relative;
+  height: 100dvh;
+  overflow: hidden;
+  /* leve vinheta: aproxima do enquadramento de vídeo sem custar nada */
+  background:
+    radial-gradient(120% 100% at 50% 40%, #16161B 0%, var(--preto) 72%);
+}
+
+.cena {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  padding: 7vmin 8vmin 14vmin;
+  opacity: 0;
+  /* fora de cena não recebe toque nem leitor de tela */
+  pointer-events: none;
+  visibility: hidden;
+}
+.cena.is-ativa { visibility: visible; }
+
+.rotulo-cena {
+  margin: 0 0 2.4vmin;
+  font-size: clamp(0.62rem, 1.5vmin, 0.9rem);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--vermelho);
+}
+
+/* ==========================================================================
+   1 · abertura
+   ========================================================================== */
+/* O fio é o gesto de "carregando": uma linha que atravessa a tela e acende.
+   É o único elemento que aparece nas duas pontas do filme, abrindo e
+   fechando — é o que dá a sensação de uma peça, e não de slides soltos. */
+.fio {
+  position: absolute;
+  left: 12vmin; right: 12vmin;
+  top: 50%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+.fio i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  /* Estado inicial e animação têm de falar a MESMA língua. Aqui é
+     `transform`, e o anuncio.js anima `transform` como string com os dois
+     extremos escritos.
+
+     Duas tentativas anteriores falharam pelo mesmo motivo, e vale registrar:
+     `transform: scale(0)` no CSS com `scale` animado pelo Motion, e depois
+     `scale: 0` no CSS com a mesma animação. Nos dois casos as duas coisas se
+     COMPÕEM em vez de uma vencer — 0 × 1 continua 0 — e a animação rodava
+     com o elemento invisível o tempo todo. É o bug mais caro de achar,
+     porque cada peça isolada parece certa. */
+  transform: scale(0);
+  background: linear-gradient(90deg, var(--vermelho-forte), var(--vermelho) 60%, #FF6A60);
+  box-shadow: 0 0 18px rgba(225, 37, 27, 0.7);
+}
+
+.abertura { display: grid; justify-items: center; gap: 3vmin; }
+.abertura-marca {
+  width: clamp(52px, 11vmin, 116px);
+  height: auto;
+  opacity: 0;
+  filter: drop-shadow(0 6px 26px rgba(225, 37, 27, 0.4));
+}
+.abertura-nome {
+  margin: 0;
+  display: flex;
+  font-size: clamp(2rem, 8.4vmin, 5.4rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.abertura-nome .letra { display: inline-block; opacity: 0; }
+.abertura-nome .esp { width: 0.28em; }
+
+/* ==========================================================================
+   2 · o problema
+   ========================================================================== */
+.cena-foto {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  opacity: 0;
+}
+.cena-veu {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(100deg, rgba(8, 8, 10, 0.95) 12%, rgba(8, 8, 10, 0.6) 62%, rgba(8, 8, 10, 0.86) 100%);
+}
+.frases { position: relative; display: grid; gap: 2.2vmin; justify-items: start; }
+.frase {
+  margin: 0;
+  font-size: clamp(1.15rem, 4.4vmin, 2.9rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.18;
+  opacity: 0;
+  color: var(--branco);
+}
+.frase.forte { color: var(--vermelho); }
+
+/* ==========================================================================
+   3 · a virada
+   ========================================================================== */
+.cena-virada { justify-items: center; text-align: center; }
+.virada-cima {
+  margin: 0 0 1.6vmin;
+  font-size: clamp(0.95rem, 3vmin, 1.7rem);
+  font-weight: 600;
+  color: var(--cinza);
+  opacity: 0;
+}
+.virada-baixo {
+  margin: 0;
+  font-size: clamp(1.8rem, 7.6vmin, 5rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  opacity: 0;
+}
+.virada-baixo em { font-style: normal; color: var(--vermelho); }
+
+/* ==========================================================================
+   4 · o modelo
+   ========================================================================== */
+.cena-modelo { justify-items: center; text-align: center; }
+.fluxo {
+  display: flex;
+  /* stretch e não center: em linha, três cartões de alturas diferentes
+     (218, 197 e 245px, medidos) desalinham a base e o conjunto parece
+     descuidado. Esticados, os títulos e os ícones ficam na mesma linha. */
+  align-items: stretch;
+  gap: 2vmin;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.no {
+  flex: 0 1 26vmin;
+  display: grid;
+  justify-items: center;
+  gap: 0.8vmin;
+  padding: 3vmin 2vmin;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 2.2vmin;
+  background: rgba(255, 255, 255, 0.035);
+  opacity: 0;
+}
+.no-icone {
+  display: grid;
+  place-items: center;
+  width: 8vmin; height: 8vmin;
+  min-width: 38px; min-height: 38px;
+  margin-bottom: 0.8vmin;
+  border-radius: 2vmin;
+  background: rgba(225, 37, 27, 0.14);
+  color: var(--vermelho);
+}
+.no-icone svg { width: 55%; height: 55%; }
+.no b {
+  font-size: clamp(0.82rem, 2.3vmin, 1.32rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.no span {
+  font-size: clamp(0.68rem, 1.7vmin, 0.98rem);
+  color: var(--cinza);
+  line-height: 1.35;
+}
+/* align-self: center porque o tracinho não deve esticar junto com os
+   cartões — ele liga o meio de um ao meio do outro. */
+.tracinho {
+  flex: 0 0 6vmin;
+  align-self: center;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+.tracinho i {
+  display: block;
+  height: 100%; width: 100%;
+  transform-origin: left center;
+  /* transform, pelo mesmo motivo do .fio i acima */
+  transform: scale(0);
+  background: var(--vermelho);
+}
+.modelo-fecho {
+  margin: 4vmin 0 0;
+  font-size: clamp(0.9rem, 2.6vmin, 1.5rem);
+  font-weight: 600;
+  color: var(--branco);
+  opacity: 0;
+}
+
+/* ==========================================================================
+   5 · o produto
+   ========================================================================== */
+.cena-produto {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  place-content: center;
+  align-items: center;
+  gap: 6vmin;
+  text-align: left;
+}
+.produto-texto h2 {
+  margin: 0 0 3vmin;
+  font-size: clamp(1.5rem, 5.6vmin, 3.6rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  opacity: 0;
+}
+.produto-texto h2 em { font-style: normal; color: var(--vermelho); }
+.marcas { margin: 0; padding: 0; list-style: none; display: grid; gap: 1.4vmin; }
+.marcas li {
+  position: relative;
+  padding-left: 3.4vmin;
+  font-size: clamp(0.75rem, 2.1vmin, 1.14rem);
+  color: var(--cinza);
+  opacity: 0;
+}
+.marcas li::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0.55em;
+  width: 1.6vmin; height: 1.6vmin;
+  min-width: 7px; min-height: 7px;
+  border-radius: 50%;
+  background: var(--vermelho);
+}
+
+.produto-telas { position: relative; height: 46vmin; }
+.tela {
+  position: absolute;
+  width: 78%;
+  height: auto;
+  border-radius: 1.6vmin;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 3vmin 7vmin rgba(0, 0, 0, 0.6);
+  opacity: 0;
+}
+.tela-1 { left: 0; top: 8%; }
+.tela-2 { right: 0; top: 34%; }
+.tela-celular {
+  position: absolute;
+  right: 6%;
+  bottom: -6%;
+  width: 26%;
+  height: auto;
+  opacity: 0;
+  filter: drop-shadow(0 2vmin 4vmin rgba(0, 0, 0, 0.7));
+}
+
+/* ==========================================================================
+   6 · segmentos
+   ========================================================================== */
+.cena-segmentos { justify-items: center; text-align: center; }
+.segmentos {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.6vmin;
+  max-width: 74vmin;
+}
+.segmentos span {
+  padding: 1.4vmin 3vmin;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  font-size: clamp(0.78rem, 2.4vmin, 1.35rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  opacity: 0;
+}
+.segmentos-nota {
+  margin: 4vmin 0 0;
+  font-size: clamp(0.7rem, 1.9vmin, 1.02rem);
+  line-height: 1.5;
+  color: var(--cinza);
+  opacity: 0;
+}
+
+/* ==========================================================================
+   7 · fecho
+   ========================================================================== */
+.cena-fecho { justify-items: center; text-align: center; }
+.fio-fecho { top: auto; bottom: 22vmin; }
+.fecho-marca {
+  width: clamp(44px, 9vmin, 96px);
+  height: auto;
+  opacity: 0;
+  filter: drop-shadow(0 6px 26px rgba(225, 37, 27, 0.4));
+}
+.fecho-nome {
+  margin: 2.4vmin 0 0;
+  font-size: clamp(1.7rem, 7vmin, 4.4rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  opacity: 0;
+}
+.fecho-linha {
+  margin: 1.2vmin 0 0;
+  font-size: clamp(0.9rem, 2.8vmin, 1.6rem);
+  color: var(--vermelho);
+  font-weight: 600;
+  opacity: 0;
+}
+.fecho-botao {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4vmin;
+  min-height: 48px;
+  padding: 0 3.4vmin;
+  border-radius: 999px;
+  background: var(--vermelho-forte);
+  color: #FFF;
+  font-size: clamp(0.82rem, 2vmin, 1.02rem);
+  font-weight: 700;
+  text-decoration: none;
+  opacity: 0;
+}
+.fecho-botao:hover { background: #9C120C; }
+.fecho-creditos {
+  margin: 3vmin 0 0;
+  font-size: clamp(0.64rem, 1.6vmin, 0.86rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6C6C78;
+  opacity: 0;
+}
+
+/* ==========================================================================
+   Controles
+
+   Ficam sempre por cima, e não somem: um anúncio que não deixa pausar nem
+   voltar é um anúncio que a pessoa fecha.
+   ========================================================================== */
+.controles {
+  position: fixed;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  z-index: 60;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(680px, calc(100vw - 24px));
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(14, 14, 18, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  opacity: 0;                       /* o JS revela quando o filme começa */
+  transition: opacity 0.4s ease;
+}
+.controles.is-visivel { opacity: 1; }
+
+.ctrl {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 40px; height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--branco);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.ctrl:hover { background: rgba(255, 255, 255, 0.18); }
+.ctrl:focus-visible { outline: 2px solid var(--vermelho); outline-offset: 2px; }
+.ctrl svg { width: 18px; height: 18px; }
+
+/* Os dois ícones do play/pause ocupam a mesma célula, e quem escolhe é a
+   classe do botão. Ver o comentário em anuncio.js: `hidden` não existe em
+   SVGElement, então esconder por atributo ali não funciona. */
+#btnTocar { display: grid; }
+#btnTocar > svg { grid-area: 1 / 1; }
+#btnTocar .ico-tocar { display: none; }
+#btnTocar.is-pausado .ico-pausa { display: none; }
+#btnTocar.is-pausado .ico-tocar { display: block; }
+.ctrl-sair { background: var(--vermelho-forte); }
+.ctrl-sair:hover { background: #9C120C; }
+
+.trilha {
+  position: relative;
+  flex: 1 1 auto;
+  height: 22px;                     /* alvo de toque; o traço é o ::before */
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+}
+.trilha::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+}
+.trilha-cheia {
+  position: absolute;
+  left: 0;
+  height: 4px;
+  width: 0;
+  border-radius: 999px;
+  background: var(--vermelho);
+}
+.trilha-marcas { position: absolute; inset: 0; }
+/* uma marca por cena, para dar a ver que o filme tem partes */
+.trilha-marcas i {
+  position: absolute;
+  top: 50%;
+  width: 2px; height: 9px;
+  margin-top: -4.5px;
+  background: rgba(255, 255, 255, 0.34);
+}
+.trilha:focus-visible { outline: 2px solid var(--vermelho); outline-offset: 3px; border-radius: 999px; }
+
+.tempo {
+  flex: 0 0 auto;
+  min-width: 34px;
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--cinza);
+}
+
+/* ==========================================================================
+   Celular
+
+   Em pé sobra altura e falta largura: o modelo deixa de ser uma fila
+   horizontal e vira coluna, e o produto empilha texto sobre telas. Sem isto
+   os três nós do fluxo ficariam com 20px de largura cada.
+   ========================================================================== */
+@media (max-aspect-ratio: 1/1) {
+  .cena { padding: 10vmin 7vmin 18vmin; }
+
+  /* A largura tem de sair do .fluxo, e não dos filhos. A cena é grid com
+     justify-items:center, então o .fluxo encolhe até o conteúdo; com os nós
+     pedindo `width: 100%` DELE, a conta fica circular e os três colapsavam
+     para 0x0 — a cena inteira do modelo ficava vazia no celular em pé. */
+  .fluxo { flex-direction: column; gap: 1.4vmin; width: min(62vmin, 100%); }
+  .no { flex: 0 0 auto; width: 100%; padding: 3.4vmin 3vmin; }
+  .tracinho { flex: 0 0 5vmin; width: 2px; height: 5vmin; }
+  .tracinho i { width: 100%; transform-origin: top center; transform: scale(0); }
+
+  .cena-produto { grid-template-columns: minmax(0, 1fr); gap: 5vmin; }
+  .produto-telas { height: 40vmin; }
+  .tela { width: 72%; }
+  .tela-celular { width: 24%; right: 2%; }
+
+  .frases { justify-items: center; text-align: center; }
+  .segmentos { max-width: 84vmin; }
+}
+
+/* Tela muito baixa (celular deitado): o que falta é altura. */
+@media (max-height: 420px) {
+  .cena { padding: 5vmin 7vmin 12vmin; }
+  .controles { bottom: 8px; padding: 6px 10px; }
+  .ctrl { width: 34px; height: 34px; }
+  .produto-telas { height: 40vmin; }
+}
+
+/* ==========================================================================
+   Menos movimento
+
+   Quem pediu para reduzir animação não pode receber uma tela preta com um
+   botão de pausa. O JS detecta e mostra a última cena inteira, parada; estas
+   regras garantem que ela apareça mesmo que o script não chegue a rodar.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  /* `body:not(.tocando)` não é detalhe: sem esse escopo, o !important daqui
+     vencia os estilos que o próprio Motion aplica, e quem clicasse em
+     "assistir mesmo assim" ficava preso no fecho parado — o botão existia e
+     não fazia nada. A classe `.tocando` é posta pelo JS no momento em que a
+     pessoa escolhe ver, e desliga estas regras. */
+  body:not(.tocando) .cena[data-cena="7"],
+  body:not(.tocando) .cena[data-cena="7"] * { opacity: 1 !important; visibility: visible !important; }
+  body:not(.tocando) .cena[data-cena="7"] { pointer-events: auto; }
+  body:not(.tocando) .fio i { transform: scale(1) !important; }
+  .controles { transition: none; }
+}
+
+/* Convite de quem tem "menos movimento" ligado. Respeitar a preferência é
+   não tocar sozinho — não é recusar a mostrar. */
+.assistir-assim {
+  margin-top: 3vmin;
+  min-height: 44px;
+  padding: 0 3vmin;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--branco);
+  font: inherit;
+  font-size: clamp(0.76rem, 1.9vmin, 0.96rem);
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 1 !important;
+}
+.assistir-assim:hover { border-color: var(--vermelho); color: var(--vermelho); }
+
+/* ==========================================================================
+   Sem JavaScript
+   ========================================================================== */
+.sem-script {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 2vmin;
+  padding: 8vmin;
+  text-align: center;
+  background: var(--preto);
+}
+.sem-script h2 { margin: 0; font-size: clamp(1.6rem, 6vmin, 3.4rem); letter-spacing: -0.03em; }
+.sem-script p { margin: 0; max-width: 46ch; color: var(--cinza); line-height: 1.6; }
+.sem-script .fecho-botao { opacity: 1; }
