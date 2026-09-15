@@ -14,7 +14,7 @@ Recarga de veículos elétricos **como ativo comercial**. Dois produtos, um sist
 
 | | Onde | Quem serve |
 |---|---|---|
-| **Apresentação** | <https://chargegrid.com.br/painel/> | a própria API |
+| **Apresentação** | <https://smartcharge.ia.br/painel/> | a própria API |
 | **Painel do lojista** | `.../painel/dashboard.html` | a própria API |
 | **Mapa de carregadores** | `.../painel/mapa.html` | a própria API |
 | **Dossiê** | `vitormk1.github.io/challange/` | GitHub Pages |
@@ -222,7 +222,7 @@ que ele respondeu.
 
 ```bash
 SENHA_MAIN=... SENHA_GERENTE=... SENHA_OPERADOR=... python api/auditoria.py
-python api/auditoria.py https://chargegrid.com.br   # contra o publicado
+python api/auditoria.py https://smartcharge.ia.br   # contra o publicado
 ```
 
 Sem as senhas no ambiente ele roda só a parte que não precisa de login — as

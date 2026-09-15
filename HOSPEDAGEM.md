@@ -63,7 +63,7 @@ contornar, na seção "Antes da apresentação".
 ### 1b. O domínio próprio
 
 O endereço do Render continua valendo, mas quem divulga é o domínio:
-**<https://chargegrid.com.br>**.
+**<https://smartcharge.ia.br>**.
 
 Na zona DNS do Registro.br, em modo avançado, dois registros:
 
@@ -83,7 +83,7 @@ parte dos visitantes tentar IPv6 e não chegar.
 Depois, no Render: **Settings → Custom Domains** → adicione os dois. O
 certificado é emitido e renovado sozinho.
 
-**Como saber em que ponto está:** se `http://chargegrid.com.br` responder
+**Como saber em que ponto está:** se `http://smartcharge.ia.br` responder
 **409**, o DNS já está certo e falta cadastrar o domínio no Render — a
 requisição chega lá, mas ele não sabe de quem ela é.
 
@@ -108,7 +108,7 @@ Abra `https://SUA-URL.onrender.com/saude`. A resposta diz o que está valendo:
 
 ### 3. O endereço do painel
 
-**As telas são servidas pela própria API.** `https://chargegrid.com.br/painel/`
+**As telas são servidas pela própria API.** `https://smartcharge.ia.br/painel/`
 é o site de apresentação, e é esse o endereço para compartilhar: dali saem os
 links para o painel (`/painel/dashboard.html`) e para o mapa de carregadores
 (`/painel/mapa.html`), que é aberto e não pede login.
@@ -117,7 +117,7 @@ Em [`docs/painel/api.js`](docs/painel/api.js) uma linha guarda esse endereço, e
 é a única que muda se o serviço trocar de host:
 
 ```js
-const API_PUBLICADA = "https://chargegrid.com.br";
+const API_PUBLICADA = "https://smartcharge.ia.br";
 ```
 
 A cópia que fica no GitHub Pages redireciona para lá.

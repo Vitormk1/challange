@@ -42,7 +42,7 @@ services:
         value: mistralai/mistral-small-24b-instruct-2501
 
       # Mesma origem não precisa de CORS: o painel é servido por este mesmo
-      # processo, agora em chargegrid.com.br. Isto fica só para o
+      # processo, agora em smartcharge.ia.br. Isto fica só para o
       # desenvolvimento local apontar para cá quando for preciso depurar, e
       # para a cópia antiga no GitHub Pages, que só redireciona.
       - key: ORIGENS_PERMITIDAS
