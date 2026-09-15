@@ -137,32 +137,7 @@ git commit --amend -m "A mensagem certa"
 
 ---
 
-## O ciclo de uma tarefa
-
-```bash
-# 1. parte sempre do main atualizado — este é o passo que mais se esquece,
-#    e é o que gera conflito depois
-git checkout main
-git pull
-
-# 2. um branch com seu nome e o que ele faz
-git checkout -b vitor/filtro-do-mapa
-
-# 3. trabalha, comita quantas vezes quiser
-git add -A
-git commit -m "Filtra os pontos do mapa por segmento"
-
-# 4. manda para o GitHub
-git push -u origin vitor/filtro-do-mapa
-```
-
-Depois, no GitHub: **Compare & pull request** → descreve o que fez → pede
-revisão de alguém → quando aprovarem, **Merge**.
-
-No instante do merge o Render começa a publicar. Em uns três minutos está no
-ar.
-
-### Por que o nome do branch tem o seu nome
+## Por que o nome do branch tem o seu nome
 
 `vitor/filtro-do-mapa`, `ana/api-pagamento`, `lucas/simulador`. Com quatro
 pessoas, `git branch -a` vira uma lista longa rápido, e saber de quem é cada
@@ -174,17 +149,12 @@ coisa sem perguntar economiza mais tempo do que parece.
 
 Vai acontecer, e não é problema — o Git resolve sozinho quase sempre. O que
 dá trabalho é quando o seu branch ficou parado três dias enquanto o `main`
-andou. Então, antes de abrir o PR:
+andou, e é por isso que a rotina acima manda fazer `git merge main` **antes**
+de abrir o PR.
 
-```bash
-git checkout main
-git pull
-git checkout vitor/filtro-do-mapa
-git merge main          # traz o que os outros fizeram para o seu branch
-```
-
-Se aparecer conflito, o Git marca o trecho nos dois lados e você escolhe. É
-muito melhor resolver isso aqui, no seu branch, do que descobrir no PR.
+Quando há conflito de verdade, o Git marca os dois lados no arquivo e você
+escolhe qual fica. Resolver ali, no seu branch, é muito melhor do que
+descobrir o problema no PR com os outros esperando.
 
 **Combinem quem mexe em quê.** A maior parte dos conflitos não é problema de
 ferramenta, é duas pessoas editando a mesma função sem saber.
