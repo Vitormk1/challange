@@ -20,6 +20,123 @@ que organiza.
 
 ---
 
+## A rotina, do jeito que ela acontece
+
+### Sentei para mexer no projeto
+
+Sempre estes dois, sempre nesta ordem. É o passo que mais se esquece e o que
+mais causa conflito depois:
+
+```bash
+git checkout main
+git pull
+```
+
+Você acabou de trazer tudo que os outros publicaram desde ontem.
+
+### Vou começar uma tarefa
+
+```bash
+git checkout -b vitor/filtro-do-mapa
+```
+
+Um branch por tarefa, com seu nome na frente. Terminou a tarefa, o branch
+morre — não reaproveite branch antigo para assunto novo.
+
+### Vou rodar o projeto
+
+```bash
+python -m uvicorn main:app --host 127.0.0.1 --port 8000 --app-dir api --reload
+```
+
+`--reload` reinicia sozinho a cada arquivo salvo. Abre em
+<http://127.0.0.1:8000/painel/>.
+
+### Estou trabalhando
+
+```bash
+git status           # o que mudou desde o último commit
+git diff             # exatamente o que mudou, linha a linha
+```
+
+### Terminei um pedaço que funciona
+
+```bash
+git add -A
+git commit -m "Filtra os pontos do mapa por segmento"
+```
+
+Commit é ponto de salvamento, não entrega. Commite várias vezes por dia,
+sempre que algo passar a funcionar. Só não commite coisa quebrada.
+
+### Vou abrir o Pull Request
+
+Antes, traga o que os outros publicaram enquanto você trabalhava:
+
+```bash
+git checkout main
+git pull
+git checkout vitor/filtro-do-mapa
+git merge main
+```
+
+Se aparecer conflito, é aqui que você resolve — no seu branch, com calma.
+Resolver aqui é muito melhor que descobrir no PR.
+
+Depois:
+
+```bash
+git push -u origin vitor/filtro-do-mapa
+```
+
+O `-u` só na primeira vez. Nas seguintes, `git push` sozinho basta.
+
+Vá ao GitHub, clique em **Compare & pull request**, descreva e peça revisão.
+
+### Mesclaram meu PR
+
+```bash
+git checkout main
+git pull
+git branch -d vitor/filtro-do-mapa    # apaga o branch local, já foi
+```
+
+E volta ao começo.
+
+---
+
+## Quando der errado
+
+```bash
+git branch                    # em que branch eu estou?
+git log --oneline -10         # o que aconteceu por último
+
+git restore arquivo.js        # desfaz alterações NÃO commitadas do arquivo
+git restore .                 # desfaz tudo que não foi commitado (cuidado)
+
+git stash                     # guarda o trabalho pela metade
+git checkout main             # ...para poder trocar de branch...
+git checkout -                # ...e voltar...
+git stash pop                 # ...e pegar de volta
+```
+
+Errou a mensagem do último commit e **ainda não deu push**:
+
+```bash
+git commit --amend -m "A mensagem certa"
+```
+
+## Três coisas que não se faz
+
+1. **`git push --force`** em branch que não é só seu. É assim que trabalho
+   dos outros some do histórico de verdade.
+2. **Commitar o `.env`.** Ele tem senha de banco e chave de API, e o
+   repositório é público. A verificação automática barra, mas não conte com
+   ela como única defesa.
+3. **Rodar `api/seed.py` contra o banco compartilhado.** Ele apaga tudo.
+
+---
+
 ## O ciclo de uma tarefa
 
 ```bash
