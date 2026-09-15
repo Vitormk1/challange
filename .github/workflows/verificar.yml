@@ -1,0 +1,115 @@
+# Verificação automática dos Pull Requests.
+#
+# Três checagens, escolhidas por serem baratas e por pegarem o que de fato
+# costuma passar batido quando entra gente nova num repositório:
+#
+#   sintaxe   — um `.py` ou `.js` que não compila derruba o deploy inteiro,
+#               porque o Render publica o main sem perguntar nada
+#   segredo   — a mais importante. Chave que entra no histórico do Git
+#               continua lá depois de removida, e este repositório é público
+#
+# Não roda teste de integração nem a auditoria: as duas precisam de banco e
+# de chave de API, e nenhuma das duas coisas pode viver num CI público.
+
+name: Verificar
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  sintaxe:
+    name: Sintaxe
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python compila
+        run: |
+          python -m compileall -q api/ && echo "ok: todo .py compila"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: JavaScript compila
+        run: |
+          # `node --check` só lê, não executa. O static/ fica de fora porque
+          # é biblioteca de terceiro (Leaflet, Motion) e não é nosso para
+          # corrigir.
+          erros=0
+          for f in $(find docs -name "*.js" -not -path "*/static/*"); do
+            if node --check "$f"; then
+              echo "  ok   $f"
+            else
+              echo "  FALHA $f"
+              erros=1
+            fi
+          done
+          exit $erros
+
+      - name: CSS com chaves equilibradas
+        run: |
+          python - <<'FIM'
+          import pathlib, sys
+          ruim = False
+          for p in pathlib.Path("docs").rglob("*.css"):
+              if "static" in p.parts:
+                  continue
+              t = p.read_text(encoding="utf-8")
+              a, f = t.count("{"), t.count("}")
+              if a != f:
+                  print(f"  FALHA {p}: {a} abrem, {f} fecham")
+                  ruim = True
+              else:
+                  print(f"  ok   {p}")
+          sys.exit(1 if ruim else 0)
+          FIM
+
+  segredo:
+    name: Nenhum segredo no diff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # precisa do histórico para comparar com o main
+          fetch-depth: 0
+
+      - name: Procurar chave vazada
+        run: |
+          # Os padrões são os das chaves que este projeto usa de verdade.
+          # `|| true` no grep porque ele sai 1 quando não acha — e não achar
+          # é justamente o resultado bom.
+          alvo="${{ github.event_name == 'pull_request' && 'origin/main...HEAD' || 'HEAD~1...HEAD' }}"
+          # O segundo grep tira localhost: docker-compose.dev.yml traz
+          # `smart:smart@localhost` de propósito, que é credencial descartável
+          # de banco local e não segredo. Sem esse filtro, o próprio arquivo
+          # que documenta o banco de desenvolvimento reprovaria o PR.
+          achado=$(git diff $alvo \
+            | grep -nE 'sk-or-v1-[A-Za-z0-9]{16}|AVNS_[A-Za-z0-9_-]{12}|postgres(ql)?://[^ ]+:[^ @]+@' \
+            | grep -v 'localhost\|127\.0\.0\.1' || true)
+
+          if [ -n "$achado" ]; then
+            echo "::error::Há segredo no diff deste PR."
+            echo "$achado" | head -20
+            echo ""
+            echo "Chave que entra no histórico do Git CONTINUA LÁ depois de removida,"
+            echo "e este repositório é público. Não conserte com outro commit por cima:"
+            echo "fale com o Vitor, porque a chave precisa ser trocada no serviço."
+            exit 1
+          fi
+          echo "ok: nenhum segredo encontrado"
+
+      - name: O .env não pode estar versionado
+        run: |
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+            echo "::error::.env foi commitado. Ele tem senha de banco e chave de API."
+            exit 1
+          fi
+          echo "ok: .env continua fora do repositório"

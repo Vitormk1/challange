@@ -66,6 +66,7 @@ api/
   main.py           a API: login, dados por papel, painéis salvos, assistente
                     e transcrição de áudio — e serve o painel
   seed.py           trinta dias de operação de três lojas, para demonstração
+                    (APAGA o banco antes de recriar; pergunta antes)
   exportar.py       despeja o banco num JSON, para conferência e backup
   trocar_senha.py   troca a senha de um usuário, antes de publicar
   protecao.py       limite de tentativas, cabeçalhos de segurança e HSTS
@@ -80,6 +81,26 @@ render.yaml         a configuração do serviço, versionada
 repaginação para preto e vermelho acontece em `marca.css`, que entra depois
 dela e sobrescreve **só tokens de cor** — nenhuma regra de layout foi
 reescrita, e a identidade inteira cabe num arquivo que dá para ler de uma vez.
+
+---
+
+## Trabalhando em equipe
+
+O `main` é o que está no ar: o Render observa esse branch e publica sozinho a
+cada commit que chega nele. Por isso **ninguém empurra direto para o `main`** —
+cada tarefa vira um branch, um Pull Request e uma revisão.
+
+O passo a passo, o que a verificação automática olha e como rodar o projeto na
+sua máquina estão em [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Dois avisos que valem repetir aqui:
+
+- **`api/seed.py` apaga o banco inteiro** (`TRUNCATE` em dez tabelas) e o
+  recria. Ele agora pergunta antes e mostra qual host vai apagar — leia antes
+  de responder. Para experimentar à vontade, suba um Postgres só seu com
+  `docker compose -f docker-compose.dev.yml up -d`.
+- **O `.env` não está no repositório** e não pode estar. Copie o
+  `.env.example` e peça os valores por canal privado.
 
 ---
 

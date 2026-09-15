@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sys
 import random
 import secrets
 import string
@@ -361,5 +362,59 @@ def semear() -> None:
           f"vendas: {len(linhas_venda)}")
 
 
+def _onde_vai_apagar() -> str:
+    """O host do banco, sem a senha — só para a pessoa reconhecer o alvo."""
+    import re
+    url = os.environ.get("DATABASE_URL", "")
+    m = re.search(r"@([^/?]+)", url)
+    return m.group(1) if m else "(DATABASE_URL não definida)"
+
+
+def _confirmar() -> bool:
+    """Trava contra apagar o banco de demonstração por engano.
+
+    O semear() começa com um TRUNCATE em dez tabelas. Isso é o certo para um
+    seed — ele existe para recriar o mundo do zero — e é exatamente por isso
+    que rodá-lo contra o banco compartilhado apaga, sem aviso, os dados que
+    todo mundo está usando para desenvolver e apresentar.
+
+    Enquanto o projeto era de uma pessoa só, o risco era teórico: quem rodava
+    sabia o que estava fazendo. Com a equipe, deixa de ser — alguém clona,
+    lê no README que existe um seed, e roda para "ver funcionando".
+
+    Com terminal, pergunta. Sem terminal (CI, script), exige --sim explícito,
+    porque num ambiente que não pode responder o silêncio não vale como
+    consentimento.
+    """
+    alvo = _onde_vai_apagar()
+    if "--sim" in sys.argv:
+        print(f"apagando e recriando: {alvo}")
+        return True
+
+    if not sys.stdin.isatty():
+        print(f"!! Este script APAGA todas as tabelas de {alvo}")
+        print("   Sem terminal para confirmar. Rode de novo com --sim se é isso mesmo.")
+        return False
+
+    print(f"!! Este script APAGA e recria todas as tabelas de:")
+    print(f"   {alvo}")
+    print()
+    print("   Se este for o banco compartilhado, os dados de demonstração de")
+    print("   todo mundo somem e voltam com outra semente.")
+    print()
+    try:
+        return input("   Digite APAGAR para continuar: ").strip() == "APAGAR"
+    except EOFError:
+        # Sem ninguém do outro lado para responder. O Git Bash no Windows
+        # chega a dizer que há terminal mesmo com a entrada redirecionada, e
+        # aí o input() estoura em vez de cair no ramo de cima. Silêncio não é
+        # consentimento: recusa.
+        print("   Sem resposta. Use --sim se a intenção era essa mesmo.")
+        return False
+
+
 if __name__ == "__main__":
+    if not _confirmar():
+        print("cancelado, nada foi tocado")
+        sys.exit(1)
     semear()

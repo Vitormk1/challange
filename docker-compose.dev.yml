@@ -1,0 +1,42 @@
+# Postgres local, só para desenvolvimento.
+#
+# Existe por causa de um risco concreto: api/seed.py faz TRUNCATE em dez
+# tabelas. Enquanto o projeto era de uma pessoa, rodá-lo contra o banco
+# compartilhado era decisão consciente de quem rodava. Com a equipe, vira
+# acidente esperando acontecer — alguém clona, lê que existe um seed, e roda
+# para ver funcionando.
+#
+# Com este arquivo, cada um pode ter o próprio banco e apagar à vontade:
+#
+#     docker compose -f docker-compose.dev.yml up -d
+#
+# e no .env:
+#
+#     DATABASE_URL=postgresql://smart:smart@localhost:5433/smartcharge
+#
+# Para desligar e apagar tudo:  docker compose -f docker-compose.dev.yml down -v
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: smartcharge-dev-db
+    environment:
+      POSTGRES_USER: smart
+      POSTGRES_PASSWORD: smart
+      POSTGRES_DB: smartcharge
+    ports:
+      # 5433 e não 5432: quem já tem um Postgres instalado na máquina não
+      # precisa desligá-lo para trabalhar aqui.
+      - "5433:5432"
+    volumes:
+      - dados-dev:/var/lib/postgresql/data
+    healthcheck:
+      # o db.py aplica o schema na primeira conexão; sem o healthcheck,
+      # rodar o seed logo depois do `up` pega o banco ainda subindo
+      test: ["CMD-SHELL", "pg_isready -U smart -d smartcharge"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  dados-dev:

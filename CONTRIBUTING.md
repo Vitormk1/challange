@@ -1,0 +1,189 @@
+# Trabalhando em equipe neste repositório
+
+Este arquivo existe por um motivo específico: a partir de agora somos mais de
+um, e **o `main` é o que está no ar**. O Render observa esse branch e publica
+sozinho a cada commit que chega nele. Isso é ótimo — e é exatamente por isso
+que ninguém empurra direto para lá.
+
+O resto deste documento é como fazer isso sem ninguém sobrescrever ninguém.
+
+---
+
+## A regra, em uma frase
+
+**Cada tarefa tem o seu branch, vira Pull Request, alguém revisa, e só então
+entra no `main` — que publica.**
+
+Só isso. Não tem `develop`, não tem `release`, não tem gitflow. Para quatro
+pessoas num projeto de faculdade, qualquer coisa além disto atrapalha mais do
+que organiza.
+
+---
+
+## O ciclo de uma tarefa
+
+```bash
+# 1. parte sempre do main atualizado — este é o passo que mais se esquece,
+#    e é o que gera conflito depois
+git checkout main
+git pull
+
+# 2. um branch com seu nome e o que ele faz
+git checkout -b vitor/filtro-do-mapa
+
+# 3. trabalha, comita quantas vezes quiser
+git add -A
+git commit -m "Filtra os pontos do mapa por segmento"
+
+# 4. manda para o GitHub
+git push -u origin vitor/filtro-do-mapa
+```
+
+Depois, no GitHub: **Compare & pull request** → descreve o que fez → pede
+revisão de alguém → quando aprovarem, **Merge**.
+
+No instante do merge o Render começa a publicar. Em uns três minutos está no
+ar.
+
+### Por que o nome do branch tem o seu nome
+
+`vitor/filtro-do-mapa`, `ana/api-pagamento`, `lucas/simulador`. Com quatro
+pessoas, `git branch -a` vira uma lista longa rápido, e saber de quem é cada
+coisa sem perguntar economiza mais tempo do que parece.
+
+---
+
+## Quando duas pessoas mexem no mesmo arquivo
+
+Vai acontecer, e não é problema — o Git resolve sozinho quase sempre. O que
+dá trabalho é quando o seu branch ficou parado três dias enquanto o `main`
+andou. Então, antes de abrir o PR:
+
+```bash
+git checkout main
+git pull
+git checkout vitor/filtro-do-mapa
+git merge main          # traz o que os outros fizeram para o seu branch
+```
+
+Se aparecer conflito, o Git marca o trecho nos dois lados e você escolhe. É
+muito melhor resolver isso aqui, no seu branch, do que descobrir no PR.
+
+**Combinem quem mexe em quê.** A maior parte dos conflitos não é problema de
+ferramenta, é duas pessoas editando a mesma função sem saber.
+
+---
+
+## O que você precisa para rodar localmente
+
+### 1. Dependências
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. O arquivo `.env`
+
+Ele **não** está no repositório, e não pode estar: tem senha de banco e chave
+de API. Copie o modelo e peça os valores ao Vitor:
+
+```bash
+cp .env.example .env
+```
+
+Os campos estão documentados lá dentro. Mande os valores por um canal
+privado — não por mensagem em grupo, não por commit, não por print.
+
+### 3. Subir o servidor
+
+```bash
+python -m uvicorn main:app --host 127.0.0.1 --port 8000 --app-dir api --reload
+```
+
+Abre em <http://127.0.0.1:8000/painel/>.
+
+---
+
+## ⚠️ O banco é compartilhado — cuidado com o seed
+
+`api/seed.py` **apaga todas as tabelas** (`TRUNCATE`) e recria trinta dias de
+operação do zero. É o comportamento certo para um seed, e é justamente por
+isso que rodá-lo contra o banco compartilhado apaga os dados que todo mundo
+está usando.
+
+O script agora pergunta antes e mostra qual banco vai apagar. **Leia o host
+antes de responder.**
+
+Se você precisa de um banco só seu para experimentar à vontade, suba um
+Postgres local:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+e no seu `.env` troque a linha para:
+
+```
+DATABASE_URL=postgresql://smart:smart@localhost:5433/smartcharge
+```
+
+Aí pode rodar o seed quantas vezes quiser sem afetar ninguém. Para voltar ao
+banco compartilhado, é só devolver a `DATABASE_URL` original.
+
+---
+
+## O que a verificação automática olha no seu PR
+
+Ao abrir um PR, o GitHub roda [`verificar.yml`](.github/workflows/verificar.yml)
+sozinho. Ele checa três coisas, todas rápidas:
+
+1. **Sintaxe de Python** — todo `.py` precisa compilar.
+2. **Sintaxe de JavaScript** — todo `.js` precisa passar no `node --check`.
+3. **Segredo vazado** — chave da OpenRouter, URL do Aiven, chave da CARTO.
+   Esta é a que mais importa: chave que entra no histórico do Git **continua
+   lá depois de removida**, e o repositório é público. Se esta falhar, não
+   corrija com outro commit por cima — fale com o Vitor, porque a chave
+   precisa ser trocada no serviço.
+
+Se a verificação falhar, o PR não deve ser mesclado até passar.
+
+---
+
+## Antes de pedir revisão
+
+- [ ] Rodei e vi funcionando no navegador, não só "compilou"
+- [ ] Se mexi em `docs/painel/`, subi o `?v=` dos arquivos no HTML
+      (sem isso o navegador serve a versão velha do cache e parece que
+      nada mudou)
+- [ ] Se mexi em `api/`, rodei `python api/auditoria.py`
+- [ ] Não tem segredo, senha nem chave no diff
+
+---
+
+## Revisando o PR de alguém
+
+Não precisa ser exaustivo. Três perguntas bastam:
+
+1. Faz o que o título diz?
+2. Quebra alguma coisa que já funcionava?
+3. Tem segredo no diff?
+
+Aprovar é normal. Pedir mudança também. O que não vale é aprovar sem olhar —
+a partir do merge aquilo está no ar.
+
+---
+
+## Quem faz o quê no GitHub
+
+Uma vez só, o Vitor precisa:
+
+1. **Settings → Collaborators** → adicionar cada um
+2. **Settings → Rules → Rulesets** (ou Branches → Branch protection) no
+   `main`:
+   - exigir Pull Request antes do merge
+   - exigir 1 aprovação
+   - exigir que a verificação automática passe
+   - **não** liberar exceção para administrador — a regra só vale se valer
+     para quem a criou
+
+Sem esse último passo, tudo aqui é sugestão. Com ele, é o caminho.
