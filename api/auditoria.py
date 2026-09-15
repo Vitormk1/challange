@@ -4,7 +4,7 @@ Não é lista de boas intenções — cada item é uma requisição de verdade c
 servidor que estiver rodando, e o resultado é o que ele respondeu.
 
     python api/auditoria.py                         # contra o local
-    python api/auditoria.py https://...onrender.com # contra o publicado
+    python api/auditoria.py https://chargegrid.com.br  # contra o publicado
 
 Precisa das senhas dos usuários de teste no ambiente:
 

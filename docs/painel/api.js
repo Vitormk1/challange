@@ -13,8 +13,13 @@
 
 const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 
-/* Onde a API mora. É a única linha que muda se o serviço trocar de endereço. */
-const API_PUBLICADA = "https://praca-recarga-api.onrender.com";
+/* Onde a API mora. É a única linha que muda se o serviço trocar de endereço.
+
+   O endereço do Render (praca-recarga-api.onrender.com) continua funcionando
+   e serve a mesma coisa — o domínio próprio é um apelido, não uma mudança de
+   servidor. Fica o domínio aqui porque é o que a pessoa reconhece se olhar a
+   barra do navegador depois de um redirecionamento. */
+const API_PUBLICADA = "https://chargegrid.com.br";
 
 /* O painel real é servido pela própria API. Uma cópia aberta de outro domínio
    (o GitHub Pages, por exemplo) não consegue manter sessão — o cookie seria de

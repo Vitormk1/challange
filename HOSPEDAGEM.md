@@ -60,6 +60,33 @@ contornar, na seção "Antes da apresentação".
 5. O primeiro deploy leva uns 3 minutos. No fim você recebe uma URL, tipo
    `https://praca-recarga-api.onrender.com`.
 
+### 1b. O domínio próprio
+
+O endereço do Render continua valendo, mas quem divulga é o domínio:
+**<https://chargegrid.com.br>**.
+
+Na zona DNS do Registro.br, em modo avançado, dois registros:
+
+| Tipo | Nome | Dados |
+|---|---|---|
+| A | *(em branco)* | `216.24.57.1` |
+| CNAME | `www` | `praca-recarga-api.onrender.com` |
+
+O campo Nome vazio é a raiz do domínio. O `@` que se usa em arquivo de zona
+não vale aqui — o formulário do Registro.br recusa, e a mensagem é
+"Nome do record inválido". A raiz é `A` e não `CNAME` porque o DNS não
+permite CNAME no ápice de uma zona.
+
+Apague qualquer registro `AAAA`: o Render só tem IPv4, e um AAAA sobrando faz
+parte dos visitantes tentar IPv6 e não chegar.
+
+Depois, no Render: **Settings → Custom Domains** → adicione os dois. O
+certificado é emitido e renovado sozinho.
+
+**Como saber em que ponto está:** se `http://chargegrid.com.br` responder
+**409**, o DNS já está certo e falta cadastrar o domínio no Render — a
+requisição chega lá, mas ele não sabe de quem ela é.
+
 ### 2. Conferir que subiu certo
 
 Abra `https://SUA-URL.onrender.com/saude`. A resposta diz o que está valendo:
@@ -81,7 +108,7 @@ Abra `https://SUA-URL.onrender.com/saude`. A resposta diz o que está valendo:
 
 ### 3. O endereço do painel
 
-**As telas são servidas pela própria API.** `https://SUA-URL.onrender.com/painel/`
+**As telas são servidas pela própria API.** `https://chargegrid.com.br/painel/`
 é o site de apresentação, e é esse o endereço para compartilhar: dali saem os
 links para o painel (`/painel/dashboard.html`) e para o mapa de carregadores
 (`/painel/mapa.html`), que é aberto e não pede login.
@@ -90,7 +117,7 @@ Em [`docs/painel/api.js`](docs/painel/api.js) uma linha guarda esse endereço, e
 é a única que muda se o serviço trocar de host:
 
 ```js
-const API_PUBLICADA = "https://praca-recarga-api.onrender.com";
+const API_PUBLICADA = "https://chargegrid.com.br";
 ```
 
 A cópia que fica no GitHub Pages redireciona para lá.
