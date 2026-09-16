@@ -5,7 +5,7 @@ elétrico em ativo comercial para o lojista. Está no ar em
 <https://smartcharge.ia.br/painel/>.
 
 Este documento é o caminho do zero até o seu primeiro Pull Request. Leva uns
-uns 30 minutos, a maior parte esperando instalação. Cada comando vem com o que ele faz, porque a ideia é você entender
+uns 20 minutos, a maior parte esperando instalação. Cada comando vem com o que ele faz, porque a ideia é você entender
 e não decorar.
 
 Depois que estiver rodando, o [CONTRIBUTING.md](CONTRIBUTING.md) é a
@@ -91,88 +91,60 @@ lê essa lista e instala tudo.
 
 ---
 
-## Parte 5 — Seu banco de dados (uma vez só)
-
-**Cada um roda o próprio banco, na própria máquina.** Não usamos o banco que
-está no ar para desenvolver, e isso não é frescura: o `api/seed.py` apaga dez
-tabelas e recria do zero. É um comando normal de desenvolvimento, e é o que
-você vai querer rodar quando quiser dados limpos — só que apontado para o
-banco de produção ele apaga as lojas, os trinta dias de operação e as contas
-de todo mundo. Com um banco só seu, você quebra à vontade.
-
-Instale o [Docker Desktop](https://www.docker.com/products/docker-desktop/) e
-suba o banco:
-
-```bash
-docker compose -f docker-compose.dev.yml up -d
-```
-
-**O que faz:** liga um PostgreSQL na sua máquina, na porta 5433. A porta é
-5433 e não 5432 para não brigar com um Postgres que você já tenha instalado.
-O `-d` deixa rodando no fundo. Para desligar e apagar tudo:
-`docker compose -f docker-compose.dev.yml down -v`.
-
----
-
-## Parte 6 — O arquivo `.env` (uma vez só)
+## Parte 5 — O arquivo `.env` (uma vez só)
 
 O projeto lê as configurações daqui. Este arquivo **nunca vai para o
 repositório** — ele está no `.gitignore`, e o repositório é público.
 
-Crie um arquivo chamado `.env` na raiz do projeto com exatamente isto:
+Crie um arquivo chamado `.env` na raiz do projeto. O Vitor vai te passar os
+dois valores marcados como `<peça ao Vitor>`, por mensagem privada:
 
 ```
-DATABASE_URL=postgresql://smart:smart@localhost:5433/smartcharge
+DATABASE_URL=<peça ao Vitor>
 
-OPENROUTER_API_KEY=
+OPENROUTER_API_KEY=<peça ao Vitor>
 OPENROUTER_MODEL=mistralai/mistral-small-24b-instruct-2501
 
-SENHA_MAIN=
-SENHA_DEMO=
-SENHA_GERENTE=
-SENHA_OPERADOR=
-
+ORIGENS_PERMITIDAS=https://vitormk1.github.io
 CARTO_KEY=cb1_27zl_1_12d6ebc987e8b8882e924f80
 ```
 
-Três coisas sobre esses valores:
+**Você vai trabalhar direto no banco que está no ar.** É uma decisão do grupo,
+e ela tem uma consequência que você precisa carregar: não existe rede de
+proteção. O que você apagar, apagou para todo mundo — inclusive para as
+contas que pessoas criaram no site.
 
-- **`DATABASE_URL`** aponta para o banco que você acabou de subir. Esse
-  usuário e senha (`smart`/`smart`) são descartáveis e valem só na sua
-  máquina — por isso podem estar escritos aqui sem problema.
-- **As `SENHA_*` ficam vazias de propósito.** O `seed.py` sorteia uma senha
-  para cada usuário e **imprime na tela** quando roda. Anote na hora: o banco
-  guarda só o hash, e não tem como consultar depois.
-- **`OPENROUTER_API_KEY` vazia também está certo.** O projeto inteiro roda sem
-  ela; só o assistente de IA não responde. Se você for mexer especificamente
-  na IA, crie a sua própria chave em [openrouter.ai](https://openrouter.ai) —
-  assim o gasto fica no seu nome.
+Na prática, duas regras bastam:
 
-> Nunca commite o `.env`, nunca mande print dele no grupo.
+1. **Nunca rode `api/seed.py`.** Ele apaga dez tabelas e recria. O script se
+   recusa a rodar contra banco remoto sem você digitar o endereço inteiro à
+   mão; se ele te pedir isso, a resposta é `Ctrl+C`.
+2. **Mudou o `api/schema.sql`? Avise no grupo antes de mesclar.** O esquema é
+   um só para todos.
+
+Ler, criar registro pela tela, testar login — tudo isso é seguro e é o que
+você vai fazer o tempo todo.
+
+> Nunca commite o `.env`, nunca mande print dele no grupo. Se a chave da IA
+> vazar, ela precisa ser trocada e o gasto sai do bolso de alguém.
 
 ---
 
-## Parte 7 — Criar as tabelas e os dados de exemplo (uma vez só)
+## Parte 6 — Conferir que o esquema está em dia (quando mexer nele)
 
 ```bash
 python api/db.py
-python api/seed.py
 ```
 
-**`db.py`** lê o `api/schema.sql` e cria tabelas, índices e visões. Rode
-sempre que alguém mexer no `schema.sql` — ele é seguro de repetir, não apaga
-nada.
+**O que faz:** lê o `api/schema.sql` e cria o que faltar — tabelas, colunas,
+índices, visões. É seguro de repetir e **não apaga nada**: só acrescenta.
 
-**`seed.py`** preenche o banco com três lojas e trinta dias de operação
-inventada, para você ter o que ver na tela. **Ele apaga tudo antes de
-preencher**, e pergunta antes de fazer isso. Leia o que ele mostra: se
-aparecer qualquer endereço que não seja `localhost:5433`, responda não.
-
-Anote as senhas que ele imprimir.
+Você só precisa rodar se alguém mexeu no `schema.sql`. Como todo mundo usa o
+mesmo banco, normalmente já vai estar tudo lá.
 
 ---
 
-## Parte 8 — Rodar
+## Parte 7 — Rodar
 
 ```bash
 python -m uvicorn main:app --host 127.0.0.1 --port 8000 --app-dir api --reload
@@ -203,7 +175,7 @@ para a área do cliente.
 
 ---
 
-## Parte 9 — Sua primeira tarefa
+## Parte 8 — Sua primeira tarefa
 
 Agora o ciclo que se repete para sempre. São seis passos.
 
@@ -316,11 +288,10 @@ E três coisas que **não** se faz:
 1. **`git push --force`** — é o único comando capaz de apagar o trabalho dos
    outros do histórico. Na dúvida, pergunte antes.
 2. **Commitar o `.env`** — tem senha dentro, e o repositório é público.
-3. **Rodar `api/seed.py` sem olhar para onde ele aponta** — ele apaga todas
-   as tabelas e recria. No seu banco local isso é normal e até útil. Apontado
-   para o banco que está no ar, apaga o trabalho de todo mundo. O script
-   pergunta antes e mostra o endereço: se não for `localhost:5433`, responda
-   não.
+3. **Rodar `api/seed.py`** — ele apaga dez tabelas e recria. Como vocês
+   trabalham direto no banco que está no ar, isso apaga o trabalho de todo
+   mundo. O script se recusa a rodar contra banco remoto a não ser que você
+   digite o endereço inteiro; se chegou nessa pergunta, `Ctrl+C`.
 
 ---
 
