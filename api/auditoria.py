@@ -249,6 +249,56 @@ def main() -> None:
            "loginGate" not in r.text and "loginGate" not in m.text,
            "porta de login presente numa tela pública")
 
+    # ---- a área do cliente ----
+    e = anon.get(f"{API}/painel/entrar.html", timeout=TEMPO)
+    checar("tela de entrada responde", e.status_code == 200, f"HTTP {e.status_code}")
+    checar("tela de entrada oferece cadastro", "formCriar" in e.text,
+           "só o formulário de login — quem não tem conta fica sem porta")
+    for arquivo in ("cliente.html", "carteira.html"):
+        c = anon.get(f"{API}/painel/{arquivo}", timeout=TEMPO)
+        checar(f"{arquivo} responde", c.status_code == 200, f"HTTP {c.status_code}")
+
+    # O "Acessar" da apresentação tem de levar ao login, e não direto ao
+    # painel. Apontá-lo de volta para o dashboard mandaria o motorista para uma
+    # tela que ele não consegue montar (ele não tem loja), e o erro que ele
+    # veria — "peça ao gerente para vincular seu acesso" — não diria nada a
+    # alguém que acabou de se cadastrar no site.
+    checar("apresentação leva ao login, não ao painel",
+           "./entrar.html" in r.text,
+           "nenhum link para entrar.html na apresentação")
+
+    # Cadastro aberto: o papel é fixo no servidor. Se um dia alguém passar a
+    # ler `papel` do corpo, isto vira escalada de privilégio em uma linha —
+    # daí o teste mandar exatamente essa carga.
+    import secrets as _s
+    sonda = f"auditoria.{_s.token_hex(5)}@exemplo.invalid"
+    # Sessão descartável, e não `anon`: o cadastro devolve Set-Cookie, e o
+    # requests guarda esse cookie na sessão que fez a chamada. Usar `anon`
+    # aqui a deixava logada, e as verificações de "sem sessão" mais abaixo
+    # passavam a responder 400 e 403 em vez de 401 — duas falhas que pareciam
+    # regressão da API e eram contaminação do próprio teste.
+    descartavel = requests.Session()
+    nova = descartavel.post(f"{API}/auth/cadastrar", timeout=TEMPO,
+                            json={"nome": "Sonda Auditoria", "email": sonda,
+                                  "senha": _s.token_urlsafe(16), "papel": "main"})
+    if nova.status_code == 200:
+        criado = nova.json().get("usuario", {})
+        checar("cadastro aberto ignora o papel enviado",
+               criado.get("papel") == "motorista",
+               f"papel gravado: {criado.get('papel')!r}")
+        checar("motorista nasce sem loja",
+               not nova.json().get("estabelecimentos"),
+               "conta nova já veio vinculada a uma loja")
+        # A conta fica. Apagá-la exigiria credencial de administrador aqui, e
+        # a auditoria roda contra produção — melhor um registro a mais, com
+        # domínio .invalid e senha aleatória que ninguém conhece, do que dar
+        # poder de exclusão a um script de verificação.
+    else:
+        # 429 é resposta legítima: o limite por IP existe justamente para isto.
+        checar("cadastro aberto responde",
+               nova.status_code == 429,
+               f"HTTP {nova.status_code}")
+
     # ---- a assistente do site ----
     # Ela é pública E gasta dinheiro na OpenRouter, combinação que merece
     # vigilância. Os testes abaixo são de graça de propósito: o limitador roda

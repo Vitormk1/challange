@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="./static/leaflet/leaflet.css?v=20260915b">
 <link rel="stylesheet" href="./site.css?v=20260915b">
 <link rel="stylesheet" href="./mapa.css?v=20260915b">
+<link rel="stylesheet" href="./cliente.css?v=20260916a">
 </head>
 <body class="pagina-mapa">
 
@@ -92,8 +93,41 @@
   </p>
 </div>
 
+
+<!-- ===================== barra de abas =====================
+     Chega escondida e só aparece se o cliente.js confirmar um motorista
+     logado. O mapa é página aberta: oferecer as três abas a quem não tem
+     conta seria prometer telas que ele não consegue abrir. -->
+<nav class="barra-app" aria-label="Seções da sua conta" hidden>
+  <a class="barra-app-item" href="./cliente.html">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3.2" y="3.2" width="7.4" height="8.6" rx="1.8"></rect>
+      <rect x="13.4" y="3.2" width="7.4" height="5.4" rx="1.8"></rect>
+      <rect x="13.4" y="12.2" width="7.4" height="8.6" rx="1.8"></rect>
+      <rect x="3.2" y="15.4" width="7.4" height="5.4" rx="1.8"></rect>
+    </svg>
+    <span>Dashboard</span>
+  </a>
+  <a class="barra-app-item" href="./mapa.html">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20 10c0 5.5-8 12-8 12s-8-6.5-8-12a8 8 0 1 1 16 0Z"></path>
+      <circle cx="12" cy="10" r="2.8"></circle>
+    </svg>
+    <span>Mapa</span>
+  </a>
+  <a class="barra-app-item is-breve" href="./carteira.html">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3.5 7.4A2.4 2.4 0 0 1 5.9 5h11.7a2 2 0 0 1 2 2v1.4"></path>
+      <path d="M3.5 7.4v9.2A2.4 2.4 0 0 0 5.9 19h12.7a1.9 1.9 0 0 0 1.9-1.9v-2.2"></path>
+      <path d="M20.5 10.6h-4a2 2 0 0 0 0 4h4a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5Z"></path>
+    </svg>
+    <span>Carteira</span>
+  </a>
+</nav>
+
 <script src="./config.js"></script>
 <script src="./static/leaflet/leaflet.js?v=20260915b"></script>
 <script src="./mapa.js?v=20260915b"></script>
+<script type="module" src="./cliente.js?v=20260916a"></script>
 </body>
 </html>

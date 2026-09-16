@@ -1,0 +1,421 @@
+/* ==========================================================================
+   Área do cliente — a casca de aplicativo do motorista
+
+   Três telas, uma barra embaixo: Recargas, Mapa e Carteira. Cada aba é uma
+   PÁGINA de verdade, não um painel trocado por JavaScript. Custa uma ida ao
+   servidor por toque, e vale a pena por três motivos:
+
+     1. O mapa já é uma página inteira, com Leaflet e uma folha arrastável
+        afinada em cima de `position: fixed`. Enfiá-lo dentro de um contêiner
+        de abas quebraria as duas coisas.
+     2. Um <iframe> resolveria — mas a CSP manda `frame-ancestors 'none'`,
+        que recusa até moldura de mesma origem. Afrouxá-la para ganhar troca
+        de aba seria pagar caro por pouco.
+     3. Cada aba fica com endereço próprio, então o botão "voltar" do celular
+        faz o que a pessoa espera e o link pode ser compartilhado.
+
+   Esta folha é carregada pelas três páginas. Ela não depende do style.css
+   nem do site.css: define os próprios tokens, como o login.css faz.
+   ========================================================================== */
+
+:root {
+  --barra-h: 60px;
+}
+
+/* Estas páginas não carregam o style.css do painel, e portanto não herdam o
+   reset dele. Sem isto, qualquer elemento com padding e largura percentual
+   estoura o contêiner — foi o que aconteceu com os campos da tela de entrada,
+   que vazavam 34px para fora do cartão. */
+*, *::before, *::after { box-sizing: border-box; }
+
+.pagina-cliente {
+  --cl-fundo: #F4F4F6;
+  --cl-superficie: #ffffff;
+  --cl-texto: #16161a;
+  --cl-suave: #5b5b66;
+  --cl-linha: #e2e2e7;
+  --cl-primaria: #b4160f;
+  --cl-primaria-fraca: rgba(180, 22, 15, 0.09);
+  --cl-ok: #0c6b45;
+  --cl-sombra: 0 10px 28px rgba(20, 20, 24, 0.08);
+
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--cl-fundo);
+  color: var(--cl-texto);
+  font: 400 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+:root[data-theme="dark"] .pagina-cliente {
+  --cl-fundo: #08080a;
+  --cl-superficie: #16161b;
+  --cl-texto: #f5f5f7;
+  --cl-suave: #b0b0bc;
+  --cl-linha: rgba(255, 255, 255, 0.12);
+  --cl-primaria: #ff4d42;
+  --cl-primaria-fraca: rgba(255, 77, 66, 0.14);
+  --cl-ok: #5fe0ab;
+  --cl-sombra: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+/* O mapa é a única aba que não é uma tela da área do cliente: ele é página
+   aberta, tem paleta própria (a do site.css) e não segue o tema salvo. A
+   barra ali empresta os tokens dele, senão ficaria um retângulo de outro
+   aplicativo colado embaixo — e, pior, mudaria de cor com o tema enquanto o
+   mapa acima continuaria claro. */
+.pagina-mapa {
+  --cl-superficie: var(--superficie);
+  --cl-texto: var(--texto);
+  --cl-suave: var(--texto-3);
+  --cl-linha: var(--linha);
+  --cl-primaria: var(--vermelho-forte);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ==========================================================================
+   Barra de abas
+   ========================================================================== */
+
+/* Fica escondida até o cliente.js confirmar quem está logado. No mapa, que é
+   página aberta, mostrá-la antes da confirmação ofereceria a um visitante sem
+   conta três abas que ele não pode abrir. */
+.barra-app[hidden] { display: none; }
+
+.barra-app {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 900;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: color-mix(in srgb, var(--cl-superficie) 92%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  backdrop-filter: saturate(180%) blur(14px);
+  border-top: 1px solid var(--cl-linha);
+  /* A faixa do gesto do iPhone come a última linha de qualquer barra colada
+     embaixo. O padding entra por baixo do conteúdo, não em volta dele, para o
+     alvo de toque continuar com 60px de altura útil. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.barra-app-item {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  /* Ancora o traço da aba ativa. Sem isto, o ::before abaixo é absoluto sem
+     ancestral posicionado: ele cai na .barra-app, que é `fixed`, e a margem
+     negativa o joga 31px ACIMA da barra — um risco vermelho atravessando o
+     texto da página. */
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
+  height: var(--barra-h);
+  padding: 0 4px;
+  color: var(--cl-suave);
+  font: 600 11px/1.2 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color .16s ease;
+}
+.barra-app-item svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.85;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.barra-app-item:hover { color: var(--cl-texto); }
+.barra-app-item:focus-visible {
+  outline: 2px solid var(--cl-primaria);
+  outline-offset: -3px;
+  border-radius: 10px;
+}
+.barra-app-item[aria-current="page"] { color: var(--cl-primaria); }
+/* O traço em cima da aba ativa: é o que diz "você está aqui" sem depender de
+   distinguir dois tons de cinza, que é o que falha em tela de celular no sol. */
+.barra-app-item[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--cl-primaria);
+}
+
+/* A aba que ainda não existe não pode parecer quebrada quando alguém toca
+   nela: fica visivelmente adiada, e o toque leva a uma página que explica. */
+.barra-app-item.is-breve { opacity: 0.62; }
+
+/* ==========================================================================
+   Telas (Recargas, Carteira)
+   ========================================================================== */
+
+.tela-cliente {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: max(18px, env(safe-area-inset-top)) 16px
+           calc(var(--barra-h) + env(safe-area-inset-bottom, 0px) + 22px);
+}
+
+.cliente-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0 20px;
+}
+.cliente-saudacao { min-width: 0; }
+.cliente-saudacao p {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cl-suave);
+}
+.cliente-saudacao h1 {
+  margin: 3px 0 0;
+  font-size: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  /* Nome grande não pode empurrar o botão de sair para fora da tela. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cliente-sair {
+  flex: 0 0 auto;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: 1px solid var(--cl-linha);
+  border-radius: 999px;
+  background: var(--cl-superficie);
+  color: var(--cl-suave);
+  font: 600 13px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  cursor: pointer;
+  transition: color .16s ease, border-color .16s ease;
+}
+.cliente-sair:hover { color: var(--cl-texto); border-color: var(--cl-suave); }
+.cliente-sair:focus-visible { outline: 2px solid var(--cl-primaria); outline-offset: 2px; }
+.cliente-sair svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- cartão do saldo ---------- */
+.cartao-saldo {
+  border-radius: 18px;
+  padding: 20px;
+  background: linear-gradient(140deg, #b4160f 0%, #7d0d08 100%);
+  color: #fff;
+  box-shadow: var(--cl-sombra);
+}
+.cartao-saldo p {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.86;
+}
+.cartao-saldo strong {
+  display: block;
+  margin: 8px 0 0;
+  font-size: 2.3rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.cartao-saldo small {
+  display: block;
+  margin: 10px 0 0;
+  font-size: 0.83rem;
+  line-height: 1.45;
+  opacity: 0.88;
+}
+
+/* ---------- blocos ---------- */
+.bloco-cliente { margin: 24px 0 0; }
+.bloco-cliente h2 {
+  margin: 0 0 10px;
+  font-size: 1.02rem;
+  letter-spacing: -0.01em;
+}
+
+.cartao-cliente {
+  border: 1px solid var(--cl-linha);
+  border-radius: 16px;
+  background: var(--cl-superficie);
+  padding: 18px;
+}
+
+/* ---------- estado vazio ----------
+   Um vazio honesto: diz que não há nada, diz por quê, e oferece o próximo
+   passo. Sem número inventado — este projeto ainda não liga recarga a conta
+   de motorista, e preencher com dado falso enganaria quem está vendo. */
+.vazio-cliente {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 26px 16px;
+}
+.vazio-cliente svg {
+  width: 34px; height: 34px;
+  fill: none; stroke: var(--cl-suave); stroke-width: 1.6;
+  stroke-linecap: round; stroke-linejoin: round;
+  opacity: 0.75;
+}
+.vazio-cliente p {
+  margin: 0;
+  max-width: 34ch;
+  text-wrap: balance;
+  color: var(--cl-suave);
+  font-size: 0.92rem;
+}
+
+.botao-cliente {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 11px 18px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--cl-primaria);
+  color: #fff;
+  font: 600 14px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+}
+.botao-cliente:focus-visible { outline: 2px solid var(--cl-texto); outline-offset: 2px; }
+.botao-cliente svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+:root[data-theme="dark"] .botao-cliente { color: #140403; }
+
+/* ---------- como funciona ---------- */
+.passos-cliente {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 16px;
+}
+.passos-cliente li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.passos-cliente b {
+  display: grid;
+  place-items: center;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--cl-primaria-fraca);
+  color: var(--cl-primaria);
+  font-size: 0.85rem;
+}
+.passos-cliente span { font-size: 0.93rem; color: var(--cl-suave); }
+.passos-cliente strong { color: var(--cl-texto); font-weight: 600; }
+
+/* ---------- aviso de simulação ---------- */
+.nota-cliente {
+  margin: 20px 0 0;
+  text-align: center;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--cl-suave);
+  opacity: 0.85;
+}
+
+/* ==========================================================================
+   Convivência com o mapa
+
+   O mapa ancora três coisas na base da tela — o botão de localização, a
+   pílula da lista e o aviso — e todas sobem junto com a folha através de
+   `--folha`. Com a barra de abas embaixo, todas precisam subir mais um pouco,
+   senão ficam atrás dela. A folha inteira também sobe, por margem: assim a
+   última linha da lista não fica escondida sob a barra.
+
+   Só vale quando a barra existe (.tem-barra), que é quando um motorista
+   logado abriu o mapa. Visitante sem conta vê o mapa exatamente como antes.
+   ========================================================================== */
+@media (max-width: 899px) {
+  /* Com a barra embaixo, a base útil da tela deixa de ser a borda do
+     navegador e passa a ser o topo dela. Tudo que o mapa ancora em baixo
+     sobe --barra-h, e as faixas ficam empilhadas nesta ordem, de baixo para
+     cima: atribuição, pílula, aviso, botão de localização.
+
+     A atribuição encosta na barra de propósito. Ela é uma tira de 15px, e a
+     licença dos ladrilhos do OpenStreetMap e da CARTO exige que fique
+     legível — deixá-la na mesma altura da pílula, como ficou na primeira
+     tentativa, punha o "© OpenStreetMap" por baixo do "12 pontos". */
+  .tem-barra .leaflet-bottom.leaflet-right,
+  .tem-barra .leaflet-bottom.leaflet-left {
+    /* +2px, e não 0: a barra mede --barra-h MAIS a borda de cima, e no zero a
+       tira da atribuição encostava 1px por baixo dela. */
+    bottom: calc(var(--folha, 0px) + 2px + var(--barra-h));
+  }
+  .tem-barra .mapa-pilula { bottom: calc(var(--folha, 0px) + 22px  + var(--barra-h)); }
+  .tem-barra .mapa-aviso  { bottom: calc(var(--folha, 0px) + 70px  + var(--barra-h)); }
+  .tem-barra .mapa-fab    { bottom: calc(var(--folha, 0px) + 146px + var(--barra-h)); }
+  /* A folha continua com a altura externa de sempre, e o fundo dela passa por
+     trás da barra — o que está certo: a barra é translúcida, e uma emenda ali
+     ficaria pior que a continuidade.
+
+     O espaço sai por dentro, com padding na folha. A folha é uma coluna flex
+     e a lista é o item que cresce, então tirar 61px por baixo encurta a lista
+     e deixa o último carregador parar em cima da barra, alcançável.
+
+     As duas alternativas óbvias não servem, e as duas foram tentadas:
+
+       margem ou altura na folha — o mapa.js calcula o `transform` do arrasto
+         a partir da altura dela (`translate = altura - folha`), então mexer
+         nisso desloca a folha junto e ela deixa de encostar na base.
+       padding na própria lista — ela não tem altura travada; cresce com o
+         padding e empurra o próprio fim mais para baixo da tela, que foi
+         onde o último item continuou escondido.
+
+     A folga é --barra-h MAIS 20px: a folha tem 88dvh de altura mas o encaixe
+     mais alto mostra 86dvh, então uns 17px dela ficam abaixo da tela mesmo
+     toda aberta. Só a altura da barra deixaria o último item 18px escondido
+     justamente no encaixe em que a pessoa está lendo a lista. */
+  .tem-barra .mapa-lista { padding-bottom: calc(var(--barra-h) + 20px); }
+}
+@media (min-width: 900px) {
+  /* No computador a folha vira coluna fixa e a barra some — a área do cliente
+     é uma experiência de celular, e no desktop o caminho é o painel. */
+  .tem-barra .mapa-fab   { bottom: calc(12px + var(--barra-h)); }
+  .tem-barra .mapa-aviso { bottom: calc(10px + var(--barra-h)); }
+  /* No computador a folha é coluna fixa de altura inteira, então é ela mesma
+     que precisa parar acima da barra — não há transform em jogo aqui. */
+  .tem-barra .mapa-lista { padding-bottom: var(--barra-h); }
+  .tem-barra .leaflet-bottom.leaflet-right,
+  .tem-barra .leaflet-bottom.leaflet-left { bottom: calc(12px + var(--barra-h)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barra-app-item, .cliente-sair { transition: none; }
+}

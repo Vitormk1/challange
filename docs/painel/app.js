@@ -2601,6 +2601,18 @@ function esconderCarregando(){
 
 /* Entra de fato: guarda quem é, aplica papel, busca dados, restaura a tela. */
 async function entrarNoPainel(sessao){
+  // Motorista não tem loja, e sem loja o painel não tem o que mostrar: umas
+  // linhas abaixo isto viraria "Seu usuário não está ligado a nenhuma loja.
+  // Peça ao gerente para vincular seu acesso" — um beco sem saída para quem
+  // simplesmente se cadastrou no site. O lugar dele é a área do cliente.
+  //
+  // Vale nos dois caminhos que passam por aqui: o carregamento da página, com
+  // sessão já aberta, e o formulário de login desta mesma tela.
+  if (sessao?.usuario?.papel === "motorista"){
+    location.replace("./cliente.html");
+    return;
+  }
+
   state.usuario = sessao.usuario;
   state.permissoes = sessao.permissoes || {};
   state.secoesBloqueadas = new Set(sessao.secoes_bloqueadas || []);

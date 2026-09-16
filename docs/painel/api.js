@@ -27,15 +27,19 @@ const API_PUBLICADA = "https://smartcharge.ia.br";
    descobrir isso com um "e-mail ou senha incorretos" que mente, manda para o
    endereço que funciona.
 
-   O destino é /painel/dashboard.html, e não /painel/: quem abriu esta cópia
-   queria o painel. Desde que a apresentação passou a morar em /painel/, cair
-   na raiz devolveria a landing e a pessoa teria de procurar o caminho de
-   volta para a tela que já tinha aberto. */
+   Leva a MESMA página para a outra origem, e não sempre o painel: agora são
+   várias telas sob /painel/ (apresentação, login, área do cliente, mapa), e
+   mandar todo mundo para o painel tiraria a pessoa de onde ela queria estar.
+   Cair na raiz também não serve — devolveria a landing, e quem abriu o mapa
+   teria de procurar o caminho de volta. */
 (() => {
   if (!API_PUBLICADA || local) return;
   if (location.origin === new URL(API_PUBLICADA).origin) return;
   if (new URLSearchParams(location.search).has("api")) return;   // escape para depurar
-  location.replace(API_PUBLICADA + "/painel/dashboard.html");
+  const caminho = location.pathname.startsWith("/painel/") && location.pathname !== "/painel/"
+    ? location.pathname
+    : "/painel/dashboard.html";
+  location.replace(API_PUBLICADA + caminho);
 })();
 
 export const BASE = (() => {
@@ -80,6 +84,9 @@ async function pedir(caminho, {metodo = "GET", corpo} = {}){
 
 export const api = {
   entrar:  (email, senha) => pedir("/auth/login", {metodo:"POST", corpo:{email, senha}}),
+  /* Cria conta e já devolve a sessão aberta. O papel não vai no corpo de
+     propósito — quem decide é o servidor, que fixa 'motorista'. */
+  cadastrar: (nome, email, senha) => pedir("/auth/cadastrar", {metodo:"POST", corpo:{nome, email, senha}}),
   sair:    () => pedir("/auth/logout", {metodo:"POST"}),
   eu:      () => pedir("/auth/eu"),
 
