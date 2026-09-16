@@ -34,7 +34,7 @@ jobs:
         run: |
           python -m compileall -q api/ && echo "ok: todo .py compila"
 
-      - name: Testes da carteira sem banco ou pagamentos reais
+      - name: Testes do backend e carteira sem banco ou pagamentos reais
         run: |
           pip install -r requirements-dev.txt
           python -m unittest discover -s tests -v

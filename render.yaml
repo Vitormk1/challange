@@ -87,6 +87,8 @@ services:
       # Em HTTPS o cookie de sessão exige HTTPS.
       - key: COOKIE_SEGURO
         value: "1"
+      - key: URL_PUBLICA
+        value: https://smartcharge.ia.br
 
       # O painel é servido por este mesmo processo, então o cookie é de
       # primeira parte e Lax basta. Com o painel em outro domínio (a versão
