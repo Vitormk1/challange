@@ -35,6 +35,7 @@ import logging
 import os
 import smtplib
 import ssl
+from html import escape
 from email.message import EmailMessage      # o pacote da stdlib, não este arquivo
 from email.utils import formataddr
 
@@ -195,6 +196,8 @@ def _texto(nome: str, link: str, horas: int) -> str:
 
 
 def _html(nome: str, link: str, horas: int) -> str:
+    nome = escape(nome, quote=True)
+    link = escape(link, quote=True)
     # Tabela e estilo em atributo, que é o que cliente de e-mail entende:
     # Gmail e Outlook descartam <style> no topo e não conhecem flexbox nem
     # grid. Feio como página, correto como e-mail.

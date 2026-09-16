@@ -240,6 +240,14 @@ formCriar.onsubmit = async ev => {
     // devolve a sessão como antes. A tela atende as duas sem precisar saber
     // se a verificação está ligada.
     if (r?.verificar){ pedirConfirmacao(r.email || email); return; }
+    if (r?.cadastrado){
+      ocupado(formCriar, false);
+      $("#entrarEmail").value = email;
+      trocarAba(false);
+      dizer("Se os dados estiverem disponíveis para cadastro, a conta está pronta. Entre com sua senha.", "ok");
+      $("#entrarSenha").focus({ preventScroll: true });
+      return;
+    }
     seguir(r);
   } catch (erro){
     ocupado(formCriar, false);

@@ -192,11 +192,11 @@ const TABELAS = {
     colunas: [
       {r:"Início", k:"inicio", v:l => dataHora(l.inicio)},
       {r:"Carregador", k:"carregador_id", v:l => nomeCarregador(l.carregador_id)},
-      {r:"Cashback", k:"cashback_brl", v:l => Number(l.cashback_brl) > 0 ? brl(l.cashback_brl) : `<span class="table-cell-muted">—</span>`},
+      {r:"Cashback", k:"cashback_brl", so:"ver_financeiro", v:l => Number(l.cashback_brl) > 0 ? brl(l.cashback_brl) : `<span class="table-cell-muted">—</span>`},
       {r:"Energia", k:"energia_kwh", v:l => `${num(l.energia_kwh,1)} kWh`},
       {r:"Autonomia", k:"energia_kwh", v:l => `${Math.round(l.energia_kwh*KM_KWH)} km`},
-      {r:"Custo", k:"custo_energia_brl", v:l => brl(l.custo_energia_brl)},
-      {r:"Cobrado", k:"valor_cobrado_brl", v:l => Number(l.valor_cobrado_brl) ? brl(l.valor_cobrado_brl) : `<span class="table-cell-muted">—</span>`},
+      {r:"Custo", k:"custo_energia_brl", so:"ver_financeiro", v:l => brl(l.custo_energia_brl)},
+      {r:"Cobrado", k:"valor_cobrado_brl", so:"ver_financeiro", v:l => Number(l.valor_cobrado_brl) ? brl(l.valor_cobrado_brl) : `<span class="table-cell-muted">—</span>`},
       {r:"Erro da previsão", k:"erro_previsao", ord: l => erroPrevisao(l) ?? -1,
        v:l => { const m = erroPrevisao(l); return m == null ? `<span class="table-cell-muted">—</span>` : `${m} min`; }},
       {r:"Situação", k:"situacao", v:l => esc(l.situacao)},
@@ -225,7 +225,7 @@ const TABELAS = {
       {r:"Última visita", k:"ultima_visita", v:l => dataHora(l.ultima_visita)},
       {r:"Consentimento", k:"consentimento_lgpd", v:l => l.consentimento_lgpd ? chip("dado","ok") : chip("pendente","warning")},
       {r:"Conta", k:"usuario_id", v:l => l.usuario_id ? chip("vinculada","ok") : `<span class="table-cell-muted">não vinculada</span>`},
-      {r:"Fidelidade", k:"fidelidade_saldo_cashback_brl", v:l => fidelidadeResumoCliente(l)},
+      {r:"Fidelidade", k:"fidelidade_saldo_cashback_brl", so:"ver_financeiro", v:l => fidelidadeResumoCliente(l)},
     ],
     campos: [
       {k:"apelido", r:"Como chamar", t:"text",
@@ -243,7 +243,7 @@ const TABELAS = {
       {r:"Momento", k:"momento", v:l => dataHora(l.momento)},
       {r:"Cliente", k:"cliente_id", v:l => { const c = daLoja(state.dados.clientes).find(x => x.id === l.cliente_id);
                            return c ? esc(c.apelido || `Cliente #${c.id}`) : `<span class="table-cell-muted">não identificado</span>`; }},
-      {r:"Valor", k:"valor_brl", v:l => brl(l.valor_brl)},
+      {r:"Valor", k:"valor_brl", so:"ver_financeiro", v:l => brl(l.valor_brl)},
       {r:"Cupom", k:"cupom_id", v:l => { const c = state.dados.cupons.find(x => x.id === l.cupom_id);
                            return c ? `<code>${esc(c.codigo)}</code>` : `<span class="table-cell-muted">sem cupom</span>`; }},
       {r:"Lucro estimado", k:"valor_brl", so:"ver_financeiro",
@@ -266,7 +266,7 @@ const TABELAS = {
     linhas: () => state.dados.cupons,
     colunas: [
       {r:"Código", k:"codigo", v:l => `<code>${esc(l.codigo)}</code>`},
-      {r:"Desconto", k:"desconto_brl", v:l => brl(l.desconto_brl)},
+      {r:"Desconto", k:"desconto_brl", so:"ver_financeiro", v:l => brl(l.desconto_brl)},
       {r:"Emitido", k:"emitido_em", v:l => dataHora(l.emitido_em)},
       {r:"Usado", k:"usado_em", v:l => l.usado_em ? dataHora(l.usado_em) : `<span class="table-cell-muted">não usado</span>`},
       {r:"Sessão", k:"sessao_id", v:l => `#${l.sessao_id}`},
