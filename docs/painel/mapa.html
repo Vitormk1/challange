@@ -7,13 +7,13 @@
 <meta name="description" content="Mapa dos pontos de recarga Smart Charge. Aberto, sem cadastro e sem login.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#0D0D0F">
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916g">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916g">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916g">
-<link rel="stylesheet" href="./static/leaflet/leaflet.css?v=20260916g">
-<link rel="stylesheet" href="./site.css?v=20260916g">
-<link rel="stylesheet" href="./mapa.css?v=20260916g">
-<link rel="stylesheet" href="./cliente.css?v=20260916g">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916k">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916k">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916k">
+<link rel="stylesheet" href="./static/leaflet/leaflet.css?v=20260916k">
+<link rel="stylesheet" href="./site.css?v=20260916k">
+<link rel="stylesheet" href="./mapa.css?v=20260916k">
+<link rel="stylesheet" href="./cliente.css?v=20260916k">
 </head>
 <body class="pagina-mapa">
 
@@ -83,6 +83,46 @@
     <ul class="mapa-pontos" id="lista"></ul>
   </aside>
 
+  <!-- ===================== reserva =====================
+       Fica fora da .mapa-lista de propósito: a folha da lista arrasta e tem
+       três alturas, e um formulário dentro dela brigaria com o gesto — puxar
+       para escolher a hora fecharia a folha. -->
+  <div class="reserva" id="folhaReserva" hidden>
+    <div class="reserva-fundo"></div>
+    <div class="reserva-caixa" role="dialog" aria-modal="true" aria-labelledby="reservaTitulo">
+      <div class="reserva-topo">
+        <div>
+          <p class="reserva-olho">Reservar vaga</p>
+          <h2 id="reservaTitulo"><span id="reservaLoja"></span></h2>
+        </div>
+        <button class="reserva-fechar" type="button" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+               stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+        </button>
+      </div>
+
+      <fieldset class="reserva-campo">
+        <legend>Vaga</legend>
+        <div id="reservaVagas"></div>
+      </fieldset>
+
+      <div class="reserva-quando">
+        <label class="reserva-campo">
+          <span>Dia</span>
+          <input type="date" id="reservaDia">
+        </label>
+        <label class="reserva-campo">
+          <span>Hora</span>
+          <select id="reservaHora"></select>
+        </label>
+      </div>
+
+      <p class="reserva-resumo" id="reservaResumo"></p>
+      <button class="reserva-enviar" id="reservaEnviar" type="button" disabled>Confirmar reserva</button>
+      <p class="reserva-status" id="reservaStatus" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
   <!-- Ancorado no mapa, e não num rodapé: quem olha o mapa nunca chega a um. -->
   <p class="mapa-aviso" role="note">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -126,8 +166,8 @@
 </nav>
 
 <script src="./config.js"></script>
-<script src="./static/leaflet/leaflet.js?v=20260916g"></script>
-<script src="./mapa.js?v=20260916g"></script>
-<script type="module" src="./cliente.js?v=20260916g"></script>
+<script src="./static/leaflet/leaflet.js?v=20260916k"></script>
+<script src="./mapa.js?v=20260916k"></script>
+<script type="module" src="./cliente.js?v=20260916k"></script>
 </body>
 </html>

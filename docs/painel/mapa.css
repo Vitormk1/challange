@@ -562,3 +562,205 @@
 :root[data-theme="dark"] .pagina-mapa .popup-linhas span b {
   color: #FFFFFF;
 }
+
+/* ==========================================================================
+   Reserva
+
+   Diálogo sobre o mapa, e não mais uma seção da folha arrastável: dentro dela
+   o gesto de arrastar disputaria com os campos, e puxar para escolher a hora
+   fecharia a folha.
+   ========================================================================== */
+.reserva[hidden] { display: none; }
+.reserva {
+  position: fixed;
+  inset: 0;
+  /* Acima de tudo: barra de abas (900), controles do Leaflet e balões. O
+     número sozinho não bastava — z-index só compara dentro do mesmo contexto
+     de empilhamento, e o container do Leaflet cria o seu. Por isso os botões
+     de zoom apareciam por cima da folha mesmo com z-index menor. */
+  z-index: 1200;
+  display: grid;
+  place-items: end center;
+  padding: 0;
+}
+.reserva-fundo {
+  position: absolute;
+  inset: 0;
+  background: rgba(13, 13, 15, 0.45);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+.reserva-caixa {
+  position: relative;
+  width: min(420px, 100%);
+  max-height: 86dvh;
+  overflow-y: auto;
+  /* Impede a rolagem de "vazar" para o mapa quando a lista de vagas chega ao
+     fim — no celular isso faz o mapa arrastar por baixo do diálogo. */
+  overscroll-behavior: contain;
+  display: grid;
+  gap: 14px;
+  /* A folga de baixo soma a barra de abas: ela existe nesta página quando há
+     motorista logado, que é exatamente quem reserva. Sem isso, num aparelho
+     mais baixo o botão Confirmar nasce por trás dela. --barra-h vem do
+     cliente.css e vale 0 quando a barra não está presente. */
+  padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  margin-bottom: var(--barra-h, 0px);
+  background: var(--superficie);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -10px 40px rgba(13, 13, 15, 0.28);
+}
+@media (min-width: 640px) {
+  /* Na tela grande vira caixa centralizada: colada embaixo, ela ficaria longe
+     do ponto que a pessoa acabou de clicar. */
+  .reserva { place-items: center; }
+  .reserva-caixa { border-radius: 20px; }
+}
+
+.reserva-topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.reserva-olho {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+.reserva-topo h2 {
+  margin: 2px 0 0;
+  font-size: 1.12rem;
+  line-height: 1.25;
+  color: var(--texto);
+}
+.reserva-fechar {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 34px; height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fundo-suave);
+  color: var(--texto-2);
+  cursor: pointer;
+}
+.reserva-fechar svg { width: 17px; height: 17px; }
+
+.reserva-campo {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.reserva-campo > span,
+.reserva-campo > legend {
+  padding: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+.reserva-campo input[type="date"],
+.reserva-campo select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--linha-forte);
+  border-radius: 12px;
+  background: var(--superficie);
+  color: var(--texto);
+  font: inherit;
+  font-size: 0.95rem;
+}
+.reserva-campo input:focus-visible,
+.reserva-campo select:focus-visible {
+  outline: 2px solid var(--vermelho-forte);
+  outline-offset: 1px;
+}
+
+/* Duas colunas, porque dia e hora são uma decisão só. */
+.reserva-quando {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 10px;
+}
+
+.reserva-vaga {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--linha);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.reserva-vaga + .reserva-vaga { margin-top: 6px; }
+.reserva-vaga:has(input:checked) {
+  border-color: var(--vermelho-forte);
+  background: var(--vermelho-claro);
+}
+.reserva-vaga input { accent-color: var(--vermelho-forte); width: 18px; height: 18px; }
+.reserva-vaga b { display: block; font-size: 0.93rem; color: var(--texto); }
+.reserva-vaga small { display: block; margin-top: 2px; font-size: 0.8rem; color: var(--texto-3); }
+
+.reserva-resumo {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--texto-2);
+}
+
+.reserva-enviar {
+  min-height: 48px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--vermelho-forte);
+  color: #FFF;
+  font: inherit;
+  font-size: 0.97rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.reserva-enviar:disabled { opacity: 0.5; cursor: default; }
+.reserva-enviar:focus-visible { outline: 2px solid var(--texto); outline-offset: 2px; }
+
+.reserva-status { margin: 0; font-size: 0.86rem; line-height: 1.45; }
+.reserva-status:empty { display: none; }
+.reserva-status.is-erro { color: #8A1616; }
+.reserva-status.is-ok { color: #0C6B45; }
+:root[data-theme="dark"] .pagina-mapa .reserva-status.is-erro { color: #FFB3AC; }
+:root[data-theme="dark"] .pagina-mapa .reserva-status.is-ok { color: #5FE0AB; }
+
+/* O botão dentro do balão do Leaflet. */
+.popup-reservar {
+  width: 100%;
+  margin-top: 10px;
+  min-height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--vermelho-forte);
+  color: #FFF;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.popup-reservar:hover { background: #9C120C; }
+
+/* Com a folha aberta, os controles do mapa saem de cena.
+
+   Deixá-los por baixo do véu resolveria a sobreposição e ficaria estranho:
+   botões meio apagados que ainda respondem ao toque, atrás de um diálogo. E
+   ninguém quer dar zoom enquanto escolhe o horário. */
+.reserva-aberta .leaflet-control-container,
+.reserva-aberta .mapa-fab,
+.reserva-aberta .mapa-pilula { visibility: hidden; }
+

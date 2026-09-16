@@ -19,8 +19,15 @@
    ========================================================================== */
 
 :root {
+  /* Altura da barra de abas. Fica em :root para quem não é tela da área do
+     cliente também poder consultar — o mapa usa isto para o diálogo de
+     reserva não nascer por trás dela. */
   --barra-h: 60px;
 }
+
+/* Sem a barra na página, o valor tem de ser zero: quem soma --barra-h numa
+   folga precisa somar nada quando ela não existe. */
+body:not(.tem-barra) { --barra-h: 0px; }
 
 /* Estas páginas não carregam o style.css do painel, e portanto não herdam o
    reset dele. Sem isto, qualquer elemento com padding e largura percentual
@@ -458,4 +465,73 @@
 
 @media (prefers-reduced-motion: reduce) {
   .barra-app-item, .cliente-sair { transition: none; }
+}
+
+/* ---------- reservas ---------- */
+.lista-reservas {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+.reserva-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.reserva-item b { display: block; font-size: 0.96rem; }
+.reserva-item small { display: block; margin-top: 2px; font-size: 0.82rem; color: var(--cl-suave); }
+.reserva-quando-texto {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--cl-texto);
+}
+
+.reserva-acao {
+  flex: 0 0 auto;
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  text-align: right;
+}
+.reserva-situacao {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: var(--cl-linha);
+  color: var(--cl-suave);
+  white-space: nowrap;
+}
+.reserva-situacao.is-ativa { background: color-mix(in srgb, var(--cl-ok) 16%, transparent); color: var(--cl-ok); }
+.reserva-situacao.is-expirada { background: var(--cl-primaria-fraca); color: var(--cl-primaria); }
+
+.reserva-cancelar {
+  appearance: none;
+  border: 1px solid var(--cl-linha);
+  border-radius: 999px;
+  background: none;
+  padding: 7px 13px;
+  color: var(--cl-suave);
+  font: 600 13px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.reserva-cancelar:hover { color: var(--cl-primaria); border-color: var(--cl-primaria); }
+.reserva-cancelar:disabled { opacity: 0.6; cursor: default; }
+
+/* Numa tela estreita a linha vira duas: nome em cima, situação e botão
+   embaixo — lado a lado, o nome da loja ficava com três caracteres. */
+@media (max-width: 420px) {
+  .reserva-item { flex-direction: column; align-items: stretch; }
+  .reserva-acao { justify-items: stretch; text-align: left; grid-auto-flow: column; align-items: center; }
+  .reserva-situacao { justify-self: start; }
+  .reserva-cancelar { justify-self: end; }
 }

@@ -34,49 +34,45 @@
   document.documentElement.dataset.theme = TEMA;
   const ESCURO = TEMA === "dark";
 
-  /* --------------------------------------------------- dados simulados ---
-     Gerador com semente: `Math.random()` daria um mapa diferente a cada F5,
-     e numa banca isso vira "o mapa mudou sozinho". */
-  const semente = (n) => () => {
-    n = (n * 1664525 + 1013904223) % 4294967296;
-    return n / 4294967296;
-  };
-  const rnd = semente(20260907);
+  /* --------------------------------------------------- pontos de verdade ---
+     Até aqui os pontos nasciam aqui dentro, de um gerador com semente fixa:
+     doze lojas inventadas, coordenadas sorteadas, e `livre` decidido por
+     `rnd() > 0.32`. Era honesto enquanto o mapa era ilustração.
 
+     Deixou de ser quando a reserva entrou. Não se reserva uma vaga que só
+     existe como constante de JavaScript — precisa ter id, precisa ter dono, e
+     precisa que duas pessoas não consigam pegar a mesma.
+
+     Agora vêm de /mapa/pontos. Continuam sendo lugares fictícios, e o aviso na
+     tela continua verdadeiro; o que mudou é que cada um é uma linha no banco.
+     A disponibilidade também deixou de ser sorteio: sai das reservas.        */
+  // Onde o mapa abre. Continua fixo: os pontos são de São Paulo, e começar
+  // centralizado neles evita o primeiro quadro mostrando o oceano.
   const CENTRO = [-23.5866, -46.6396];        // Vila Mariana, São Paulo
-  const BAIRROS = [
-    "Vila Mariana", "Pinheiros", "Moema", "Itaim Bibi", "Perdizes",
-    "Santana", "Tatuapé", "Butantã", "Saúde", "Lapa", "Ipiranga",
-    "Campo Belo", "Vila Madalena", "Brooklin", "Higienópolis",
-  ];
-  const LOJAS = [
-    ["Pet & Cia", "Pet shop"], ["Mercado Bom Dia", "Supermercado"],
-    ["Academia Pulso", "Academia"], ["Cantina do Vale", "Restaurante"],
-    ["Farmácia Vida", "Farmácia"], ["Shopping Sul", "Shopping"],
-    ["Mercado Central", "Supermercado"], ["Pet Feliz", "Pet shop"],
-    ["Padaria Aurora", "Restaurante"], ["Drogaria Norte", "Farmácia"],
-    ["Studio Corpo", "Academia"], ["Empório Leste", "Supermercado"],
-  ];
-  const CONECTORES = ["Tipo 2", "CCS2", "Tipo 2", "CCS2", "Tipo 2"];
-  const POTENCIAS = [7.4, 11, 22, 22, 50];
 
-  const PONTOS = LOJAS.map(([nome, segmento], i) => {
-    const bairro = BAIRROS[Math.floor(rnd() * BAIRROS.length)];
-    return {
-      id: i + 1,
-      nome: `${nome} ${bairro}`,
-      bairro,
-      segmento,
-      lat: CENTRO[0] + (rnd() - 0.5) * 0.18,   // ~10 km de mancha urbana
-      lng: CENTRO[1] + (rnd() - 0.5) * 0.18,
-      potencia: POTENCIAS[Math.floor(rnd() * POTENCIAS.length)],
-      conector: CONECTORES[Math.floor(rnd() * CONECTORES.length)],
-      vagas: 1 + Math.floor(rnd() * 3),
-      livre: rnd() > 0.32,
-      preco: 0.79 + rnd() * 0.9,
-      cashback: 5 + Math.floor(rnd() * 11),
-    };
-  });
+  let PONTOS = [];
+  let VALOR_RESERVA = "10.00";
+  let DURACAO_MIN = 60;
+
+  // O banco guarda o segmento em código curto, como as lojas de verdade. A
+  // tradução para o que a pessoa lê fica aqui, e não no banco.
+  const SEGMENTOS = {
+    pet: "Pet shop", mercado: "Supermercado", academia: "Academia",
+    restaurante: "Restaurante", farmacia: "Farmácia", shopping: "Shopping",
+  };
+  const rotuloSegmento = s => SEGMENTOS[s] || s;
+
+  async function carregarPontos() {
+    // Caminho relativo: esta página é servida pela própria API, então não há
+    // outra origem para apontar — e é o mesmo motivo pelo qual o cookie de
+    // sessão chega aqui sem CORS.
+    const r = await fetch("/mapa/pontos", { credentials: "include" });
+    if (!r.ok) throw new Error(`mapa/pontos respondeu ${r.status}`);
+    const d = await r.json();
+    PONTOS = d.pontos;
+    VALOR_RESERVA = d.valor_reserva_brl;
+    DURACAO_MIN = d.duracao_min;
+  }
 
   const num = (v, casas = 2) =>
     v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
@@ -143,6 +139,24 @@
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
     }).addTo(mapa);
 
+    montarMarcadores();
+
+    // tocar no mapa recolhe a folha, como no Google Maps
+    mapa.on("click", () => { if (celular() && aberta()) irPara("fechada"); });
+  } else {
+    // Leaflet não carregou: a lista assume a página inteira em vez de deixar
+    // uma faixa cinza onde o mapa deveria estar
+    $("mapa").hidden = true;
+    document.querySelector(".mapa-palco").style.gridTemplateColumns = "minmax(0, 1fr)";
+    painel.style.transform = "none";
+  }
+
+  /* Um marcador por loja. Roda depois da carga, e de novo a cada atualização —
+     por isso limpa os anteriores: sem isso, reservar deixaria dois pinos no
+     mesmo lugar, o velho e o novo. */
+  function montarMarcadores() {
+    marcadores.forEach(m => mapa.removeLayer(m));
+    marcadores.clear();
     PONTOS.forEach(p => {
       const m = L.marker([p.lat, p.lng], {
         title: p.nome,
@@ -155,37 +169,39 @@
         }),
       }).addTo(mapa);
 
+      const livres = p.carregadores.filter(c => c.livre_agora).length;
       m.bindPopup(`
         <div class="popup">
           <b>${p.nome}</b>
-          <small>${p.segmento} · ${p.bairro}</small>
+          <small>${rotuloSegmento(p.segmento)}</small>
           <div class="popup-linhas">
-            <span>Potência <b>${num(p.potencia, 1)} kW</b> · ${p.conector}</span>
-            <span>Preço <b>R$ ${num(p.preco)}/kWh</b></span>
-            <span>Cashback de <b>${p.cashback}%</b> para gastar na loja</span>
-            <span>${p.livre ? `<b>${p.vagas} vaga(s) livre(s)</b>` : "Ocupado agora"}</span>
+            <span>Até <b>${num(p.potencia, 1)} kW</b></span>
+            <span>A partir de <b>R$ ${num(p.preco)}/kWh</b></span>
+            <span>Cashback de <b>${num(p.cashback, 0)}%</b> para gastar na loja</span>
+            <span>${livres ? `<b>${livres} de ${p.vagas} vaga(s) livre(s)</b>`
+                            : "Todas as vagas ocupadas agora"}</span>
           </div>
-        </div>`, { maxWidth: Math.min(268, innerWidth - 56), autoPanPadding: [18, 18] });
+          ${livres ? `<button class="popup-reservar" type="button" data-reservar="${p.id}">
+              Fazer reserva</button>` : ""}
+        </div>`, { maxWidth: Math.min(280, innerWidth - 56), autoPanPadding: [18, 18] });
+
+      // O botão nasce dentro do balão, que o Leaflet só cria ao abrir — por
+      // isso o ouvinte é ligado aqui, e não na montagem.
+      m.on("popupopen", ev => {
+        const b = ev.popup.getElement().querySelector("[data-reservar]");
+        if (b) b.onclick = () => abrirReserva(p);
+      });
 
       m.on("click", () => destacar(p.id, false));
       marcadores.set(p.id, m);
     });
-
-    // tocar no mapa recolhe a folha, como no Google Maps
-    mapa.on("click", () => { if (celular() && aberta()) irPara("fechada"); });
-  } else {
-    // Leaflet não carregou: a lista assume a página inteira em vez de deixar
-    // uma faixa cinza onde o mapa deveria estar
-    $("mapa").hidden = true;
-    document.querySelector(".mapa-palco").style.gridTemplateColumns = "minmax(0, 1fr)";
-    painel.style.transform = "none";
   }
 
   /* ------------------------------------------------------------ lista --- */
   function desenhar(filtro = "") {
     const t = filtro.trim().toLowerCase();
     const vistos = t
-      ? PONTOS.filter(p => `${p.nome} ${p.bairro} ${p.segmento}`.toLowerCase().includes(t))
+      ? PONTOS.filter(p => `${p.nome} ${rotuloSegmento(p.segmento)}`.toLowerCase().includes(t))
       : PONTOS;
 
     limpar.hidden = !t;
@@ -205,11 +221,11 @@
           <span class="mapa-ponto-marca">${ICONE}</span>
           <span>
             <b>${p.nome}</b>
-            <small>${p.segmento} · ${p.bairro}</small>
+            <small>${rotuloSegmento(p.segmento)}</small>
             <span class="mapa-ponto-selos">
               <span class="selo ${p.livre ? "is-livre" : "is-ocupado"}">${p.livre ? "Livre" : "Ocupado"}</span>
               <span class="selo">${num(p.potencia, 1)} kW</span>
-              <span class="selo">${p.cashback}% cashback</span>
+              <span class="selo">${num(p.cashback, 0)}% cashback</span>
             </span>
           </span>
         </button>
@@ -252,7 +268,8 @@
     desenhar();
     busca.focus();
   });
-  desenhar();
+  // A primeira pintura da lista acontece depois da carga, lá no fim do
+  // arquivo. Chamar aqui desenharia uma lista vazia por um instante.
 
   /* ==========================================================================
      A folha de baixo
@@ -421,4 +438,159 @@
   // o mapa nasce dentro de um grid que só ganha altura depois do primeiro
   // layout; sem isto o Leaflet mede 0 e desenha os tiles fora de lugar
   setTimeout(ajustar, 60);
+
+  /* ========================================================================
+     Reserva
+     ======================================================================== */
+
+  const folha = $("folhaReserva");
+  const fReservaLoja = $("reservaLoja");
+  const fReservaVagas = $("reservaVagas");
+  const fReservaDia = $("reservaDia");
+  const fReservaHora = $("reservaHora");
+  const fReservaResumo = $("reservaResumo");
+  const fReservaStatus = $("reservaStatus");
+  const fReservaEnviar = $("reservaEnviar");
+  let pontoEmReserva = null;
+
+  const doisDigitos = n => String(n).padStart(2, "0");
+  const diaLocal = d => `${d.getFullYear()}-${doisDigitos(d.getMonth() + 1)}-${doisDigitos(d.getDate())}`;
+
+  /* Meias horas das 6h às 22h.
+
+     O <input type="time"> seria menos código e é pior aqui: em parte dos
+     navegadores de celular ele abre um seletor de minuto a minuto, e reserva
+     de vaga não se marca às 14h07. Uma lista fechada também deixa esconder o
+     que já passou, o que o campo livre não faz. */
+  function horariosDoDia(dia) {
+    const agora = new Date();
+    const hoje = dia === diaLocal(agora);
+    const minimo = new Date(agora.getTime() + 20 * 60000);   // 15 do servidor + folga
+    const saida = [];
+    for (let h = 6; h <= 22; h++) {
+      for (const m of [0, 30]) {
+        const quando = new Date(`${dia}T${doisDigitos(h)}:${doisDigitos(m)}:00`);
+        if (hoje && quando < minimo) continue;
+        saida.push(`${doisDigitos(h)}:${doisDigitos(m)}`);
+      }
+    }
+    return saida;
+  }
+
+  function preencherHorarios() {
+    const horas = horariosDoDia(fReservaDia.value);
+    fReservaHora.innerHTML = horas.length
+      ? horas.map(h => `<option value="${h}">${h}</option>`).join("")
+      : `<option value="">Sem horário hoje</option>`;
+    fReservaHora.disabled = !horas.length;
+    atualizarResumo();
+  }
+
+  function atualizarResumo() {
+    const vaga = fReservaVagas.querySelector("input:checked");
+    const pronto = vaga && fReservaHora.value;
+    fReservaEnviar.disabled = !pronto;
+    fReservaResumo.textContent = pronto
+      ? `R$ ${num(VALOR_RESERVA)} sai da carteira e volta como crédito nesta recarga · ${DURACAO_MIN} min`
+      : "Escolha a vaga e o horário.";
+  }
+
+  function abrirReserva(p) {
+    pontoEmReserva = p;
+    fReservaLoja.textContent = p.nome;
+    const livres = p.carregadores.filter(c => c.livre_agora);
+    fReservaVagas.innerHTML = livres.map((c, i) => `
+      <label class="reserva-vaga">
+        <input type="radio" name="vaga" value="${c.id}" ${i === 0 ? "checked" : ""}>
+        <span>
+          <b>${c.nome}</b>
+          <small>${num(c.potencia_kw, 1)} kW · ${c.conector} · R$ ${num(c.preco_kwh_brl)}/kWh</small>
+        </span>
+      </label>`).join("");
+
+    const hoje = new Date();
+    fReservaDia.min = diaLocal(hoje);
+    fReservaDia.max = diaLocal(new Date(hoje.getTime() + 14 * 86400000));
+    fReservaDia.value = diaLocal(hoje);
+    preencherHorarios();
+    dizerReserva("");
+    folha.hidden = false;
+    document.body.classList.add("reserva-aberta");
+    folha.querySelector(".reserva-fechar").focus();
+  }
+
+  function fecharReserva() {
+    folha.hidden = true;
+    document.body.classList.remove("reserva-aberta");
+    pontoEmReserva = null;
+  }
+
+  function dizerReserva(texto, tipo = "") {
+    fReservaStatus.textContent = texto;
+    fReservaStatus.className = "reserva-status" + (tipo ? ` is-${tipo}` : "");
+  }
+
+  if (folha) {
+    folha.querySelector(".reserva-fechar").onclick = fecharReserva;
+    folha.querySelector(".reserva-fundo").onclick = fecharReserva;
+    addEventListener("keydown", ev => { if (ev.key === "Escape" && !folha.hidden) fecharReserva(); });
+    fReservaDia.onchange = preencherHorarios;
+    fReservaHora.onchange = atualizarResumo;
+    fReservaVagas.onchange = atualizarResumo;
+
+    fReservaEnviar.onclick = async () => {
+      const vaga = fReservaVagas.querySelector("input:checked");
+      if (!vaga || !fReservaHora.value) return;
+      fReservaEnviar.disabled = true;
+      dizerReserva("Reservando…");
+
+      // Monta a data no fuso de quem está olhando e manda com o deslocamento
+      // explícito. Sem o fuso o servidor recusa, de propósito: interpretar
+      // como UTC daria uma reserva três horas fora do lugar, em silêncio.
+      const quando = new Date(`${fReservaDia.value}T${fReservaHora.value}:00`);
+      try {
+        const r = await fetch("/reservas", {
+          method: "POST", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ carregador_id: Number(vaga.value), inicio: quando.toISOString() }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          fReservaEnviar.disabled = false;
+          // 401 aqui quer dizer "não está logado", e a tela do mapa é aberta:
+          // dá para chegar nela sem conta.
+          dizerReserva(r.status === 401
+            ? "Entre na sua conta para reservar."
+            : (d.detail || "Não consegui reservar."), "erro");
+          return;
+        }
+        dizerReserva(`Reservado · ${d.vaga} · ${new Date(d.inicio).toLocaleString("pt-BR",
+          { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`, "ok");
+        await carregarPontos();
+        montarMarcadores();
+        desenhar(busca.value);
+        setTimeout(fecharReserva, 1800);
+      } catch {
+        fReservaEnviar.disabled = false;
+        dizerReserva("O servidor não respondeu. Tente de novo.", "erro");
+      }
+    };
+  }
+
+  /* ======================================================================== */
+
+  /* Primeira carga. Falhar aqui não pode deixar a tela em branco: o mapa já
+     desenhou, e a lista diz o que houve em vez de ficar vazia sem motivo. */
+  (async () => {
+    try {
+      await carregarPontos();
+      if (mapa) montarMarcadores();
+      desenhar();
+    } catch (erro) {
+      contagem.textContent = "Não consegui carregar os pontos.";
+      lista.innerHTML = `<li class="mapa-vazio">O servidor não respondeu. `
+                      + `Ele hiberna quando fica sem uso — recarregue em um minuto.</li>`;
+      console.error("mapa:", erro);
+    }
+  })();
 })();

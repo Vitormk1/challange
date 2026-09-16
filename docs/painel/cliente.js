@@ -133,6 +133,71 @@ function ligarSair(){
   };
 }
 
+/* -------------------------------------------------------------- reservas */
+
+const SITUACOES = {
+  ativa: "Confirmada", cumprida: "Utilizada",
+  cancelada: "Cancelada", expirada: "Não compareceu",
+};
+
+function quando(inicio, fim) {
+  const i = new Date(inicio), f = new Date(fim);
+  const dia = i.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  const hora = t => t.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return `${dia} · ${hora(i)}–${hora(f)}`;
+}
+
+async function mostrarReservas(){
+  const bloco = document.querySelector("#blocoReservas");
+  if (!bloco) return;                       // só existe na tela de Dashboard
+
+  let dados;
+  try {
+    dados = await api.reservas();
+  } catch {
+    return;    // sem reservas visíveis é melhor que uma mensagem de erro aqui
+  }
+  // Só as que ainda valem alguma coisa. Reserva de três semanas atrás não é
+  // informação, é entulho — e o extrato da carteira já guarda o histórico.
+  const vivas = dados.reservas.filter(r => r.situacao === "ativa" || new Date(r.fim) > Date.now() - 86400000);
+  if (!vivas.length) return;
+
+  bloco.hidden = false;
+  document.querySelector("#listaReservas").innerHTML = vivas.map(r => `
+    <li class="cartao-cliente reserva-item">
+      <div>
+        <b>${r.loja}</b>
+        <small>${r.vaga} · ${Number(r.potencia_kw).toFixed(1).replace(".", ",")} kW</small>
+        <span class="reserva-quando-texto">${quando(r.inicio, r.fim)}</span>
+      </div>
+      <div class="reserva-acao">
+        <span class="reserva-situacao is-${r.situacao}">${SITUACOES[r.situacao] || r.situacao}</span>
+        ${r.situacao === "ativa"
+          ? `<button class="reserva-cancelar" type="button" data-cancelar="${r.id}">Cancelar</button>`
+          : ""}
+      </div>
+    </li>`).join("");
+
+  document.querySelector("#avisoReservas").textContent =
+    `Cancelamento com mais de ${dados.devolve_ate_min} min de antecedência devolve o valor à carteira.`;
+
+  document.querySelectorAll("[data-cancelar]").forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    b.textContent = "Cancelando…";
+    try {
+      const d = await api.cancelarReserva(Number(b.dataset.cancelar));
+      // Recarrega em vez de remendar a linha na mão: o saldo lá em cima também
+      // mudou, e duas atualizações parciais é onde a tela começa a mentir.
+      location.reload();
+      if (d.aviso) alert(d.aviso);
+    } catch (erro){
+      b.disabled = false;
+      b.textContent = "Cancelar";
+      alert(erro?.message || "Não consegui cancelar.");
+    }
+  });
+}
+
 /* ----------------------------------------------------------------- monta */
 
 aplicarTemaSalvo();
@@ -159,6 +224,8 @@ const usuario = sessao?.usuario;
 if (usuario?.papel === "motorista"){
   ligarBarra();
   ligarSair();
+
+  mostrarReservas();
 
   const saudacao = document.querySelector("#saudacao");
   if (saudacao){
