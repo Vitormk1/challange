@@ -44,8 +44,25 @@
       <span class="entrada-abas-trilho" aria-hidden="true"></span>
     </div>
 
+    <!-- Os dois formulários abaixo nascem com `method="post"` e o botão
+         DESLIGADO, e é o entrar.js que os liga.
+
+         Não é firula. Quem envia de verdade é o JavaScript, com fetch; o
+         envio nativo só acontece se o entrar.js não tiver carregado. E sem
+         method, o padrão do HTML é GET — foi assim que um teste acabou com
+         `entrar.html?nome=...&senha=umasenhaboa1` na barra de endereço, de
+         onde a senha vai para o histórico do navegador e para o log de
+         acesso do servidor.
+
+         O caso que provocou isso foi um bloqueador de anúncios recusando o
+         entrar.js, mas a causa pouco importa: rede instável, proxy da
+         empresa ou um erro futuro na CSP produzem o mesmo. Com POST a senha
+         fica no corpo, e `form-action 'self'` na CSP garante que o corpo não
+         sai daqui. O botão desligado fecha o resto: sem script, não há como
+         enviar. -->
+
     <!-- ===================== entrar ===================== -->
-    <form id="formEntrar" class="login-form" role="tabpanel" aria-labelledby="abaEntrar"
+    <form id="formEntrar" method="post" class="login-form" role="tabpanel" aria-labelledby="abaEntrar"
           autocomplete="on" novalidate>
       <div class="login-campo">
         <label class="sr-only" for="entrarEmail">E-mail</label>
@@ -62,14 +79,14 @@
           <svg class="olho-esconder" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 6.2A9.6 9.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-3.3 3.9M6.6 8.1A16 16 0 0 0 2.5 12S6 18 12 18a9.4 9.4 0 0 0 3.3-.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
         </button>
       </div>
-      <button class="login-entrar" type="submit">
+      <button class="login-entrar" type="submit" disabled>
         <span class="login-entrar-texto">Entrar</span>
         <span class="login-entrar-girando" aria-hidden="true"></span>
       </button>
     </form>
 
     <!-- ===================== criar conta ===================== -->
-    <form id="formCriar" class="login-form" role="tabpanel" aria-labelledby="abaCriar"
+    <form id="formCriar" method="post" class="login-form" role="tabpanel" aria-labelledby="abaCriar"
           autocomplete="on" novalidate hidden>
       <div class="login-campo">
         <label class="sr-only" for="criarNome">Nome</label>
@@ -92,7 +109,7 @@
         </button>
       </div>
       <p class="entrada-dica" id="dicaSenha">Pelo menos 8 caracteres.</p>
-      <button class="login-entrar" type="submit">
+      <button class="login-entrar" type="submit" disabled>
         <span class="login-entrar-texto">Criar conta</span>
         <span class="login-entrar-girando" aria-hidden="true"></span>
       </button>

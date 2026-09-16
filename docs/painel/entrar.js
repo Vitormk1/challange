@@ -80,6 +80,14 @@ aplicarTema(lerTema());
 matchMedia("(prefers-color-scheme: dark)")
   .addEventListener("change", () => { if (lerTema() === "system") aplicarTema("system"); });
 
+/* ---------------------------------------------------------------- botões */
+
+/* Os botões chegam `disabled` do HTML. Ligá-los aqui é a prova de que este
+   módulo executou: se ele não carregar — bloqueador, rede ruim, erro de CSP —
+   os botões continuam apagados e ninguém consegue disparar o envio nativo,
+   que é o que empurraria a senha para dentro da URL. */
+$$(".login-entrar").forEach(b => { b.disabled = false; });
+
 /* ------------------------------------------------------------------ abas */
 
 function trocarAba(paraCriar){
