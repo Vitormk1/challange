@@ -19,23 +19,34 @@ services:
     # servido por este processo, mudança de tela vive em docs/. Um commit que
     # só mexia no painel era ignorado em silêncio: o GitHub tinha a versão
     # nova, o serviço continuava com a antiga, e nada acusava.
-    # Só o pip. Aplicar o schema.sql aqui foi tentado e REPROVOU: os deploys
-    # bd03854 (Blueprint) e 358064b falharam em 20s e 16s, e a esteira ficou
-    # travada até este commit. O build do Render não é lugar de falar com o
-    # banco — ver a investigação no próximo commit.
+    # O `python api/db.py` aplica o schema.sql antes de o codigo novo subir.
     #
-    # O problema que aquilo tentava resolver continua de pé e está anotado
-    # para não se perder: o schema.sql só é aplicado quando alguém roda
-    # `python api/db.py` à mão. Mudança de esquema NÃO chega sozinha à
-    # produção, e o sintoma de esquecer é ruim de diagnosticar — deploy
-    # verde, serviço no ar, e um erro genérico quando alguém abre a tela
-    # nova. Foi assim com o papel 'motorista', que devolvia 409 em e-mail
-    # novo.
+    # Sem ele, mudanca de esquema so chegava aqui se alguem lembrasse de rodar
+    # a mao -- e o sintoma de esquecer e cruel: deploy verde, servico no ar, e
+    # a falha aparece so quando alguem usa a tela nova, como um erro generico
+    # que nao diz nada sobre esquema.
     #
-    # Enquanto não houver solução: depois de mexer em api/schema.sql, rode
-    #     python api/db.py
-    # apontando para o banco de produção, ANTES de mesclar.
-    buildCommand: pip install -r requirements.txt
+    # Isto ja falhou uma vez, e vale contar por que foi mantido. Os deploys
+    # bd03854 e 358064b quebraram aqui, e a primeira suspeita foi a obvia: que
+    # o build do Render nao tivesse DATABASE_URL. Errado. O log mostrou que ele
+    # chegou no banco e voltou com
+    #
+    #     check constraint "usuarios_papel_check" is violated by some row
+    #
+    # que era um bug de verdade no schema.sql -- duas migracoes disputando a
+    # mesma restricao. Ou seja: este comando nao foi fragil, ele FEZ O
+    # TRABALHO. Recusou publicar um esquema quebrado, e o bug que ele pegou
+    # era pior que o deploy que ele travou, porque deixava o `python
+    # api/db.py` impossivel de rodar em qualquer banco com usuario de verdade.
+    #
+    # Roda no build, e nao no start: o start acontece a cada saida da
+    # hibernacao do plano gratuito, e sao ~30 comandos DDL contra o banco.
+    #
+    # E seguro repetir: o schema.sql e idempotente de ponta a ponta. Se o
+    # banco nao responder, o db.py sai com codigo 1 e o build falha -- que e o
+    # certo. Melhor nao publicar do que publicar codigo pedindo uma coluna que
+    # nao existe.
+    buildCommand: pip install -r requirements.txt && python api/db.py
     # `--app-dir api` põe api/ no sys.path, que é o que faz `from db import`
     # funcionar. O caminho do painel é calculado a partir de __file__, então
     # não depende de onde o processo foi iniciado.
