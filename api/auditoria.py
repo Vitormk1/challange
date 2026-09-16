@@ -249,6 +249,8 @@ def main() -> None:
            "loginGate" not in r.text and "loginGate" not in m.text,
            "porta de login presente numa tela pública")
 
+    import secrets as _s
+
     # ---- a área do cliente ----
     e = anon.get(f"{API}/painel/entrar.html", timeout=TEMPO)
     checar("tela de entrada responde", e.status_code == 200, f"HTTP {e.status_code}")
@@ -256,6 +258,29 @@ def main() -> None:
            "só o formulário de login — quem não tem conta fica sem porta")
     # A porta do lojista. Sem ela, quem tem loja não tem como chegar ao painel
     # a não ser digitando o endereço, e o dono do produto é justamente ele.
+    # A tela que o link do e-mail abre. Se ela sumir ou for renomeada, todo
+    # link ja enviado vira 404 — e quem esta com a conta pendente nao tem
+    # outro caminho para ativa-la.
+    v = anon.get(f"{API}/painel/verificar.html", timeout=TEMPO)
+    checar("tela de confirmacao responde", v.status_code == 200, f"HTTP {v.status_code}")
+    checar("tela de confirmacao oferece reenvio", "formReenviar" in v.text,
+           "link vencido viraria beco sem saida")
+
+    # Token inventado tem de ser recusado, esteja a verificacao ligada ou nao.
+    t = anon.post(f"{API}/auth/verificar", json={"token": "nao-existe-" + _s.token_hex(8)},
+                  timeout=TEMPO)
+    checar("token de confirmacao inventado e recusado", t.status_code in (404, 410),
+           f"HTTP {t.status_code}")
+    checar("confirmacao sem token e recusada",
+           anon.post(f"{API}/auth/verificar", json={}, timeout=TEMPO).status_code == 400)
+
+    # O reenvio responde igual exista ou nao a conta. Se um dia devolver 404
+    # para e-mail desconhecido, a rota vira um detector de quem tem cadastro.
+    r1 = anon.post(f"{API}/auth/reenviar", json={"email": f"nao.existe.{_s.token_hex(6)}@exemplo.invalid"},
+                   timeout=TEMPO)
+    checar("reenvio nao revela quem tem conta", r1.status_code in (200, 429),
+           f"HTTP {r1.status_code}")
+
     checar("tela de entrada leva ao painel da loja",
            "entrada-lojista" in e.text and "./dashboard.html" in e.text,
            "botão de lojista ausente")
@@ -287,13 +312,30 @@ def main() -> None:
                             json={"nome": "Sonda Auditoria", "email": sonda,
                                   "senha": _s.token_urlsafe(16), "papel": "main"})
     if nova.status_code == 200:
-        criado = nova.json().get("usuario", {})
-        checar("cadastro aberto ignora o papel enviado",
-               criado.get("papel") == "motorista",
-               f"papel gravado: {criado.get('papel')!r}")
-        checar("motorista nasce sem loja",
-               not nova.json().get("estabelecimentos"),
-               "conta nova já veio vinculada a uma loja")
+        corpo_novo = nova.json()
+        # Duas formas de resposta, conforme a verificação de e-mail esteja
+        # ligada ou não — e cada uma permite conferir uma coisa diferente.
+        if corpo_novo.get("verificar"):
+            # Ligada: a conta nasce pendente e NÃO recebe sessão. Este é o
+            # ponto inteiro da verificação; se um cookie viesse aqui,
+            # bastaria ignorar o e-mail para usar a conta.
+            checar("cadastro pendente não abre sessão",
+                   "set-cookie" not in {k.lower() for k in nova.headers},
+                   "veio cookie numa conta que ainda não confirmou o e-mail")
+            checar("cadastro pendente não devolve o usuário",
+                   "usuario" not in corpo_novo,
+                   "resposta entrega dado de conta não confirmada")
+        else:
+            # Desligada: dá para ler o papel gravado, que é o que importa —
+            # se um dia alguém passar a ler `papel` do corpo da requisição,
+            # isto vira escalada de privilégio em uma linha.
+            criado = corpo_novo.get("usuario", {})
+            checar("cadastro aberto ignora o papel enviado",
+                   criado.get("papel") == "motorista",
+                   f"papel gravado: {criado.get('papel')!r}")
+            checar("motorista nasce sem loja",
+                   not corpo_novo.get("estabelecimentos"),
+                   "conta nova já veio vinculada a uma loja")
         # A conta fica. Apagá-la exigiria credencial de administrador aqui, e
         # a auditoria roda contra produção — melhor um registro a mais, com
         # domínio .invalid e senha aleatória que ninguém conhece, do que dar

@@ -26,6 +26,7 @@ const formCriar = $("#formCriar");
 const abaEntrar = $("#abaEntrar");
 const abaCriar = $("#abaCriar");
 const notaLojista = $("#notaLojista");
+const confira = $("#confira");
 
 /* ---------------------------------------------------------------- destino */
 
@@ -155,6 +156,36 @@ function ocupado(form, sim){
   form.querySelectorAll("input").forEach(i => { i.disabled = sim; });
 }
 
+/* ------------------------------------------------- confira seu e-mail */
+
+/* Troca a tela inteira pelo aviso. Esconder os formulários é parte do
+   recado: deixá-los ali convidaria a tentar entrar de novo, que é justamente
+   o que ainda não vai funcionar. */
+function pedirConfirmacao(email){
+  formEntrar.hidden = true;
+  formCriar.hidden = true;
+  $(".entrada-abas").hidden = true;
+  notaLojista.hidden = true;
+  confira.hidden = false;
+  $("#confiraEmail").textContent = email;
+  dizer("");
+}
+
+$("#botaoReenviar").onclick = async ev => {
+  const b = ev.currentTarget;
+  b.disabled = true;
+  b.textContent = "Mandando…";
+  try {
+    await api.reenviar($("#confiraEmail").textContent.trim());
+    b.textContent = "Link reenviado";
+    dizer("Se a conta ainda estiver pendente, o link já saiu.", "ok");
+  } catch (erro){
+    b.disabled = false;
+    b.textContent = "Não recebi, mandar de novo";
+    dizer(explicar(erro), "erro");
+  }
+};
+
 /* ---------------------------------------------------------------- entrar */
 
 formEntrar.onsubmit = async ev => {
@@ -169,6 +200,13 @@ formEntrar.onsubmit = async ev => {
     seguir(await api.entrar(email, senha));
   } catch (erro){
     ocupado(formEntrar, false);
+    // 403 aqui é só um caso: senha certa, e-mail ainda não confirmado. A
+    // pessoa não errou nada — mostrar "erro" seria culpá-la por um passo que
+    // falta, então a tela vira o aviso com o botão de reenviar.
+    if (erro instanceof ErroApi && erro.status === 403){
+      pedirConfirmacao(email);
+      return;
+    }
     dizer(explicar(erro), "erro");
     $("#entrarSenha").select();
   }
@@ -191,7 +229,13 @@ formCriar.onsubmit = async ev => {
   ocupado(formCriar, true);
   dizer("");
   try {
-    seguir(await api.cadastrar(nome, email, senha));
+    const r = await api.cadastrar(nome, email, senha);
+    // Duas respostas possíveis, e é o servidor que decide qual: com SMTP
+    // configurado ele devolve {verificar:true} e NÃO abre sessão; sem SMTP,
+    // devolve a sessão como antes. A tela atende as duas sem precisar saber
+    // se a verificação está ligada.
+    if (r?.verificar){ pedirConfirmacao(r.email || email); return; }
+    seguir(r);
   } catch (erro){
     ocupado(formCriar, false);
     dizer(explicar(erro), "erro");
