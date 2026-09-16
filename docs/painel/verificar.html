@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart Charge — confirmar e-mail</title>
+<meta name="description" content="Confirmação de e-mail da sua conta Smart Charge.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F4F4F6">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916d">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916d">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916d">
+<link rel="stylesheet" href="./login.css?v=20260916d">
+<link rel="stylesheet" href="./entrar.css?v=20260916d">
+</head>
+<body class="pagina-entrar">
+
+<div class="login-gate entrada">
+  <main class="login-caixa">
+
+    <div class="login-marca">
+      <span class="login-selo" aria-hidden="true">
+        <img src="./img/logo.png?v=20260916d" alt="" width="60" height="60" decoding="async">
+      </span>
+      <h1>Smart Charge</h1>
+    </div>
+
+    <!-- Uma tela, três estados, e o JS escolhe. Todos vêm no HTML em vez de
+         serem montados por script para a página nunca ficar em branco: se o
+         módulo não carregar, a pessoa lê pelo menos que precisa confirmar. -->
+    <div class="verificar-estado" id="conferindo">
+      <span class="verificar-girando" aria-hidden="true"></span>
+      <p>Confirmando seu e-mail…</p>
+    </div>
+
+    <div class="verificar-estado" id="pronto" hidden>
+      <span class="verificar-marca verificar-marca-ok" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+             stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.5 5.5L20 7"></path></svg>
+      </span>
+      <h2>E-mail confirmado</h2>
+      <p>Sua conta está pronta. Já entramos com ela.</p>
+      <a class="login-entrar verificar-botao" href="./cliente.html">Ir para minha conta</a>
+    </div>
+
+    <div class="verificar-estado" id="falhou" hidden>
+      <span class="verificar-marca verificar-marca-erro" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+             stroke-linecap="round"><path d="M12 7v6.5"></path><path d="M12 17h.01"></path></svg>
+      </span>
+      <h2>Este link não vale mais</h2>
+      <p id="motivo">Ele pode ter expirado ou já ter sido usado.</p>
+
+      <form class="login-form verificar-form" id="formReenviar" method="post" novalidate>
+        <div class="login-campo">
+          <label class="sr-only" for="reenviarEmail">Seu e-mail</label>
+          <input id="reenviarEmail" name="email" type="email" inputmode="email"
+                 placeholder="Seu e-mail" autocomplete="username" required>
+        </div>
+        <button class="login-entrar" type="submit" disabled>
+          <span class="login-entrar-texto">Mandar outro link</span>
+          <span class="login-entrar-girando" aria-hidden="true"></span>
+        </button>
+      </form>
+
+      <p class="login-status" id="status" role="status" aria-live="polite"></p>
+      <a class="entrada-voltar verificar-voltar" href="./entrar.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M19 12H5M11 18l-6-6 6-6"></path>
+        </svg>
+        <span>Voltar ao login</span>
+      </a>
+    </div>
+
+  </main>
+</div>
+
+<noscript>
+  <p class="entrada-sem-script">Esta tela precisa de JavaScript para confirmar
+  seu e-mail. Ative-o e abra o link de novo.</p>
+</noscript>
+
+<script type="module" src="./verificar.js?v=20260916d"></script>
+</body>
+</html>

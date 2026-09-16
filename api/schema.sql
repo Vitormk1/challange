@@ -549,3 +549,37 @@ ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS fidelidade_creditos_reais_
   CHECK (fidelidade_creditos_reais_por_credito > 0);
 ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS fidelidade_creditos_minutos_por_credito numeric(10,2)
   CHECK (fidelidade_creditos_minutos_por_credito > 0);
+
+
+-- --------------------------------------------------------------------------
+-- Verificacao de e-mail
+--
+-- Ate aqui bastava digitar qualquer coisa com @ para ter conta. Isso deixava
+-- duas portas abertas: cadastrar com o e-mail de outra pessoa, e encher a
+-- tabela de contas que nunca existiram.
+--
+-- `email_verificado` comeca TRUE para quem ja existe. Sao as contas que nos
+-- mesmos criamos, e marca-las como pendentes trancaria todo mundo para fora
+-- do painel de uma vez -- inclusive o lojista, que nunca recebeu e-mail de
+-- confirmacao nenhum porque o fluxo nao existia.
+-- --------------------------------------------------------------------------
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS email_verificado boolean NOT NULL DEFAULT true;
+ALTER TABLE usuarios ALTER COLUMN email_verificado SET DEFAULT false;
+
+COMMENT ON COLUMN usuarios.email_verificado IS
+  'false = cadastrou e ainda nao clicou no link. O DEFAULT e false: conta nova nasce pendente.';
+
+-- O token vive aqui, e nao numa coluna de usuarios, porque pedir um novo
+-- reenvio nao pode invalidar em silencio o link que a pessoa ja tem no
+-- e-mail: os dois valem ate expirar, e o primeiro clique resolve.
+CREATE TABLE IF NOT EXISTS verificacoes_email (
+  token       text        PRIMARY KEY,
+  usuario_id  bigint      NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  criado_em   timestamptz NOT NULL DEFAULT now(),
+  expira_em   timestamptz NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS ix_verificacoes_usuario ON verificacoes_email (usuario_id);
+-- Para a limpeza dos vencidos nao varrer a tabela inteira.
+CREATE INDEX IF NOT EXISTS ix_verificacoes_expira  ON verificacoes_email (expira_em);
+

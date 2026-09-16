@@ -32,7 +32,8 @@ from typing import Any
 
 import psycopg
 import requests
-from fastapi import Body, Cookie, Depends, FastAPI, HTTPException, Request, Response
+from fastapi import (BackgroundTasks, Body, Cookie, Depends, FastAPI, HTTPException,
+                     Request, Response)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -40,8 +41,10 @@ from psycopg import sql
 
 from auth import (conferir_senha, criar_hash, novo_token, permissoes, pode,
                   secoes_bloqueadas, validade)
+import correio
 from db import conectar
 from protecao import (CabecalhosDeSeguranca, limitar_cadastro, limitar_ia, limitar_ia_publica, limitar_login,
+                      limitar_reenvio,
                       zerar_login)
 
 PAINEL = Path(__file__).resolve().parent.parent / "docs"
@@ -271,7 +274,7 @@ def login(request: Request, resp: Response, corpo: dict = Body(...)):
     # para varrer um dicionário inteiro pela porta da frente
     limitar_login(request, email)
     linhas = consultar(
-        "SELECT id, nome, email, papel, senha_hash FROM usuarios "
+        "SELECT id, nome, email, papel, senha_hash, email_verificado FROM usuarios "
         " WHERE lower(email) = %s AND ativo", (email,))
     # mesma resposta para e-mail que não existe e senha errada: dizer qual dos
     # dois falhou entrega quais e-mails são válidos
@@ -279,6 +282,12 @@ def login(request: Request, resp: Response, corpo: dict = Body(...)):
         raise HTTPException(401, "e-mail ou senha incorretos")
 
     u = linhas[0]
+    # A conferência vem DEPOIS da senha, e isso importa: antes dela, qualquer
+    # pessoa descobriria quais e-mails têm cadastro pendente só tentando
+    # entrar. Aqui já se sabe que é o dono da conta.
+    if verificacao_ativa() and not u["email_verificado"]:
+        raise HTTPException(403, "Confirme seu e-mail antes de entrar. "
+                                 "Mandamos um link quando você criou a conta.")
     token = novo_token()
     with conectar() as con, con.cursor() as cur:
         cur.execute("INSERT INTO sessoes_web (token, usuario_id, expira_em) VALUES (%s,%s,%s)",
@@ -315,9 +324,71 @@ def login(request: Request, resp: Response, corpo: dict = Body(...)):
 # ==========================================================================
 MINIMO_SENHA = 8
 
+# ==========================================================================
+# Verificação de e-mail
+#
+# Liga sozinha quando há SMTP configurado. Sem SMTP, o cadastro funciona como
+# antes e a conta nasce verificada — ver o porquê em correio.py. O estado
+# aparece em /saude para isso não virar um silêncio.
+# ==========================================================================
+HORAS_VERIFICACAO = 24
+
+
+def verificacao_ativa() -> bool:
+    return correio.configurado()
+
+
+def _url_publica(request: Request) -> str:
+    """De onde o link do e-mail vai apontar.
+
+    URL_PUBLICA vence, porque é a única fonte que não depende de cabeçalho que
+    o cliente controla. Sem ela, monta a partir do que o Render encaminha —
+    bom o bastante para desenvolvimento, e é por isso que em produção a
+    variável deve existir: um Host forjado viraria link de verificação
+    apontando para o site de outra pessoa.
+    """
+    fixa = os.environ.get("URL_PUBLICA", "").strip().rstrip("/")
+    if fixa:
+        return fixa
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or "127.0.0.1:8000"
+    return f"{proto}://{host}"
+
+
+def _novo_link(cur, usuario_id: int, request: Request) -> str:
+    """Grava um token novo e devolve o endereço a mandar por e-mail.
+
+    Os antigos NÃO são apagados. Quem pede reenvio costuma ter o primeiro
+    e-mail ainda na caixa, e invalidá-lo faria o link mais à mão parar de
+    funcionar sem explicação. Os dois valem; o primeiro clique resolve, e o
+    resto expira sozinho.
+    """
+    # Varre os vencidos de carona. É um DELETE indexado por expira_em, e sem
+    # ele a tabela só cresce: quem se cadastra e nunca clica deixa a linha
+    # para trás, e não existe nenhuma outra rotina que limpe.
+    cur.execute("DELETE FROM verificacoes_email WHERE expira_em < now()")
+
+    token = novo_token()
+    cur.execute(
+        "INSERT INTO verificacoes_email (token, usuario_id, expira_em) "
+        "VALUES (%s, %s, now() + make_interval(hours => %s))",
+        (token, usuario_id, HORAS_VERIFICACAO))
+    return f"{_url_publica(request)}/painel/verificar.html?token={token}"
+
+
+def _mandar_verificacao(para: str, nome: str, link: str) -> None:
+    """Roda em tarefa de fundo: falar com SMTP leva segundos, e o cadastro não
+    pode esperar por isso. Falha não derruba nada — a pessoa já tem conta, e a
+    tela oferece reenviar."""
+    try:
+        correio.enviar_verificacao(para, nome, link, HORAS_VERIFICACAO)
+    except Exception as erro:      # noqa: BLE001 — qualquer falha de SMTP
+        print(f"[correio] nao consegui enviar para {para}: {type(erro).__name__}: {erro}")
+
 
 @app.post("/auth/cadastrar")
-def cadastrar(request: Request, resp: Response, corpo: dict = Body(...)):
+def cadastrar(request: Request, resp: Response, tarefas: BackgroundTasks,
+              corpo: dict = Body(...)):
     nome = str(corpo.get("nome", "")).strip()[:120]
     email = str(corpo.get("email", "")).strip().lower()[:200]
     senha = str(corpo.get("senha", ""))
@@ -337,6 +408,7 @@ def cadastrar(request: Request, resp: Response, corpo: dict = Body(...)):
     # banco, que é o recurso que se quer proteger.
     limitar_cadastro(request)
 
+    exigir = verificacao_ativa()
     token = novo_token()
     with conectar() as con, con.cursor() as cur:
         cur.execute("SELECT 1 FROM usuarios WHERE lower(email) = %s", (email,))
@@ -349,13 +421,22 @@ def cadastrar(request: Request, resp: Response, corpo: dict = Body(...)):
             raise HTTPException(409, "Já existe uma conta com esse e-mail. Tente entrar.")
 
         cur.execute(
-            "INSERT INTO usuarios (nome, email, papel, senha_hash) "
-            "VALUES (%s, %s, 'motorista', %s) RETURNING id",
-            (nome, email, criar_hash(senha)))
+            "INSERT INTO usuarios (nome, email, papel, senha_hash, email_verificado) "
+            "VALUES (%s, %s, 'motorista', %s, %s) RETURNING id",
+            (nome, email, criar_hash(senha), not exigir))
         novo_id = cur.fetchone()["id"]
-        cur.execute("INSERT INTO sessoes_web (token, usuario_id, expira_em) VALUES (%s,%s,%s)",
-                    (token, novo_id, validade()))
+        link = _novo_link(cur, novo_id, request) if exigir else None
+        if not exigir:
+            cur.execute("INSERT INTO sessoes_web (token, usuario_id, expira_em) VALUES (%s,%s,%s)",
+                        (token, novo_id, validade()))
         con.commit()
+
+    if exigir:
+        # Sem sessão. A conta existe, mas não abre nada até o clique no link —
+        # senão a verificação seria um enfeite: bastaria ignorar o e-mail e
+        # continuar usando.
+        tarefas.add_task(_mandar_verificacao, email, nome, link)
+        return {"verificar": True, "email": email}
 
     # Entra já logado: pedir login logo depois do cadastro é atrito sem ganho
     # — a pessoa acabou de provar que sabe a senha.
@@ -364,6 +445,88 @@ def cadastrar(request: Request, resp: Response, corpo: dict = Body(...)):
                     max_age=60 * 60 * 24 * 14,
                     secure=os.environ.get("COOKIE_SEGURO", "") == "1")
     return eu(usuario_atual(token))
+
+
+# ==========================================================================
+# Confirmar e reenviar
+# ==========================================================================
+
+@app.post("/auth/verificar")
+def verificar(resp: Response, corpo: dict = Body(...)):
+    """Consome o token e já entrega a sessão aberta.
+
+    Entrar direto é de propósito: a pessoa acabou de provar duas coisas —
+    que sabe a senha, no cadastro, e que é dona do e-mail, agora. Mandá-la
+    para a tela de login depois disso seria pedir a mesma prova de novo.
+    """
+    token = str(corpo.get("token", "")).strip()
+    if not token:
+        raise HTTPException(400, "Link inválido.")
+
+    sessao = novo_token()
+    with conectar() as con, con.cursor() as cur:
+        # DELETE ... RETURNING num comando só: consome o token e diz se ele
+        # existia, sem janela entre conferir e apagar. Dois cliques no mesmo
+        # link — o que acontece toda hora, porque a pessoa clica e volta —
+        # deixam o segundo sem linha para apagar.
+        cur.execute(
+            "DELETE FROM verificacoes_email WHERE token = %s "
+            "RETURNING usuario_id, expira_em", (token,))
+        linha = cur.fetchone()
+        vencido = bool(linha) and linha["expira_em"] < datetime.now(timezone.utc)
+
+        if linha and not vencido:
+            cur.execute("UPDATE usuarios SET email_verificado = true, ultimo_acesso = now() "
+                        " WHERE id = %s", (linha["usuario_id"],))
+            cur.execute("INSERT INTO sessoes_web (token, usuario_id, expira_em) VALUES (%s,%s,%s)",
+                        (sessao, linha["usuario_id"], validade()))
+        # Confirma ANTES de decidir a resposta, e por isso o token vencido
+        # também some. Levantar antes do commit desfaria o DELETE junto com a
+        # transação, e o token morto ficaria na tabela para sempre — sem risco,
+        # porque a data continua sendo conferida, mas acumulando lixo que
+        # ninguém jamais limparia.
+        con.commit()
+
+    if not linha:
+        # Link errado, já usado, ou de conta apagada. Não vale distinguir: a
+        # ação é a mesma, pedir outro.
+        raise HTTPException(404, "Este link não vale mais. Peça um novo.")
+    if vencido:
+        raise HTTPException(410, f"Este link passou das {HORAS_VERIFICACAO} horas. Peça um novo.")
+
+    resp.set_cookie(COOKIE, sessao, httponly=True,
+                    samesite=os.environ.get("COOKIE_SAMESITE", "lax").lower(),
+                    max_age=60 * 60 * 24 * 14,
+                    secure=os.environ.get("COOKIE_SEGURO", "") == "1")
+    return eu(usuario_atual(sessao))
+
+
+@app.post("/auth/reenviar")
+def reenviar(request: Request, tarefas: BackgroundTasks, corpo: dict = Body(...)):
+    """Manda outro link.
+
+    Responde igual em todos os casos, sempre 200. Um "essa conta não existe"
+    aqui transformaria a rota num verificador de e-mails cadastrados, aberto
+    e sem login — e este é o único ponto do fluxo onde dá para esconder isso
+    sem custo, porque quem pediu o reenvio já sabe se tem conta ou não.
+    """
+    email = str(corpo.get("email", "")).strip().lower()[:200]
+    limitar_reenvio(request, email)
+    resposta = {"ok": True}
+    if not verificacao_ativa() or "@" not in email:
+        return resposta
+
+    with conectar() as con, con.cursor() as cur:
+        cur.execute("SELECT id, nome FROM usuarios "
+                    " WHERE lower(email) = %s AND NOT email_verificado", (email,))
+        u = cur.fetchone()
+        if not u:
+            return resposta
+        link = _novo_link(cur, u["id"], request)
+        con.commit()
+
+    tarefas.add_task(_mandar_verificacao, email, u["nome"], link)
+    return resposta
 
 
 @app.post("/auth/logout")
@@ -1301,6 +1464,11 @@ def saude():
             # Sete caracteres, que e o que o git mostra e o que da para
             # comparar de olho com o `git log --oneline`.
             "versao": os.environ.get("RENDER_GIT_COMMIT", "")[:7] or "local",
+            # Se a verificação de e-mail está valendo. Sem SMTP configurado
+            # ela desliga sozinha, e sem este campo isso seria invisível: o
+            # cadastro continuaria funcionando e ninguém notaria que o
+            # e-mail deixou de ser conferido.
+            "verificacao_email": correio.configurado(),
             "ia": bool(os.environ.get("OPENROUTER_API_KEY")),
             "origens": os.environ.get("ORIGENS_PERMITIDAS", ""),
             "cookie": {"samesite": os.environ.get("COOKIE_SAMESITE", "lax"),

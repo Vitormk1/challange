@@ -79,6 +79,11 @@
    O grid tem uma terceira linha implícita de 3px onde o trilho mora; por
    isso `grid-template-columns: 1fr 1fr` e o trilho ocupando a coluna 1 com
    translate para a 2. */
+/* [hidden] sozinho perde para o `display: grid` de baixo. Sem esta linha as
+   abas continuam na tela depois do cadastro, convidando a pessoa a tentar
+   entrar numa conta que ainda está pendente. */
+.entrada-abas[hidden] { display: none; }
+
 .entrada-abas {
   position: relative;
   width: 100%;
@@ -207,4 +212,101 @@
 
 @media (prefers-reduced-motion: reduce) {
   .entrada-lojista-botao { transition: none; }
+}
+
+/* ==========================================================================
+   Confirmação de e-mail
+   ========================================================================== */
+
+.verificar-estado {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+  width: 100%;
+}
+.verificar-estado[hidden] { display: none; }
+
+.verificar-estado h2 {
+  margin: 0;
+  font-size: 1.24rem;
+  letter-spacing: -0.02em;
+  color: var(--lg-texto);
+}
+.verificar-estado p {
+  margin: 0;
+  max-width: 34ch;
+  text-wrap: balance;
+  color: var(--lg-suave);
+  font-size: 0.93rem;
+  line-height: 1.5;
+}
+
+.verificar-marca {
+  display: grid;
+  place-items: center;
+  width: 54px; height: 54px;
+  border-radius: 50%;
+}
+.verificar-marca svg { width: 26px; height: 26px; }
+.verificar-marca-ok   { background: color-mix(in srgb, var(--lg-ok) 16%, transparent); color: var(--lg-ok); }
+.verificar-marca-erro { background: var(--lg-erro-fundo); color: var(--lg-erro); }
+
+/* O anel de "confirmando". Mesmo desenho do botão que carrega, para a tela
+   não apresentar dois vocabulários de espera diferentes. */
+.verificar-girando {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 3px solid var(--lg-anel-trilho);
+  border-top-color: var(--lg-primaria);
+  animation: verificar-gira 0.8s linear infinite;
+}
+@keyframes verificar-gira { to { transform: rotate(360deg); } }
+
+.verificar-botao {
+  width: auto !important;
+  padding: 0 24px;
+  text-decoration: none;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+}
+.verificar-form { width: 100%; margin-top: 4px; }
+.verificar-form[hidden] { display: none; }
+.verificar-voltar { justify-self: center; margin: 0; }
+
+/* ---------- "confira seu e-mail", na tela de entrada ---------- */
+.entrada-conferir {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: center;
+}
+.entrada-conferir[hidden] { display: none; }
+.entrada-conferir strong { color: var(--lg-texto); word-break: break-all; }
+.entrada-conferir p {
+  margin: 0;
+  max-width: 36ch;
+  text-wrap: balance;
+  color: var(--lg-suave);
+  font-size: 0.93rem;
+  line-height: 1.5;
+}
+.entrada-reenviar {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 6px 4px;
+  color: var(--lg-primaria);
+  font: 600 14px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.entrada-reenviar:disabled { color: var(--lg-suave); cursor: default; text-decoration: none; }
+.entrada-reenviar:focus-visible { outline: 2px solid var(--lg-primaria); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .verificar-girando { animation-duration: 2.4s; }
 }
