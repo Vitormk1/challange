@@ -1,4 +1,4 @@
-import { api, ErroApi } from "./api.js?v=20260916p";
+import { api, ErroApi } from "./api.js?v=20260916q";
 
 const el = s => document.querySelector(s);
 const brl = v => new Intl.NumberFormat("pt-BR", {style:"currency", currency:"BRL"}).format(Number(v));
