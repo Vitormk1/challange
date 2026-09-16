@@ -925,6 +925,45 @@ async def webhook_asaas(request: Request):
         con.commit()
     return {"ok": True}
 
+
+# ----------------------------------------------------------- fidelidade ---
+# O que essa pessoa já rendeu em cada loja onde tem ficha — só aparecem as
+# lojas que escolheram um modelo (fidelidade_tipo). A conta é por
+# estabelecimento, nunca somada entre lojas: um crédito de cashback ganho
+# na Pet & Cia não vale na loja do lado.
+@app.get("/fidelidade")
+def minha_fidelidade(u: dict = Depends(usuario_atual)):
+    exigir_motorista(u)
+    linhas = consultar(
+        "SELECT e.id AS estabelecimento_id, e.nome AS estabelecimento_nome, "
+        "       e.fidelidade_tipo AS tipo, "
+        "       e.fidelidade_tiers_a_partir_da_compra, "
+        "       e.fidelidade_tiers_desconto_inicial_pct, e.fidelidade_tiers_desconto_top_pct, "
+        "       e.fidelidade_creditos_minutos_por_credito, "
+        "       c.fidelidade_saldo_cashback_brl, c.fidelidade_creditos, c.fidelidade_compras_mes "
+        "  FROM clientes c JOIN estabelecimentos e ON e.id = c.estabelecimento_id "
+        " WHERE c.usuario_id = %s AND e.fidelidade_tipo IS NOT NULL "
+        " ORDER BY e.nome", (u["id"],))
+    saida = []
+    for l in linhas:
+        item = {"estabelecimento_id": l["estabelecimento_id"],
+                "estabelecimento_nome": l["estabelecimento_nome"], "tipo": l["tipo"]}
+        if l["tipo"] == "cashback":
+            item["saldo_brl"] = l["fidelidade_saldo_cashback_brl"]
+        elif l["tipo"] == "tiers":
+            limiar = l["fidelidade_tiers_a_partir_da_compra"] or 0
+            compras = l["fidelidade_compras_mes"] or 0
+            item["compras_mes"] = compras
+            item["desconto_pct"] = (l["fidelidade_tiers_desconto_top_pct"] if limiar and compras >= limiar
+                                    else l["fidelidade_tiers_desconto_inicial_pct"])
+        elif l["tipo"] == "creditos":
+            creditos = l["fidelidade_creditos"] or 0
+            item["creditos"] = creditos
+            item["minutos"] = round(float(creditos) * float(l["fidelidade_creditos_minutos_por_credito"] or 0), 1)
+        saida.append(item)
+    return saida
+
+
 @app.get("/perfil")
 def perfil(u: dict = Depends(usuario_atual)):
     """Quem é a pessoa, e a que ela tem acesso."""
