@@ -1,19 +1,19 @@
-/* ==========================================================================
-   Smart Charge — painel do lojista
+﻿/* ==========================================================================
+   Smart Charge â€” painel do lojista
 
-   O CSS, o tour e a esfera de IA vêm do painel de referência sem alteração;
-   o que é nosso é o conteúdo e as regras.
+   O CSS, o tour e a esfera de IA vÃªm do painel de referÃªncia sem alteraÃ§Ã£o;
+   o que Ã© nosso Ã© o conteÃºdo e as regras.
 
-   Três ideias organizam este arquivo:
+   TrÃªs ideias organizam este arquivo:
 
    1. Papel manda no que aparece. `state.permissoes` vem do servidor, e a
-      tela só reflete. O servidor confere de novo em toda escrita — esconder
-      botão é conforto, não tranca.
+      tela sÃ³ reflete. O servidor confere de novo em toda escrita â€” esconder
+      botÃ£o Ã© conforto, nÃ£o tranca.
    2. O que a pessoa arruma fica no banco. Layout dos cards com tamanho,
-      tema, barra lateral, seção aberta, busca de cada tabela. Entrar em
+      tema, barra lateral, seÃ§Ã£o aberta, busca de cada tabela. Entrar em
       outro computador tem que devolver a mesma tela.
-   3. O servidor é obrigatório. Sem ele não há login, dado nem assistente —
-      a tela de login diz isso, e é só o que ela faz.
+   3. O servidor Ã© obrigatÃ³rio. Sem ele nÃ£o hÃ¡ login, dado nem assistente â€”
+      a tela de login diz isso, e Ã© sÃ³ o que ela faz.
    ========================================================================== */
 
 import "./static/js/aiEntity.js?v=20260916f";
@@ -32,34 +32,34 @@ const waitForNextPaint = () => new Promise(res => {
   let feito = false;
   const fim = () => { if (!feito) { feito = true; res(); } };
   requestAnimationFrame(() => requestAnimationFrame(fim));
-  setTimeout(fim, 120);   // aba em segundo plano não dispara rAF
+  setTimeout(fim, 120);   // aba em segundo plano nÃ£o dispara rAF
 });
-const dataHora = v => v ? new Date(v).toLocaleString("pt-BR", {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "—";
-const iniciais = nome => String(nome || "").trim().split(/\s+/).slice(0,2).map(p=>p[0]||"").join("").toUpperCase() || "··";
+const dataHora = v => v ? new Date(v).toLocaleString("pt-BR", {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "â€”";
+const iniciais = nome => String(nome || "").trim().split(/\s+/).slice(0,2).map(p=>p[0]||"").join("").toUpperCase() || "Â·Â·";
 
 const ler    = (k, fb) => { try { const v = localStorage.getItem(k); return v == null ? fb : JSON.parse(v); } catch { return fb; } };
 const gravar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
-/* regras de negócio — as mesmas de ai/break_even.py e de api/main.py */
+/* regras de negÃ³cio â€” as mesmas de ai/break_even.py e de api/main.py */
 const COMPRAM = 0.90, UPLIFT = 0.12, NOVOS = 0.20, KM_KWH = 10.4, AMORT = 1.11;
-/* Até onde o cashback se paga.
+/* AtÃ© onde o cashback se paga.
    Cada visita traz a margem da energia vendida mais o lucro da compra feita
-   enquanto carrega, e paga o equipamento diluído. O que sobra é o teto do
-   crédito — acima dele o programa passa a consumir o próprio retorno.
-   O percentual sai do valor médio cobrado por recarga, e não de tabela: 10%
-   numa recarga de R$ 8 e 10% numa de R$ 60 não custam a mesma coisa. */
+   enquanto carrega, e paga o equipamento diluÃ­do. O que sobra Ã© o teto do
+   crÃ©dito â€” acima dele o programa passa a consumir o prÃ³prio retorno.
+   O percentual sai do valor mÃ©dio cobrado por recarga, e nÃ£o de tabela: 10%
+   numa recarga de R$ 8 e 10% numa de R$ 60 nÃ£o custam a mesma coisa. */
 function tetoCashback(margemPct, ticket, margemRecargaPorVisita, cobradoPorVisita){
   const lucro = COMPRAM * (NOVOS * ticket + (1 - NOVOS) * UPLIFT * ticket) * (margemPct / 100);
   const sobra = margemRecargaPorVisita + lucro - AMORT;
   const bruto = cobradoPorVisita > 0 ? Math.max(0, sobra) / cobradoPorVisita * 100 : 0;
-  // Travado em 100: devolver mais do que a pessoa pagou não é cashback, é
-  // pagar para ela carregar. Passar de 100 diz outra coisa — que a visita se
-  // paga mesmo devolvendo a recarga inteira — e quem conta isso é a frase.
+  // Travado em 100: devolver mais do que a pessoa pagou nÃ£o Ã© cashback, Ã©
+  // pagar para ela carregar. Passar de 100 diz outra coisa â€” que a visita se
+  // paga mesmo devolvendo a recarga inteira â€” e quem conta isso Ã© a frase.
   return { lucro, sobra, pct: Math.min(100, bruto), cobreTudo: bruto >= 100 };
 }
 
-/* O teto de uma loja depende da operação dela, não só do cadastro: a margem
-   da energia vendida e o valor médio cobrado saem das sessões. */
+/* O teto de uma loja depende da operaÃ§Ã£o dela, nÃ£o sÃ³ do cadastro: a margem
+   da energia vendida e o valor mÃ©dio cobrado saem das sessÃµes. */
 function tetoDaLoja(e){
   const ses = sessoesDaLoja(e.id);
   const n = Math.max(1, ses.length);
@@ -87,18 +87,18 @@ const state = {
   dados: { estabelecimentos:[], carregadores:[], clientes:[], sessoes:[], vendas:[],
            cupons:[], leituras:[], paineis:[], usuarios_da_loja:[] },
   paineis: { ativo:null, editando:false, menuAberto:false, criando:false, bibliotecaAberta:false },
-  tabela: {},          // por seção: { busca, ordem:{col,dir}, selecionados:Set }
+  tabela: {},          // por seÃ§Ã£o: { busca, ordem:{col,dir}, selecionados:Set }
   prefs: {},           // espelho do usuarios.preferencias
-  conversa: [],        // histórico do assistente, para dar contexto ao modelo
+  conversa: [],        // histÃ³rico do assistente, para dar contexto ao modelo
 };
 
 const loja = () => state.dados.estabelecimentos.find(e => e.id === state.estabelecimentoId) || {};
 const daLoja = (lista, campo = "estabelecimento_id") => lista.filter(r => r[campo] === state.estabelecimentoId);
 const carregadoresDaLoja = (id = state.estabelecimentoId) =>
   state.dados.carregadores.filter(c => c.estabelecimento_id === id);
-/* O id é opcional e cai na loja aberta. Ele existe porque a tabela de
+/* O id Ã© opcional e cai na loja aberta. Ele existe porque a tabela de
    estabelecimentos calcula uma linha por loja, e sem ele todas as linhas
-   mostrariam os números da loja atual. */
+   mostrariam os nÃºmeros da loja atual. */
 const sessoesDaLoja = (id = state.estabelecimentoId) => {
   const ids = new Set(carregadoresDaLoja(id).map(c => c.id));
   return state.dados.sessoes.filter(s => ids.has(s.carregador_id));
@@ -110,79 +110,79 @@ const podeVer = secao => !state.secoesBloqueadas.has(secao);
 const somenteLeitura = () => !pode("editar_dados");
 
 /* ==========================================================================
-   catálogo de seções — uma por tabela do banco
+   catÃ¡logo de seÃ§Ãµes â€” uma por tabela do banco
    ========================================================================== */
 const SECOES = {
-  painel:      { eyebrow:"Visão do lojista", titulo:"Painel" },
-  carregadores:{ eyebrow:"Operação", titulo:"Carregadores", tabela:"carregadores" },
-  sessoes:     { eyebrow:"Operação", titulo:"Sessões", tabela:"sessoes" },
-  leituras:    { eyebrow:"Operação", titulo:"Leituras", tabela:"leituras" },
-  clientes:    { eyebrow:"Negócio", titulo:"Clientes", tabela:"clientes" },
-  vendas:      { eyebrow:"Negócio", titulo:"Vendas atribuídas", tabela:"vendas" },
-  cupons:      { eyebrow:"Negócio", titulo:"Cupons", tabela:"cupons" },
-  fidelidade:  { eyebrow:"Negócio", titulo:"Fidelidade" },
-  financeiro:  { eyebrow:"Negócio", titulo:"Financeiro" },
+  painel:      { eyebrow:"VisÃ£o do lojista", titulo:"Painel" },
+  carregadores:{ eyebrow:"OperaÃ§Ã£o", titulo:"Carregadores", tabela:"carregadores" },
+  sessoes:     { eyebrow:"OperaÃ§Ã£o", titulo:"SessÃµes", tabela:"sessoes" },
+  leituras:    { eyebrow:"OperaÃ§Ã£o", titulo:"Leituras", tabela:"leituras" },
+  clientes:    { eyebrow:"NegÃ³cio", titulo:"Clientes", tabela:"clientes" },
+  vendas:      { eyebrow:"NegÃ³cio", titulo:"Vendas atribuÃ­das", tabela:"vendas" },
+  cupons:      { eyebrow:"NegÃ³cio", titulo:"Cupons", tabela:"cupons" },
+  fidelidade:  { eyebrow:"NegÃ³cio", titulo:"Fidelidade" },
+  financeiro:  { eyebrow:"NegÃ³cio", titulo:"Financeiro" },
   estabelecimentos:{ eyebrow:"Cadastros", titulo:"Estabelecimentos", tabela:"estabelecimentos" },
-  paineis:     { eyebrow:"Cadastros", titulo:"Painéis salvos", tabela:"paineis" },
-  perfil:      { eyebrow:"Sua conta", titulo:"Perfil e configurações" },
+  paineis:     { eyebrow:"Cadastros", titulo:"PainÃ©is salvos", tabela:"paineis" },
+  perfil:      { eyebrow:"Sua conta", titulo:"Perfil e configuraÃ§Ãµes" },
 };
 
 const chip = (texto, tom) => `<span class="machine-monitor-badge is-${tom}">${esc(texto)}</span>`;
-const nomeCarregador = id => esc(state.dados.carregadores.find(c => c.id === id)?.nome || "—");
-const nomeUsuario = id => esc(state.dados.usuarios_da_loja.find(u => u.id === id)?.nome || "—");
+const nomeCarregador = id => esc(state.dados.carregadores.find(c => c.id === id)?.nome || "â€”");
+const nomeUsuario = id => esc(state.dados.usuarios_da_loja.find(u => u.id === id)?.nome || "â€”");
 
-/* O que o cliente já acumulou no modelo que a loja tiver ativo agora. Trocar
-   de modelo não some com o que ele tinha no anterior — só deixa de aparecer
-   aqui até a loja voltar para aquele modelo. */
+/* O que o cliente jÃ¡ acumulou no modelo que a loja tiver ativo agora. Trocar
+   de modelo nÃ£o some com o que ele tinha no anterior â€” sÃ³ deixa de aparecer
+   aqui atÃ© a loja voltar para aquele modelo. */
 function fidelidadeResumoCliente(cliente){
   const e = loja();
   if (!e.fidelidade_tipo) return `<span class="table-cell-muted">sem programa</span>`;
   if (e.fidelidade_tipo === "cashback"){
     const saldo = Number(cliente.fidelidade_saldo_cashback_brl || 0);
-    return saldo > 0 ? `${brl(saldo)} disponível` : `<span class="table-cell-muted">—</span>`;
+    return saldo > 0 ? `${brl(saldo)} disponÃ­vel` : `<span class="table-cell-muted">â€”</span>`;
   }
   if (e.fidelidade_tipo === "tiers"){
     const n = Number(cliente.fidelidade_compras_mes || 0);
     const limiar = Number(e.fidelidade_tiers_a_partir_da_compra || 0);
     const pct = limiar > 0 && n >= limiar ? e.fidelidade_tiers_desconto_top_pct : e.fidelidade_tiers_desconto_inicial_pct;
-    return n > 0 ? `${n} compra(s) no mês · ${num(pct || 0, 1)}% de desconto` : `<span class="table-cell-muted">—</span>`;
+    return n > 0 ? `${n} compra(s) no mÃªs Â· ${num(pct || 0, 1)}% de desconto` : `<span class="table-cell-muted">â€”</span>`;
   }
   if (e.fidelidade_tipo === "creditos"){
     const creditos = Number(cliente.fidelidade_creditos || 0);
     const min = creditos * Number(e.fidelidade_creditos_minutos_por_credito || 0);
-    return creditos > 0 ? `${num(creditos, 0)} crédito(s) · ${num(min, 0)} min` : `<span class="table-cell-muted">—</span>`;
+    return creditos > 0 ? `${num(creditos, 0)} crÃ©dito(s) Â· ${num(min, 0)} min` : `<span class="table-cell-muted">â€”</span>`;
   }
-  return `<span class="table-cell-muted">—</span>`;
+  return `<span class="table-cell-muted">â€”</span>`;
 }
 
-/* colunas visíveis e campos editáveis de cada tabela */
+/* colunas visÃ­veis e campos editÃ¡veis de cada tabela */
 const TABELAS = {
   carregadores: {
     novo: "Adicionar carregador", vazio: "Nenhum carregador cadastrado nesta loja.",
     linhas: () => carregadoresDaLoja(),
     colunas: [
       {r:"Nome", k:"nome", v:l => esc(l.nome)},
-      {r:"Potência", k:"potencia_kw", v:l => `${num(l.potencia_kw,1)} kW`},
-      {r:"Preço", k:"preco_kwh_brl", v:l => `${brl(l.preco_kwh_brl)}/kWh`},
+      {r:"PotÃªncia", k:"potencia_kw", v:l => `${num(l.potencia_kw,1)} kW`},
+      {r:"PreÃ§o", k:"preco_kwh_brl", v:l => `${brl(l.preco_kwh_brl)}/kWh`},
       {r:"Cashback", k:"cashback_pct", v:l => chip(`${num(l.cashback_pct,1)}%`, Number(l.cashback_pct) > 0 ? "info" : "neutral")},
       {r:"Conector", k:"conector", v:l => esc(l.conector)},
-      {r:"Ativo", k:"ativo", v:l => l.ativo ? "sim" : "não"},
+      {r:"Ativo", k:"ativo", v:l => l.ativo ? "sim" : "nÃ£o"},
     ],
     campos: [
       {k:"nome", r:"Nome da vaga", t:"text", obrigatorio:true},
-      {k:"numero_serie", r:"Número de série", t:"text"},
-      {k:"potencia_kw", r:"Potência (kW)", t:"number", passo:"0.1"},
+      {k:"numero_serie", r:"NÃºmero de sÃ©rie", t:"text"},
+      {k:"potencia_kw", r:"PotÃªncia (kW)", t:"number", passo:"0.1"},
       {k:"conector", r:"Conector", t:"select", opcoes:[["Tipo 2","Tipo 2"],["CCS2","CCS2"],["GB/T","GB/T"]]},
       {k:"cashback_pct", r:"Cashback (%)", t:"number", passo:"0.5",
-       ajuda:"Quanto do valor da recarga volta como crédito da loja. O Financeiro calcula o teto que se paga."},
+       ajuda:"Quanto do valor da recarga volta como crÃ©dito da loja. O Financeiro calcula o teto que se paga."},
       {k:"kwh_por_real", r:"kWh por R$ 1 de compra", t:"number", passo:"0.001",
        ajuda:"Quem gasta mais na loja leva mais energia, proporcionalmente."},
-      {k:"preco_kwh_brl", r:"Preço por kWh", t:"number", passo:"0.01",
-       ajuda:"O motorista paga por kWh. A energia é receita, não custo de marketing."},
-      {k:"carencia_min", r:"Carência depois de cheio (min)", t:"number"},
+      {k:"preco_kwh_brl", r:"PreÃ§o por kWh", t:"number", passo:"0.01",
+       ajuda:"O motorista paga por kWh. A energia Ã© receita, nÃ£o custo de marketing."},
+      {k:"carencia_min", r:"CarÃªncia depois de cheio (min)", t:"number"},
       {k:"taxa_ociosidade_min", r:"Taxa de vaga ocupada (R$/min)", t:"number", passo:"0.01",
-       ajuda:"Cobra a vaga, nunca a energia — a recarga não para."},
-      {k:"ativo", r:"Ativo", t:"select", opcoes:[[true,"Sim"],[false,"Não"]]},
+       ajuda:"Cobra a vaga, nunca a energia â€” a recarga nÃ£o para."},
+      {k:"ativo", r:"Ativo", t:"select", opcoes:[[true,"Sim"],[false,"NÃ£o"]]},
     ],
   },
   sessoes: {
@@ -190,74 +190,74 @@ const TABELAS = {
     ordemPadrao: {col:0, dir:-1},
     linhas: () => sessoesDaLoja(),
     colunas: [
-      {r:"Início", k:"inicio", v:l => dataHora(l.inicio)},
+      {r:"InÃ­cio", k:"inicio", v:l => dataHora(l.inicio)},
       {r:"Carregador", k:"carregador_id", v:l => nomeCarregador(l.carregador_id)},
-      {r:"Cashback", k:"cashback_brl", so:"ver_financeiro", v:l => Number(l.cashback_brl) > 0 ? brl(l.cashback_brl) : `<span class="table-cell-muted">—</span>`},
+      {r:"Cashback", k:"cashback_brl", so:"ver_financeiro", v:l => Number(l.cashback_brl) > 0 ? brl(l.cashback_brl) : `<span class="table-cell-muted">â€”</span>`},
       {r:"Energia", k:"energia_kwh", v:l => `${num(l.energia_kwh,1)} kWh`},
       {r:"Autonomia", k:"energia_kwh", v:l => `${Math.round(l.energia_kwh*KM_KWH)} km`},
       {r:"Custo", k:"custo_energia_brl", so:"ver_financeiro", v:l => brl(l.custo_energia_brl)},
-      {r:"Cobrado", k:"valor_cobrado_brl", so:"ver_financeiro", v:l => Number(l.valor_cobrado_brl) ? brl(l.valor_cobrado_brl) : `<span class="table-cell-muted">—</span>`},
-      {r:"Erro da previsão", k:"erro_previsao", ord: l => erroPrevisao(l) ?? -1,
-       v:l => { const m = erroPrevisao(l); return m == null ? `<span class="table-cell-muted">—</span>` : `${m} min`; }},
-      {r:"Situação", k:"situacao", v:l => esc(l.situacao)},
+      {r:"Cobrado", k:"valor_cobrado_brl", so:"ver_financeiro", v:l => Number(l.valor_cobrado_brl) ? brl(l.valor_cobrado_brl) : `<span class="table-cell-muted">â€”</span>`},
+      {r:"Erro da previsÃ£o", k:"erro_previsao", ord: l => erroPrevisao(l) ?? -1,
+       v:l => { const m = erroPrevisao(l); return m == null ? `<span class="table-cell-muted">â€”</span>` : `${m} min`; }},
+      {r:"SituaÃ§Ã£o", k:"situacao", v:l => esc(l.situacao)},
     ],
   },
   leituras: {
-    vazio: "Sem leituras do medidor no período.",
+    vazio: "Sem leituras do medidor no perÃ­odo.",
     ordemPadrao: {col:0, dir:-1},
     linhas: () => { const ids = new Set(carregadoresDaLoja().map(c => c.id));
                     return state.dados.leituras.filter(l => ids.has(l.carregador_id)); },
     colunas: [
       {r:"Momento", k:"momento", v:l => dataHora(l.momento)},
       {r:"Carregador", k:"carregador_id", v:l => nomeCarregador(l.carregador_id)},
-      {r:"Potência", k:"potencia_kw", v:l => `${num(l.potencia_kw,2)} kW`},
-      {r:"Carga", k:"soc", v:l => l.soc == null ? `<span class="table-cell-muted">—</span>` : `${Math.round(l.soc*100)}%`},
+      {r:"PotÃªncia", k:"potencia_kw", v:l => `${num(l.potencia_kw,2)} kW`},
+      {r:"Carga", k:"soc", v:l => l.soc == null ? `<span class="table-cell-muted">â€”</span>` : `${Math.round(l.soc*100)}%`},
     ],
   },
   clientes: {
     novo: "Cadastrar cliente", vazio: "Nenhum cliente identificado ainda.",
     linhas: () => daLoja(state.dados.clientes),
     colunas: [
-      {r:"Cliente", k:"apelido", v:l => esc(l.apelido || "—")},
-      {r:"Veículo", k:"modelo_veiculo", v:l => esc(l.modelo_veiculo || "—")},
-      {r:"Bateria", k:"bateria_kwh", v:l => l.bateria_kwh ? `${num(l.bateria_kwh,0)} kWh` : `<span class="table-cell-muted">—</span>`},
+      {r:"Cliente", k:"apelido", v:l => esc(l.apelido || "â€”")},
+      {r:"VeÃ­culo", k:"modelo_veiculo", v:l => esc(l.modelo_veiculo || "â€”")},
+      {r:"Bateria", k:"bateria_kwh", v:l => l.bateria_kwh ? `${num(l.bateria_kwh,0)} kWh` : `<span class="table-cell-muted">â€”</span>`},
       {r:"Visitas", k:"visitas", v:l => num(l.visitas)},
-      {r:"Última visita", k:"ultima_visita", v:l => dataHora(l.ultima_visita)},
+      {r:"Ãšltima visita", k:"ultima_visita", v:l => dataHora(l.ultima_visita)},
       {r:"Consentimento", k:"consentimento_lgpd", v:l => l.consentimento_lgpd ? chip("dado","ok") : chip("pendente","warning")},
-      {r:"Conta", k:"usuario_id", v:l => l.usuario_id ? chip("vinculada","ok") : `<span class="table-cell-muted">não vinculada</span>`},
+      {r:"Conta", k:"usuario_id", v:l => l.usuario_id ? chip("vinculada","ok") : `<span class="table-cell-muted">nÃ£o vinculada</span>`},
       {r:"Fidelidade", k:"fidelidade_saldo_cashback_brl", so:"ver_financeiro", v:l => fidelidadeResumoCliente(l)},
     ],
     campos: [
       {k:"apelido", r:"Como chamar", t:"text",
-       ajuda:"Sem nome completo nem CPF: o banco guarda só o apelido e um identificador embaralhado."},
-      {k:"modelo_veiculo", r:"Modelo do veículo", t:"text"},
+       ajuda:"Sem nome completo nem CPF: o banco guarda sÃ³ o apelido e um identificador embaralhado."},
+      {k:"modelo_veiculo", r:"Modelo do veÃ­culo", t:"text"},
       {k:"bateria_kwh", r:"Bateria (kWh)", t:"number", passo:"0.5"},
-      {k:"consentimento_lgpd", r:"Consentimento LGPD", t:"select", opcoes:[[true,"Sim"],[false,"Não"]]},
+      {k:"consentimento_lgpd", r:"Consentimento LGPD", t:"select", opcoes:[[true,"Sim"],[false,"NÃ£o"]]},
     ],
   },
   vendas: {
-    novo: "Lançar venda", vazio: "Nenhuma venda atribuída a uma recarga.",
+    novo: "LanÃ§ar venda", vazio: "Nenhuma venda atribuÃ­da a uma recarga.",
     ordemPadrao: {col:0, dir:-1},
     linhas: () => daLoja(state.dados.vendas),
     colunas: [
       {r:"Momento", k:"momento", v:l => dataHora(l.momento)},
       {r:"Cliente", k:"cliente_id", v:l => { const c = daLoja(state.dados.clientes).find(x => x.id === l.cliente_id);
-                           return c ? esc(c.apelido || `Cliente #${c.id}`) : `<span class="table-cell-muted">não identificado</span>`; }},
+                           return c ? esc(c.apelido || `Cliente #${c.id}`) : `<span class="table-cell-muted">nÃ£o identificado</span>`; }},
       {r:"Valor", k:"valor_brl", so:"ver_financeiro", v:l => brl(l.valor_brl)},
       {r:"Cupom", k:"cupom_id", v:l => { const c = state.dados.cupons.find(x => x.id === l.cupom_id);
                            return c ? `<code>${esc(c.codigo)}</code>` : `<span class="table-cell-muted">sem cupom</span>`; }},
       {r:"Lucro estimado", k:"valor_brl", so:"ver_financeiro",
        v:l => brl(Number(l.valor_brl||0) * Number(loja().margem_liquida_pct||0)/100)},
-      {r:"Sessão", k:"sessao_id", v:l => l.sessao_id ? `#${l.sessao_id}` : `<span class="table-cell-muted">—</span>`},
+      {r:"SessÃ£o", k:"sessao_id", v:l => l.sessao_id ? `#${l.sessao_id}` : `<span class="table-cell-muted">â€”</span>`},
     ],
     campos: [
       {k:"valor_brl", r:"Valor da venda (R$)", t:"number", passo:"0.01", obrigatorio:true},
       {k:"cliente_id", r:"Cliente", t:"select",
-       opcoes:() => [["", "não identificado"], ...daLoja(state.dados.clientes).map(c => [c.id, c.apelido || `Cliente #${c.id}`])],
+       opcoes:() => [["", "nÃ£o identificado"], ...daLoja(state.dados.clientes).map(c => [c.id, c.apelido || `Cliente #${c.id}`])],
        ajuda:"Compra de um cliente identificado conta para o programa de fidelidade da loja."},
       {k:"cupom_id", r:"Cupom apresentado", t:"select",
        opcoes:() => [["", "sem cupom"], ...state.dados.cupons.slice(0,200).map(c => [c.id, c.codigo])],
-       ajuda:"É o cupom digitado no caixa que liga esta venda a uma recarga."},
+       ajuda:"Ã‰ o cupom digitado no caixa que liga esta venda a uma recarga."},
     ],
   },
   cupons: {
@@ -265,11 +265,11 @@ const TABELAS = {
     ordemPadrao: {col:2, dir:-1},
     linhas: () => state.dados.cupons,
     colunas: [
-      {r:"Código", k:"codigo", v:l => `<code>${esc(l.codigo)}</code>`},
+      {r:"CÃ³digo", k:"codigo", v:l => `<code>${esc(l.codigo)}</code>`},
       {r:"Desconto", k:"desconto_brl", so:"ver_financeiro", v:l => brl(l.desconto_brl)},
       {r:"Emitido", k:"emitido_em", v:l => dataHora(l.emitido_em)},
-      {r:"Usado", k:"usado_em", v:l => l.usado_em ? dataHora(l.usado_em) : `<span class="table-cell-muted">não usado</span>`},
-      {r:"Sessão", k:"sessao_id", v:l => `#${l.sessao_id}`},
+      {r:"Usado", k:"usado_em", v:l => l.usado_em ? dataHora(l.usado_em) : `<span class="table-cell-muted">nÃ£o usado</span>`},
+      {r:"SessÃ£o", k:"sessao_id", v:l => `#${l.sessao_id}`},
     ],
   },
   estabelecimentos: {
@@ -280,22 +280,22 @@ const TABELAS = {
       {r:"Nome", k:"nome", v:l => esc(l.nome)},
       {r:"Segmento", k:"segmento", v:l => esc(l.segmento)},
       {r:"Margem", k:"margem_liquida_pct", v:l => `${num(l.margem_liquida_pct,1)}%`},
-      {r:"Ticket médio", k:"ticket_medio_brl", v:l => brl(l.ticket_medio_brl)},
+      {r:"Ticket mÃ©dio", k:"ticket_medio_brl", v:l => brl(l.ticket_medio_brl)},
       {r:"Tarifa", k:"tarifa_kwh_brl", v:l => `${brl(l.tarifa_kwh_brl)}/kWh`},
-      {r:"Demanda", k:"demanda_contratada_kw", v:l => l.demanda_contratada_kw ? `${num(l.demanda_contratada_kw,0)} kW` : `<span class="table-cell-muted">—</span>`},
+      {r:"Demanda", k:"demanda_contratada_kw", v:l => l.demanda_contratada_kw ? `${num(l.demanda_contratada_kw,0)} kW` : `<span class="table-cell-muted">â€”</span>`},
       {r:"Cashback que se paga", k:"teto", ord: l => tetoDaLoja(l).pct,
        v:l => { const r = tetoDaLoja(l);
-                return r.pct >= 0.5 ? `${num(r.pct,1)}%` : chip("não se paga","critical"); }},
+                return r.pct >= 0.5 ? `${num(r.pct,1)}%` : chip("nÃ£o se paga","critical"); }},
     ],
     campos: [
       {k:"nome", r:"Nome", t:"text", obrigatorio:true},
-      {k:"segmento", r:"Segmento", t:"select", opcoes:[["pet","Pet shop e clínica"],["restaurante","Restaurante"],["academia","Academia"],["farmacia","Farmácia"],["mercado","Supermercado"],["cafe","Cafeteria"],["outro","Outro"]]},
-      {k:"margem_liquida_pct", r:"Margem líquida (%)", t:"number", passo:"0.1",
-       ajuda:"É daqui que sai o teto de cashback. Margem baixa não sustenta crédito alto."},
-      {k:"ticket_medio_brl", r:"Ticket médio (R$)", t:"number", passo:"1"},
+      {k:"segmento", r:"Segmento", t:"select", opcoes:[["pet","Pet shop e clÃ­nica"],["restaurante","Restaurante"],["academia","Academia"],["farmacia","FarmÃ¡cia"],["mercado","Supermercado"],["cafe","Cafeteria"],["outro","Outro"]]},
+      {k:"margem_liquida_pct", r:"Margem lÃ­quida (%)", t:"number", passo:"0.1",
+       ajuda:"Ã‰ daqui que sai o teto de cashback. Margem baixa nÃ£o sustenta crÃ©dito alto."},
+      {k:"ticket_medio_brl", r:"Ticket mÃ©dio (R$)", t:"number", passo:"1"},
       {k:"tarifa_kwh_brl", r:"Tarifa de energia (R$/kWh)", t:"number", passo:"0.0001"},
       {k:"demanda_contratada_kw", r:"Demanda contratada (kW)", t:"number", passo:"1",
-       ajuda:"O carregador não pode empurrar a loja acima disso — a multa de ultrapassagem come o ganho."},
+       ajuda:"O carregador nÃ£o pode empurrar a loja acima disso â€” a multa de ultrapassagem come o ganho."},
     ],
   },
   paineis: {
@@ -303,16 +303,16 @@ const TABELAS = {
     linhas: () => state.dados.paineis,
     colunas: [
       {r:"Nome", k:"nome", v:l => esc(l.nome)},
-      {r:"Dono", k:"usuario_id", v:l => l.usuario_id === state.usuario?.id ? "você" : nomeUsuario(l.usuario_id)},
+      {r:"Dono", k:"usuario_id", v:l => l.usuario_id === state.usuario?.id ? "vocÃª" : nomeUsuario(l.usuario_id)},
       {r:"Visibilidade", k:"compartilhado", v:l => l.compartilhado ? chip("compartilhado","info") : chip("particular","offline")},
-      {r:"Padrão", k:"padrao", v:l => l.padrao ? "sim" : `<span class="table-cell-muted">—</span>`},
+      {r:"PadrÃ£o", k:"padrao", v:l => l.padrao ? "sim" : `<span class="table-cell-muted">â€”</span>`},
       {r:"Cards", k:"cards", ord: l => (l.cards||[]).length, v:l => `${(l.cards||[]).length} cards`},
       {r:"Atualizado", k:"atualizado_em", v:l => dataHora(l.atualizado_em)},
     ],
   },
 };
 
-/* quanto a previsão errou, em minutos */
+/* quanto a previsÃ£o errou, em minutos */
 function erroPrevisao(s){
   if (!s.previsao_fim || !s.fim) return null;
   return Math.round(Math.abs(new Date(s.fim) - new Date(s.previsao_fim)) / 60000);
@@ -321,30 +321,30 @@ function erroPrevisao(s){
 /* ==========================================================================
    biblioteca de cards
    ========================================================================== */
-/* `mob` é a altura do card no celular, em linhas de 96px, e existe porque lá
-   a largura não é mais escolha de ninguém: o card ocupa a tela toda. Sem esse
-   número o card herda as 4 ou 5 linhas do desktop e vira uma coluna de 426px
-   de altura para mostrar um número de quatro dígitos.
+/* `mob` Ã© a altura do card no celular, em linhas de 96px, e existe porque lÃ¡
+   a largura nÃ£o Ã© mais escolha de ninguÃ©m: o card ocupa a tela toda. Sem esse
+   nÃºmero o card herda as 4 ou 5 linhas do desktop e vira uma coluna de 426px
+   de altura para mostrar um nÃºmero de quatro dÃ­gitos.
 
-   `min` é o menor tamanho em que o card ainda diz alguma coisa. Um gráfico de
+   `min` Ã© o menor tamanho em que o card ainda diz alguma coisa. Um grÃ¡fico de
    linha espremido em 4 colunas vira um risco; um KPI de duas linhas de texto
-   aguenta bem menos espaço. Sem esse piso por card, redimensionar quebra
+   aguenta bem menos espaÃ§o. Sem esse piso por card, redimensionar quebra
    justamente os cards que mais importam. */
 const CARDS = {
-  vaga:     {t:"Vaga monitorada", g:"OperaÃ§Ã£o", tam:"large", cols:9, rows:4, min:{cols:6, rows:3}, mob:4},
-  retorno:  {t:"Lucro atribuído × custo", g:"Retorno",  tam:"large", cols:11, rows:4, min:{cols:7, rows:3}, mob:3, financeiro:true},
+  vaga:     {t:"Vaga monitorada", g:"OperaÃƒÂ§ÃƒÂ£o", tam:"large", cols:9, rows:4, min:{cols:6, rows:3}, mob:4},
+  retorno:  {t:"Lucro atribuÃ­do Ã— custo", g:"Retorno",  tam:"large", cols:11, rows:4, min:{cols:7, rows:3}, mob:3, financeiro:true},
   cashback: {t:"Teto de cashback",        g:"Retorno",  tam:"large", cols:9,  rows:4, min:{cols:5, rows:3}, mob:3, financeiro:true},
-  horas:    {t:"Sessões por hora",        g:"Operação", tam:"large", cols:11, rows:4, min:{cols:7, rows:3}, mob:3},
-  pontos:   {t:"Carregadores",            g:"Operação", tam:"large", cols:9,  rows:4, min:{cols:5, rows:3}, mob:3},
-  previsao: {t:"Erro da previsão",        g:"Operação", tam:"large", cols:9,  rows:4, min:{cols:7, rows:3}, mob:3},
-  curva:    {t:"Curva de recarga",        g:"Operação", tam:"large", cols:20, rows:5, min:{cols:9, rows:4}, mob:4},
-  lucro:    {t:"Lucro atribuído",         g:"Retorno",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
-  vendas:   {t:"Vendas atribuídas",       g:"Retorno",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
-  sessoes:  {t:"Sessões no período",      g:"Operação", tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}},
-  clientes: {t:"Clientes únicos",         g:"Público",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}},
-  energia:  {t:"Energia entregue",        g:"Operação", tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}},
-  ticket:   {t:"Ticket de quem carrega",  g:"Público",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
-  cupons:   {t:"Cupons usados",           g:"Público",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}},
+  horas:    {t:"SessÃµes por hora",        g:"OperaÃ§Ã£o", tam:"large", cols:11, rows:4, min:{cols:7, rows:3}, mob:3},
+  pontos:   {t:"Carregadores",            g:"OperaÃ§Ã£o", tam:"large", cols:9,  rows:4, min:{cols:5, rows:3}, mob:3},
+  previsao: {t:"Erro da previsÃ£o",        g:"OperaÃ§Ã£o", tam:"large", cols:9,  rows:4, min:{cols:7, rows:3}, mob:3},
+  curva:    {t:"Curva de recarga",        g:"OperaÃ§Ã£o", tam:"large", cols:20, rows:5, min:{cols:9, rows:4}, mob:4},
+  lucro:    {t:"Lucro atribuÃ­do",         g:"Retorno",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
+  vendas:   {t:"Vendas atribuÃ­das",       g:"Retorno",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
+  sessoes:  {t:"SessÃµes no perÃ­odo",      g:"OperaÃ§Ã£o", tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}},
+  clientes: {t:"Clientes Ãºnicos",         g:"PÃºblico",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}},
+  energia:  {t:"Energia entregue",        g:"OperaÃ§Ã£o", tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}},
+  ticket:   {t:"Ticket de quem carrega",  g:"PÃºblico",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
+  cupons:   {t:"Cupons usados",           g:"PÃºblico",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}},
 };
 const minimoDoCard = id => CARDS[id]?.min || {cols: MIN_COLS, rows: MIN_ROWS};
 const cardVisivel = id => CARDS[id] && (!CARDS[id].financeiro || pode("ver_financeiro"));
@@ -354,8 +354,8 @@ const layoutPadrao = () => (pode("ver_financeiro")
   : ["horas","pontos","sessoes","clientes","energia","cupons"]
 ).map(id => ({id, grupo:CARDS[id].tam, cols:CARDS[id].cols, rows:CARDS[id].rows, config:{}}));
 
-/* Aceita tanto o formato novo (objeto com tamanho) quanto o antigo (só o id),
-   para um painel salvo antes não sumir da tela. */
+/* Aceita tanto o formato novo (objeto com tamanho) quanto o antigo (sÃ³ o id),
+   para um painel salvo antes nÃ£o sumir da tela. */
 function normalizarCards(cards){
   return (Array.isArray(cards) ? cards : [])
     .map(c => (typeof c === "string" ? {id:c} : c))
@@ -370,15 +370,15 @@ function normalizarCards(cards){
 }
 
 /* ==========================================================================
-   preferências — o que faz a tela atravessar de um computador para outro
+   preferÃªncias â€” o que faz a tela atravessar de um computador para outro
    ========================================================================== */
 let prefsPendentes = null;
 function salvarPrefs(){
   state.prefs = {
     tema: state.prefs.tema ?? "system",
-    // No celular a barra é uma gaveta e nasce fechada sempre. Gravar esse
-    // "fechada" como preferência faria o desktop abrir recolhido só porque a
-    // pessoa passou pelo celular uma vez — então lá o valor antigo é mantido.
+    // No celular a barra Ã© uma gaveta e nasce fechada sempre. Gravar esse
+    // "fechada" como preferÃªncia faria o desktop abrir recolhido sÃ³ porque a
+    // pessoa passou pelo celular uma vez â€” entÃ£o lÃ¡ o valor antigo Ã© mantido.
     sidebarColapsada: isCompactViewport()
       ? Boolean(state.prefs.sidebarColapsada)
       : document.body.classList.contains("sidebar-collapsed"),
@@ -393,20 +393,20 @@ function salvarPrefs(){
     autoRefresh: Boolean(state.prefs.autoRefresh),
     autoRefreshMs: Number(state.prefs.autoRefreshMs) || 300000,
   };
-  // uma escrita por rajada: arrastar card dispara muitas mudanças seguidas
+  // uma escrita por rajada: arrastar card dispara muitas mudanÃ§as seguidas
   clearTimeout(prefsPendentes);
   prefsPendentes = setTimeout(() => api.preferencias(state.prefs).catch(erro => {
-    // preferência é estado de tela: falhar não impede de trabalhar, mas
-    // sumir na próxima vez sem nunca ter avisado é pior
+    // preferÃªncia Ã© estado de tela: falhar nÃ£o impede de trabalhar, mas
+    // sumir na prÃ³xima vez sem nunca ter avisado Ã© pior
     if (erro instanceof ErroApi && erro.semSessao) return;
-    aviso("Não consegui guardar suas preferências", "atencao",
-          {detalhe: "Tema, seção e buscas podem não voltar no próximo acesso."});
+    aviso("NÃ£o consegui guardar suas preferÃªncias", "atencao",
+          {detalhe: "Tema, seÃ§Ã£o e buscas podem nÃ£o voltar no prÃ³ximo acesso."});
   }), 600);
 }
 function aplicarPrefs(p){
   state.prefs = p && typeof p === "object" ? p : {};
   aplicarTema(state.prefs.tema || "system", false);
-  // gaveta fechada no celular, preferência gravada no desktop
+  // gaveta fechada no celular, preferÃªncia gravada no desktop
   setSidebarCollapsed(isCompactViewport() || Boolean(state.prefs.sidebarColapsada), false);
   const fechados = Array.isArray(state.prefs.gruposFechados) ? state.prefs.gruposFechados : ["cadastros"];
   $$(".nav-group").forEach(g => {
@@ -427,10 +427,10 @@ function aplicarPrefs(p){
 /* ==========================================================================
    Avisos
 
-   Toda ação que toca o banco termina em um aviso. Não é enfeite: sem ele a
-   pessoa clica em "salvar", nada visível muda, e ela não sabe se gravou, se
+   Toda aÃ§Ã£o que toca o banco termina em um aviso. NÃ£o Ã© enfeite: sem ele a
+   pessoa clica em "salvar", nada visÃ­vel muda, e ela nÃ£o sabe se gravou, se
    falhou, ou se o clique nem chegou. E como a rede aqui leva segundos, o
-   silêncio é o estado mais comum — daí o aviso "salvando" que vira o
+   silÃªncio Ã© o estado mais comum â€” daÃ­ o aviso "salvando" que vira o
    resultado no mesmo lugar, em vez de dois avisos empilhados.
    ========================================================================== */
 const ICONES = {
@@ -462,7 +462,7 @@ function aviso(texto, tipo = "ok", {detalhe = "", vida} = {}){
         <strong>${esc(texto)}</strong>
         ${detalhe ? `<small>${esc(detalhe)}</small>` : ""}
       </span>
-      ${t === "andando" ? "" : '<button class="aviso-fechar" type="button" aria-label="Fechar aviso">×</button>'}`;
+      ${t === "andando" ? "" : '<button class="aviso-fechar" type="button" aria-label="Fechar aviso">Ã—</button>'}`;
     const fechar = $(".aviso-fechar", el);
     if (fechar) fechar.onclick = () => sair();
   };
@@ -489,7 +489,7 @@ function aviso(texto, tipo = "ok", {detalhe = "", vida} = {}){
   };
 }
 
-/* Embrulha uma operação de banco: mostra "andando", depois o resultado. É por
+/* Embrulha uma operaÃ§Ã£o de banco: mostra "andando", depois o resultado. Ã‰ por
    onde passa toda escrita, para nenhuma ficar sem resposta na tela. */
 async function comAviso(rotulo, tarefa, {sucesso, detalhe} = {}){
   const a = aviso(rotulo, "andando");
@@ -500,10 +500,10 @@ async function comAviso(rotulo, tarefa, {sucesso, detalhe} = {}){
   } catch (erro){
     if (erro instanceof ErroApi && erro.semSessao){
       a.fecha();
-      mostrarLogin("Sua sessão expirou. Entre de novo.");
+      mostrarLogin("Sua sessÃ£o expirou. Entre de novo.");
       throw erro;
     }
-    a.erro("Não deu certo", erro instanceof ErroApi ? erro.message : String(erro?.message || erro));
+    a.erro("NÃ£o deu certo", erro instanceof ErroApi ? erro.message : String(erro?.message || erro));
     console.error(rotulo, erro);
     throw erro;
   }
@@ -513,11 +513,11 @@ async function comAviso(rotulo, tarefa, {sucesso, detalhe} = {}){
 function toast(msg, tipo = "success"){
   aviso(msg, tipo === "error" ? "erro" : tipo === "warning" ? "atencao" : "ok");
 }
-/* Erro do servidor vira frase, e sessão caída volta para o login em vez de
-   deixar a pessoa clicando em algo que não vai funcionar. */
+/* Erro do servidor vira frase, e sessÃ£o caÃ­da volta para o login em vez de
+   deixar a pessoa clicando em algo que nÃ£o vai funcionar. */
 function avisarErro(erro, oQue){
-  if (erro instanceof ErroApi && erro.semSessao){ mostrarLogin("Sua sessão expirou. Entre de novo.", "erro"); return; }
-  aviso(`Não consegui ${oQue}`,
+  if (erro instanceof ErroApi && erro.semSessao){ mostrarLogin("Sua sessÃ£o expirou. Entre de novo.", "erro"); return; }
+  aviso(`NÃ£o consegui ${oQue}`,
         "erro",
         {detalhe: erro instanceof ErroApi ? erro.message : "Erro inesperado. Veja o console."});
   console.error(oQue, erro);
@@ -541,23 +541,23 @@ function mostrarLogin(mensagem = "", tipo = "erro"){
   statusLogin(mensagem, mensagem ? tipo : "");
   $("#loginEmail").focus();
 }
-/* A mensagem tem que dizer o que fazer, não só que deu errado. */
+/* A mensagem tem que dizer o que fazer, nÃ£o sÃ³ que deu errado. */
 function explicarFalha(erro){
-  if (!(erro instanceof ErroApi)) return "Não consegui entrar. Tente de novo.";
+  if (!(erro instanceof ErroApi)) return "NÃ£o consegui entrar. Tente de novo.";
   if (erro.semRede){
-    // O navegador não distingue "servidor fora do ar" de "CORS recusou": nos
-    // dois casos o fetch falha sem status. Então a mensagem cobre os dois, em
-    // vez de acusar o errado — foi o que aconteceu ao testar 127.0.0.1 contra
-    // a API publicada, que só libera a origem do GitHub Pages.
+    // O navegador nÃ£o distingue "servidor fora do ar" de "CORS recusou": nos
+    // dois casos o fetch falha sem status. EntÃ£o a mensagem cobre os dois, em
+    // vez de acusar o errado â€” foi o que aconteceu ao testar 127.0.0.1 contra
+    // a API publicada, que sÃ³ libera a origem do GitHub Pages.
     const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-    return `Não consegui falar com ${BASE}. Ou o servidor está fora do ar, `
+    return `NÃ£o consegui falar com ${BASE}. Ou o servidor estÃ¡ fora do ar, `
       + (local
-         ? "ou ele não libera esta origem: confira ORIGENS_PERMITIDAS."
-         : "ou ele está acordando — o plano gratuito hiberna. Tente de novo em um minuto.");
+         ? "ou ele nÃ£o libera esta origem: confira ORIGENS_PERMITIDAS."
+         : "ou ele estÃ¡ acordando â€” o plano gratuito hiberna. Tente de novo em um minuto.");
   }
   if (erro.status === 401) return "E-mail ou senha incorretos.";
-  if (erro.status >= 500) return "O servidor respondeu com erro. Veja o terminal onde a API está rodando.";
-  return erro.message || "Não consegui entrar.";
+  if (erro.status >= 500) return "O servidor respondeu com erro. Veja o terminal onde a API estÃ¡ rodando.";
+  return erro.message || "NÃ£o consegui entrar.";
 }
 function initLogin(){
   const form = $("#loginForm"), botao = $("#loginButton");
@@ -586,9 +586,9 @@ function initLogin(){
     statusLogin("");
     try {
       const sessao = await api.entrar(usuario, chave);
-      // A porta só fecha depois que o painel montou. Fechá-la antes deixava
-      // a pessoa numa tela vazia quando o /dados falhava — a mensagem de erro
-      // ia para um elemento já escondido, e parecia que "não carregou nada".
+      // A porta sÃ³ fecha depois que o painel montou. FechÃ¡-la antes deixava
+      // a pessoa numa tela vazia quando o /dados falhava â€” a mensagem de erro
+      // ia para um elemento jÃ¡ escondido, e parecia que "nÃ£o carregou nada".
       statusLogin("Carregando seus dados...", "ok");
       await entrarNoPainel(sessao);
       senha.value = "";
@@ -620,13 +620,13 @@ function initLogout(){
   $("#logoutConfirmar").onclick = async () => {
     abrir(false);
     try { await api.sair(); } catch {}
-    // some tudo do que era da pessoa antes de a próxima aparecer
+    // some tudo do que era da pessoa antes de a prÃ³xima aparecer
     state.dados = { estabelecimentos:[], carregadores:[], clientes:[], sessoes:[], vendas:[],
                     cupons:[], leituras:[], paineis:[], usuarios_da_loja:[] };
     state.tabela = {}; state.conversa = [];
     state.paineis = { ativo:null, editando:false, menuAberto:false, criando:false, bibliotecaAberta:false };
     $("#globalAiChatMessages").innerHTML = "";
-    mostrarLogin("Sessão encerrada.", "ok");
+    mostrarLogin("SessÃ£o encerrada.", "ok");
   };
 }
 
@@ -647,9 +647,9 @@ function initSidebar(){
   $("#sidebarToggleDesktop").onclick = () =>
     setSidebarCollapsed(!document.body.classList.contains("sidebar-collapsed"));
 
-  /* O véu atrás da gaveta é um ::before do .main-panel — pseudo-elemento não
-     recebe evento, então quem escuta é o painel inteiro, e só enquanto a
-     gaveta está aberta por cima dele. Sem isto, no celular, abrir a barra era
+  /* O vÃ©u atrÃ¡s da gaveta Ã© um ::before do .main-panel â€” pseudo-elemento nÃ£o
+     recebe evento, entÃ£o quem escuta Ã© o painel inteiro, e sÃ³ enquanto a
+     gaveta estÃ¡ aberta por cima dele. Sem isto, no celular, abrir a barra era
      um caminho sem volta. */
   $(".main-panel").addEventListener("click", ev => {
     if (!isCompactViewport()) return;
@@ -659,7 +659,7 @@ function initSidebar(){
     setSidebarCollapsed(true, false);
   }, true);
 
-  // no celular, ir para uma seção fecha a gaveta: o conteúdo está atrás dela
+  // no celular, ir para uma seÃ§Ã£o fecha a gaveta: o conteÃºdo estÃ¡ atrÃ¡s dela
   addEventListener("resize", () => {
     if (isCompactViewport()) return;
     setSidebarCollapsed(Boolean(state.prefs.sidebarColapsada), false);
@@ -721,7 +721,7 @@ function renderEstabelecimentos(){
 }
 async function trocarEstabelecimento(id){
   if (id === state.estabelecimentoId) return;
-  if (!pode("trocar_estabelecimento")) { toast("Seu papel não troca de loja."); return; }
+  if (!pode("trocar_estabelecimento")) { toast("Seu papel nÃ£o troca de loja."); return; }
   state.estabelecimentoId = id;
   state.paineis.ativo = state.prefs.painelAtivo?.[id] ?? null;
   state.paineis.editando = false;
@@ -731,7 +731,7 @@ async function trocarEstabelecimento(id){
   try {
     await comAviso("Trocando de estabelecimento...", () => carregarDados(),
       {sucesso: () => `Agora vendo ${loja().nome}`,
-       detalhe: "Painéis, tabelas e financeiro passaram a ser desta loja."});
+       detalhe: "PainÃ©is, tabelas e financeiro passaram a ser desta loja."});
   } catch { return; }
   renderEstabelecimentos();
   renderTudo();
@@ -768,7 +768,7 @@ function initTema(){
 }
 
 /* ==========================================================================
-   navegação
+   navegaÃ§Ã£o
    ========================================================================== */
 function aplicarPapel(){
   const u = state.usuario;
@@ -778,7 +778,7 @@ function aplicarPapel(){
   $("#floatingRefreshText").innerHTML = `<span class="perfil-papel">${esc(rotulo)}</span>`;
 
   document.body.classList.toggle("somente-leitura", somenteLeitura());
-  // seção bloqueada some do menu inteira, não fica clicável para falhar depois
+  // seÃ§Ã£o bloqueada some do menu inteira, nÃ£o fica clicÃ¡vel para falhar depois
   $$(".nav-item[data-section]").forEach(b => {
     b.hidden = !podeVer(b.dataset.section)
             || (TABELAS[b.dataset.section]?.soMain && u?.papel !== "main");
@@ -847,7 +847,7 @@ function ordenar(linhas, cfg, ordem){
 function renderTabela(secao){
   const cfg0 = TABELAS[secao], u = ui(secao);
   const rotuloSecao = SECOES[secao].titulo.toLowerCase();
-  // coluna marcada com `so` só existe para quem tem aquela permissão
+  // coluna marcada com `so` sÃ³ existe para quem tem aquela permissÃ£o
   const cfg = {...cfg0, colunas: cfg0.colunas.filter(c => !c.so || pode(c.so))};
   const alvo = $(`#screen-${secao}`);
   if (!alvo) return;
@@ -871,8 +871,8 @@ function renderTabela(secao){
 
   const aviso = !editavel && cfg.campos ? `
     <div class="aviso-somente-leitura">
-      <span aria-hidden="true">🔒</span>
-      <span>Seu papel vê estes registros, mas não altera. Quem edita é o gerente.</span>
+      <span aria-hidden="true">ðŸ”’</span>
+      <span>Seu papel vÃª estes registros, mas nÃ£o altera. Quem edita Ã© o gerente.</span>
     </div>` : "";
 
   alvo.innerHTML = `${aviso}
@@ -887,17 +887,17 @@ function renderTabela(secao){
           <label class="table-ordenar-celular">
             <span class="sr-only">Ordenar por</span>
             <select data-ordenar-celular>
-              <option value="">Ordem padrão</option>
+              <option value="">Ordem padrÃ£o</option>
               ${cfg.colunas.map((c, i) => `
-                <option value="${i}:1" ${ordem?.col === i && ordem.dir === 1 ? "selected" : ""}>${esc(c.r)} ↑</option>
-                <option value="${i}:-1" ${ordem?.col === i && ordem.dir === -1 ? "selected" : ""}>${esc(c.r)} ↓</option>`).join("")}
+                <option value="${i}:1" ${ordem?.col === i && ordem.dir === 1 ? "selected" : ""}>${esc(c.r)} â†‘</option>
+                <option value="${i}:-1" ${ordem?.col === i && ordem.dir === -1 ? "selected" : ""}>${esc(c.r)} â†“</option>`).join("")}
             </select>
           </label>
         </div>
         <div class="toolbar-right">
           ${marcadas ? `<span class="table-meta">${marcadas} selecionado(s)</span>` : ""}
           <span class="table-meta">Exibindo ${linhas.length} de ${todas.length} registro(s)</span>
-          <button class="icon-button" type="button" data-recarregar aria-label="Atualizar ${esc(SECOES[secao].titulo)}" title="Atualizar"><span aria-hidden="true">⟳</span></button>
+          <button class="icon-button" type="button" data-recarregar aria-label="Atualizar ${esc(SECOES[secao].titulo)}" title="Atualizar"><span aria-hidden="true">âŸ³</span></button>
         </div>
       </div>
       <div class="table-shell table-container">
@@ -914,7 +914,7 @@ function renderTabela(secao){
                   return `<th><button class="sort-button" type="button" data-ordenar="${i}"
                               data-sort-dir="${dir === 1 ? "asc" : dir === -1 ? "desc" : "none"}">
                             <span>${esc(c.r)}</span>
-                            <span class="sort-icon">${dir === 1 ? "↑" : dir === -1 ? "↓" : "↕"}</span>
+                            <span class="sort-icon">${dir === 1 ? "â†‘" : dir === -1 ? "â†“" : "â†•"}</span>
                           </button></th>`;
                 }).join("")}
               </tr></thead>
@@ -936,9 +936,9 @@ function renderTabela(secao){
     campo.focus(); campo.setSelectionRange(campo.value.length, campo.value.length);
     salvarPrefs();
   };
-  /* No celular o cabeçalho da tabela não existe — cada linha virou um cartão
-     — e com ele iriam embora os botões de ordenar. Esta lista põe a mesma
-     escolha onde ainda há cabeçalho: a barra de ferramentas. */
+  /* No celular o cabeÃ§alho da tabela nÃ£o existe â€” cada linha virou um cartÃ£o
+     â€” e com ele iriam embora os botÃµes de ordenar. Esta lista pÃµe a mesma
+     escolha onde ainda hÃ¡ cabeÃ§alho: a barra de ferramentas. */
   const ordenarCelular = $("[data-ordenar-celular]", alvo);
   if (ordenarCelular) ordenarCelular.onchange = () => {
     const [col, dir] = ordenarCelular.value.split(":");
@@ -949,7 +949,7 @@ function renderTabela(secao){
   $$("[data-ordenar]", alvo).forEach(b => b.onclick = () => {
     const i = Number(b.dataset.ordenar);
     const atual = u.ordem ?? cfg.ordemPadrao ?? null;
-    // asc -> desc -> sem ordenação, e volta
+    // asc -> desc -> sem ordenaÃ§Ã£o, e volta
     u.ordem = atual?.col !== i ? {col:i, dir:1}
             : atual.dir === 1 ? {col:i, dir:-1}
             : null;
@@ -960,7 +960,7 @@ function renderTabela(secao){
       await comAviso("Buscando dados...", () => carregarDados(),
         {sucesso: "Dados atualizados", detalhe: `${cfg.linhas().length} registro(s) em ${rotuloSecao}.`});
       renderTudo();
-    } catch { /* comAviso já mostrou */ }
+    } catch { /* comAviso jÃ¡ mostrou */ }
   };
   const todasCb = $("[data-marcar-todas]", alvo);
   if (todasCb) todasCb.onchange = ev => {
@@ -975,7 +975,7 @@ function renderTabela(secao){
 }
 
 /* ==========================================================================
-   gaveta de edição — cadastro, alteração e exclusão
+   gaveta de ediÃ§Ã£o â€” cadastro, alteraÃ§Ã£o e exclusÃ£o
    ========================================================================== */
 let editorCtx = null;   // { secao, ids:[] }  ids vazio = criando
 
@@ -995,25 +995,25 @@ function campoHtml(c, valor){
     <input id="${id}" class="editor-input" type="${c.t}" ${c.passo?`step="${c.passo}"`:""}
            value="${esc(valor ?? "")}" data-campo="${c.k}" data-tipo="${c.t}">${ajuda}</div>`;
 }
-/* Liga a ficha à conta de motorista dona daquele e-mail. Fica fora do fluxo
-   normal de "salvar campos" de propósito: usuario_id não é um texto livre
-   que o lojista digita, o servidor resolve a partir do e-mail — por isso
-   tem o próprio botão e a própria requisição, em vez de entrar junto com
-   apelido/modelo/bateria no "Salvar alterações". */
+/* Liga a ficha Ã  conta de motorista dona daquele e-mail. Fica fora do fluxo
+   normal de "salvar campos" de propÃ³sito: usuario_id nÃ£o Ã© um texto livre
+   que o lojista digita, o servidor resolve a partir do e-mail â€” por isso
+   tem o prÃ³prio botÃ£o e a prÃ³pria requisiÃ§Ã£o, em vez de entrar junto com
+   apelido/modelo/bateria no "Salvar alteraÃ§Ãµes". */
 function montarVincularConta(cliente){
   const vinculada = Boolean(cliente.usuario_id);
   $("#editorBody").insertAdjacentHTML("beforeend", `
     <div class="editor-field" data-field-wrapper="vincular_conta">
       <label>Conta do cliente</label>
       ${vinculada
-        ? `<p class="editor-help">Esta ficha já está ligada a uma conta de motorista.</p>`
+        ? `<p class="editor-help">Esta ficha jÃ¡ estÃ¡ ligada a uma conta de motorista.</p>`
         : `<div class="inline-form">
              <input class="editor-input" type="email" id="vincularEmailInput"
                     placeholder="e-mail da conta do cliente" autocomplete="off">
              <button class="ghost-button" type="button" id="vincularEmailBotao">Vincular por e-mail</button>
            </div>
-           <p class="editor-help">Liga esta ficha à conta de motorista com esse e-mail. A partir daí,
-           as compras contam fidelidade e aparecem para ela na área do cliente.</p>
+           <p class="editor-help">Liga esta ficha Ã  conta de motorista com esse e-mail. A partir daÃ­,
+           as compras contam fidelidade e aparecem para ela na Ã¡rea do cliente.</p>
            <p class="refresh-status" id="vincularEmailStatus" aria-live="polite"></p>`}
     </div>`);
   if (vinculada) return;
@@ -1028,7 +1028,7 @@ function montarVincularConta(cliente){
       await carregarDados();
       renderTudo();
       abrirEditorSelecao("clientes");
-    } catch { /* comAviso já mostrou */ }
+    } catch { /* comAviso jÃ¡ mostrou */ }
     finally { const b = $("#vincularEmailBotao"); if (b) b.disabled = false; }
   };
 }
@@ -1050,10 +1050,10 @@ function abrirEditor({secao, ids}){
   }).join("");
   if (secao === "clientes" && !criando && ids.length === 1) montarVincularConta(base);
   $("#editorStatus").textContent = criando ? "Preencha e salve para criar."
-    : ids.length > 1 ? `${ids.length} registros — o que você mudar vale para todos.`
+    : ids.length > 1 ? `${ids.length} registros â€” o que vocÃª mudar vale para todos.`
     : "1 registro selecionado.";
   $("#editorDelete").hidden = criando;
-  $("#editorSave").textContent = criando ? "Criar registro" : "Salvar alterações";
+  $("#editorSave").textContent = criando ? "Criar registro" : "Salvar alteraÃ§Ãµes";
   $("#editorDrawer").classList.add("is-open");
   $("#editorDrawer").setAttribute("aria-hidden","false");
   document.body.classList.add("editor-open");
@@ -1089,7 +1089,7 @@ async function salvarEditor(ev){
   const {secao, ids} = editorCtx, cfg = TABELAS[secao], tabela = SECOES[secao].tabela;
   const campos = lerCampos();
   const faltando = cfg.campos.find(c => c.obrigatorio && (campos[c.k] === "" || campos[c.k] == null));
-  if (faltando){ toast(`${faltando.r} é obrigatório.`, "error"); return; }
+  if (faltando){ toast(`${faltando.r} Ã© obrigatÃ³rio.`, "error"); return; }
 
   const botao = $("#editorSave");
   const rotulo = SECOES[secao].titulo.toLowerCase();
@@ -1107,13 +1107,13 @@ async function salvarEditor(ev){
     } else {
       await comAviso(ids.length > 1 ? `Salvando ${ids.length} registros...` : "Salvando...",
         async () => { for (const id of ids) await api.alterar(tabela, id, campos); },
-        {sucesso: ids.length > 1 ? `${ids.length} registros salvos` : "Alterações salvas",
+        {sucesso: ids.length > 1 ? `${ids.length} registros salvos` : "AlteraÃ§Ãµes salvas",
          detalhe: `${Object.keys(campos).length} campo(s) em ${rotulo}.`});
       await carregarDados();
       renderTudo();
       abrirEditorSelecao(secao);
     }
-  } catch { /* comAviso já mostrou */ }
+  } catch { /* comAviso jÃ¡ mostrou */ }
   finally { botao.disabled = false; }
 }
 async function excluirEditor(){
@@ -1122,28 +1122,28 @@ async function excluirEditor(){
   const botao = $("#editorDelete");
   botao.disabled = true;
   try {
-    // 409 aqui é a guarda de histórico: a frase do servidor diz o que fazer,
-    // então ela vale mais que qualquer mensagem genérica nossa
+    // 409 aqui Ã© a guarda de histÃ³rico: a frase do servidor diz o que fazer,
+    // entÃ£o ela vale mais que qualquer mensagem genÃ©rica nossa
     await comAviso(ids.length > 1 ? `Excluindo ${ids.length} registros...` : "Excluindo...",
       async () => { for (const id of ids) await api.excluir(tabela, id); },
-      {sucesso: ids.length > 1 ? `${ids.length} registros excluídos` : "Registro excluído",
+      {sucesso: ids.length > 1 ? `${ids.length} registros excluÃ­dos` : "Registro excluÃ­do",
        detalhe: `Removido de ${SECOES[secao].titulo.toLowerCase()}.`});
     ui(secao).selecionados.clear();
     fecharEditor();
     await carregarDados();
     renderTudo();
-  } catch { /* comAviso já mostrou */ }
+  } catch { /* comAviso jÃ¡ mostrou */ }
   finally { botao.disabled = false; }
 }
 
 /* ==========================================================================
-   painel: painéis salvos, edição, arrasto e redimensionamento
+   painel: painÃ©is salvos, ediÃ§Ã£o, arrasto e redimensionamento
    ========================================================================== */
 const meusPaineis = () => state.dados.paineis;
-/* Ordem de escolha: o que a pessoa abriu por último, depois o particular
-   dela (é a área de trabalho dela), depois o padrão da loja. O particular
+/* Ordem de escolha: o que a pessoa abriu por Ãºltimo, depois o particular
+   dela (Ã© a Ã¡rea de trabalho dela), depois o padrÃ£o da loja. O particular
    vem antes do compartilhado porque um painel montado para o gerente perde
-   metade dos cards quando o operador o abre — melhor cair no dele. */
+   metade dos cards quando o operador o abre â€” melhor cair no dele. */
 function painelAtual(){
   const lista = meusPaineis();
   const meu = lista.find(x => !x.compartilhado && x.usuario_id === state.usuario?.id);
@@ -1154,7 +1154,7 @@ function painelAtual(){
   if (p) state.paineis.ativo = p.id;
   return p;
 }
-/* O compartilhado é da loja: operador vê, mas não mexe. O particular é dele. */
+/* O compartilhado Ã© da loja: operador vÃª, mas nÃ£o mexe. O particular Ã© dele. */
 function podeEditarPainel(p){
   if (!p) return false;
   return p.compartilhado ? pode("editar_painel_compartilhado") : p.usuario_id === state.usuario?.id;
@@ -1185,19 +1185,19 @@ function renderPainel(){
              data-dashboard-card="${c.id}">
       <div class="dashboard-card-editor-tools">
         <button class="dashboard-card-tool" type="button" data-dashboard-card-remove="${c.id}" aria-label="Remover ${esc(CARDS[c.id].t)}">
-          <span aria-hidden="true">−</span>
+          <span aria-hidden="true">âˆ’</span>
         </button>
         <button class="dashboard-card-tool dashboard-card-tool-mover" type="button"
                 data-dashboard-card-subir="${c.id}" aria-label="Subir ${esc(CARDS[c.id].t)}">
-          <span aria-hidden="true">↑</span>
+          <span aria-hidden="true">â†‘</span>
         </button>
         <button class="dashboard-card-tool dashboard-card-tool-mover" type="button"
                 data-dashboard-card-descer="${c.id}" aria-label="Descer ${esc(CARDS[c.id].t)}">
-          <span aria-hidden="true">↓</span>
+          <span aria-hidden="true">â†“</span>
         </button>
         <button class="dashboard-card-tool dashboard-card-tool-handle" type="button" draggable="true"
                 data-dashboard-card-handle="${c.id}" aria-label="Mover ${esc(CARDS[c.id].t)}">
-          <span aria-hidden="true">⋮⋮</span>
+          <span aria-hidden="true">â‹®â‹®</span>
         </button>
       </div>
       ${corpoCard(c.id, c.config)}
@@ -1226,12 +1226,12 @@ function aplicarSpans(cards){
     no.style.setProperty("--dashboard-card-col-span", String(c.cols));
     no.style.setProperty("--dashboard-card-row-span", String(c.rows));
     // No celular o card ocupa a largura toda, e a altura vem do `mob` do
-    // catálogo — não das linhas do desktop, que ali só produziriam um card
-    // alto e vazio. Card pequeno cabe em uma linha; gráfico precisa de três.
-    // Entre 720 e 1180px (tablet em pé) a grade da referência tem duas
-    // colunas e ainda vale usá-las: gráfico ocupa as duas, indicador ocupa
-    // uma. Abaixo de 720 o painel.css força tudo a ocupar a linha inteira, e
-    // este número deixa de importar.
+    // catÃ¡logo â€” nÃ£o das linhas do desktop, que ali sÃ³ produziriam um card
+    // alto e vazio. Card pequeno cabe em uma linha; grÃ¡fico precisa de trÃªs.
+    // Entre 720 e 1180px (tablet em pÃ©) a grade da referÃªncia tem duas
+    // colunas e ainda vale usÃ¡-las: grÃ¡fico ocupa as duas, indicador ocupa
+    // uma. Abaixo de 720 o painel.css forÃ§a tudo a ocupar a linha inteira, e
+    // este nÃºmero deixa de importar.
     no.style.setProperty("--dashboard-mobile-col-span", c.grupo === "large" ? "2" : "1");
     no.style.setProperty("--dashboard-mobile-row-span",
                          String(CARDS[c.id]?.mob ?? (c.grupo === "large" ? 3 : 1)));
@@ -1239,7 +1239,7 @@ function aplicarSpans(cards){
 }
 
 /* Guarda o layout no banco. Debounce porque arrastar e redimensionar geram
-   muitas mudanças seguidas, e não vale uma requisição por pixel. */
+   muitas mudanÃ§as seguidas, e nÃ£o vale uma requisiÃ§Ã£o por pixel. */
 let gravacaoPendente = null;
 function guardarLayout(p, cards){
   p.cards = cards;
@@ -1247,14 +1247,14 @@ function guardarLayout(p, cards){
   gravacaoPendente = setTimeout(async () => {
     try {
       // O servidor normaliza o layout e devolve o que de fato gravou. Adotar
-      // a resposta é o que faz um card recusado aparecer como recusado, em
-      // vez de continuar na tela até o próximo recarregamento e sumir lá.
+      // a resposta Ã© o que faz um card recusado aparecer como recusado, em
+      // vez de continuar na tela atÃ© o prÃ³ximo recarregamento e sumir lÃ¡.
       const salvo = await api.alterarPainel(p.id, {cards});
       const antes = JSON.stringify(p.cards);
       p.cards = salvo.cards;
       if (JSON.stringify(salvo.cards) !== antes){
         aviso("Layout ajustado pelo servidor", "atencao",
-              {detalhe: "Parte do que você montou não foi aceita e voltou ao que cabe."});
+              {detalhe: "Parte do que vocÃª montou nÃ£o foi aceita e voltou ao que cabe."});
         if (state.section === "painel") renderPainel();
       } else {
         aviso("Layout salvo", "ok", {detalhe: `${cards.length} cards em ${esc(p.nome)}.`, vida: 2200});
@@ -1314,8 +1314,8 @@ function ligarArrasto(p, cards){
     };
   });
 
-  /* Mover no toque. A ordem que importa é a de dentro do grupo, porque os dois
-     grupos são grades separadas — trocar com um card do outro grupo não teria
+  /* Mover no toque. A ordem que importa Ã© a de dentro do grupo, porque os dois
+     grupos sÃ£o grades separadas â€” trocar com um card do outro grupo nÃ£o teria
      para onde ir. */
   const mover = (id, passo) => {
     const grupo = cards.filter(c => c.grupo === cards.find(x => x.id === id)?.grupo);
@@ -1341,15 +1341,15 @@ function ligarArrasto(p, cards){
 }
 
 /* ---------- redimensionar como janela ----------
-   A referência não usa alça: o card inteiro é a alça. Chegando a 8px de
+   A referÃªncia nÃ£o usa alÃ§a: o card inteiro Ã© a alÃ§a. Chegando a 8px de
    qualquer borda, o cursor vira seta de redimensionar e arrastar dali muda o
-   tamanho — inclusive pelo lado esquerdo e pelo topo, que crescem o card para
-   o lado contrário do arrasto.
+   tamanho â€” inclusive pelo lado esquerdo e pelo topo, que crescem o card para
+   o lado contrÃ¡rio do arrasto.
 
-   A conta converte pixel em célula da grade de 20 colunas, e não o contrário:
+   A conta converte pixel em cÃ©lula da grade de 20 colunas, e nÃ£o o contrÃ¡rio:
    assim o card sempre pousa alinhado com os vizinhos. E cada card tem um
-   tamanho mínimo próprio (CARDS[id].min), que é o que impede um gráfico de
-   ser espremido até virar um risco. */
+   tamanho mÃ­nimo prÃ³prio (CARDS[id].min), que Ã© o que impede um grÃ¡fico de
+   ser espremido atÃ© virar um risco. */
 const BORDA = 8;
 
 function modoDeRedimensionar(card, ev){
@@ -1372,7 +1372,7 @@ function ligarRedimensionar(p, cards){
     const conf = porId.get(card.dataset.dashboardCard);
     if (!conf) return;
 
-    // fora do arrasto, o cursor avisa que dali dá para redimensionar
+    // fora do arrasto, o cursor avisa que dali dÃ¡ para redimensionar
     card.onpointermove = ev => {
       if (arrasto || !state.paineis.editando || ev.pointerType === "touch") return;
       card.style.cursor = cursorDoModo(modoDeRedimensionar(card, ev));
@@ -1381,10 +1381,10 @@ function ligarRedimensionar(p, cards){
 
     card.onpointerdown = ev => {
       if (!state.paineis.editando || ev.button !== 0) return;
-      // no celular o card já ocupa a linha inteira; não há o que redimensionar,
-      // e uma borda de 8px é menor que a ponta de um dedo
+      // no celular o card jÃ¡ ocupa a linha inteira; nÃ£o hÃ¡ o que redimensionar,
+      // e uma borda de 8px Ã© menor que a ponta de um dedo
       if (isCompactViewport()) return;
-      // clique em botão do card (remover, mover, link) não é redimensionar
+      // clique em botÃ£o do card (remover, mover, link) nÃ£o Ã© redimensionar
       if (ev.target.closest("button, a, input, select")) return;
       const modo = modoDeRedimensionar(card, ev);
       if (!modo) return;
@@ -1405,11 +1405,11 @@ function ligarRedimensionar(p, cards){
 
       const medida = document.createElement("span");
       medida.className = "card-resize-medida";
-      medida.textContent = `${conf.cols} × ${conf.rows}`;
+      medida.textContent = `${conf.cols} Ã— ${conf.rows}`;
       card.append(medida);
 
       const mover = e => {
-        // oeste e norte crescem para o lado contrário do arrasto
+        // oeste e norte crescem para o lado contrÃ¡rio do arrasto
         const dirCol = arrasto.modo.includes("w") ? -1 : arrasto.modo.includes("e") ? 1 : 0;
         const dirLin = arrasto.modo.includes("n") ? -1 : arrasto.modo.includes("s") ? 1 : 0;
         const dCols = dirCol * (e.clientX - arrasto.x) / (larguraCol + vao);
@@ -1422,9 +1422,9 @@ function ligarRedimensionar(p, cards){
         card.style.gridRow = `span ${rows}`;
         card.style.setProperty("--dashboard-card-col-span", String(cols));
         card.style.setProperty("--dashboard-card-row-span", String(rows));
-        medida.textContent = `${cols} × ${rows}`;
-        // o SVG se estica sozinho pelo viewBox, mas as barras e os rótulos
-        // são calculados em pixel: sem redesenhar, o gráfico fica errado
+        medida.textContent = `${cols} Ã— ${rows}`;
+        // o SVG se estica sozinho pelo viewBox, mas as barras e os rÃ³tulos
+        // sÃ£o calculados em pixel: sem redesenhar, o grÃ¡fico fica errado
         desenharGraficos();
       };
       const soltar = () => {
@@ -1445,15 +1445,15 @@ function ligarRedimensionar(p, cards){
   });
 }
 
-/* ---------- menu de painéis ---------- */
+/* ---------- menu de painÃ©is ---------- */
 const ICO_EDITAR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
 const ICO_EXCLUIR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>';
 const ICO_PESSOAS = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>';
 const ICO_CADEADO = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
 const ICO_MAIS = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
 
-/* Quantos painéis ainda cabem: um compartilhado por usuário da loja, e um
-   particular por pessoa. A mesma regra está no banco; aqui ela existe para
+/* Quantos painÃ©is ainda cabem: um compartilhado por usuÃ¡rio da loja, e um
+   particular por pessoa. A mesma regra estÃ¡ no banco; aqui ela existe para
    explicar antes de a pessoa tentar. */
 function vagasDePainel(){
   const lista = meusPaineis();
@@ -1473,19 +1473,19 @@ function renderWorkspaces({animar = false} = {}){
 
   const linhas = lista.map((p, i) => {
     const editavel = podeEditarPainel(p);
-    // não dá para ficar sem painel nenhum: o último não some
+    // nÃ£o dÃ¡ para ficar sem painel nenhum: o Ãºltimo nÃ£o some
     const removivel = editavel && lista.length > 1;
     return `
     <div class="dashboard-workspaces-row${p.id === ativo ? " is-active" : ""}" data-dashboard-workspace-row="${p.id}" style="--stagger-index:${i}">
       <button class="dashboard-workspaces-row-action is-delete" type="button" data-painel-excluir="${p.id}"
-              aria-label="Excluir ${esc(p.nome)}" title="${removivel ? "Excluir painel" : "Não é possível excluir"}"
+              aria-label="Excluir ${esc(p.nome)}" title="${removivel ? "Excluir painel" : "NÃ£o Ã© possÃ­vel excluir"}"
               ${removivel ? "" : "disabled"}>${ICO_EXCLUIR}</button>
       <button class="dashboard-workspaces-row-main" type="button" data-painel-abrir="${p.id}">
         <span class="dashboard-workspaces-row-name">${esc(p.nome)}</span>
         <span class="dashboard-workspaces-visibility-badge ${p.compartilhado ? "is-shared" : "is-private"}">
           ${p.compartilhado ? ICO_PESSOAS : ICO_CADEADO}<span>${p.compartilhado ? "Compartilhado" : "Particular"}</span>
         </span>
-        ${p.id === ativo ? '<span class="dashboard-workspaces-row-active-marker" aria-hidden="true">●</span>' : ""}
+        ${p.id === ativo ? '<span class="dashboard-workspaces-row-active-marker" aria-hidden="true">â—</span>' : ""}
       </button>
       <button class="dashboard-workspaces-row-action is-edit" type="button" data-painel-editar="${p.id}"
               aria-label="Editar layout de ${esc(p.nome)}" title="${editavel ? "Editar layout" : "Somente leitura"}"
@@ -1503,11 +1503,11 @@ function renderWorkspaces({animar = false} = {}){
          <div class="dashboard-workspaces-visibility-toggle" role="radiogroup" aria-label="Visibilidade do painel">
            <button type="button" class="dashboard-workspaces-visibility-option is-shared-option${podeCompartilhado?" is-selected":""}"
                    role="radio" aria-checked="${podeCompartilhado}" data-visibilidade="shared"
-                   ${podeCompartilhado?"":"disabled"} title="${podeCompartilhado?"":"A loja já tem um compartilhado por usuário"}">
+                   ${podeCompartilhado?"":"disabled"} title="${podeCompartilhado?"":"A loja jÃ¡ tem um compartilhado por usuÃ¡rio"}">
              ${ICO_PESSOAS}<span>Compartilhado</span></button>
            <button type="button" class="dashboard-workspaces-visibility-option is-private-option${!podeCompartilhado?" is-selected":""}"
                    role="radio" aria-checked="${!podeCompartilhado}" data-visibilidade="private"
-                   ${podeParticular?"":"disabled"} title="${podeParticular?"":"Você já tem o seu particular"}">
+                   ${podeParticular?"":"disabled"} title="${podeParticular?"":"VocÃª jÃ¡ tem o seu particular"}">
              ${ICO_CADEADO}<span>Particular</span></button>
          </div>
          <div class="dashboard-workspaces-create-actions">
@@ -1522,7 +1522,7 @@ function renderWorkspaces({animar = false} = {}){
 
   const limite = `<p class="dashboard-workspaces-empty" style="opacity:.75;font-size:.76rem">
       ${vagas.compartilhados}/${vagas.usuarios} compartilhados
-      (um por usuário da loja) · ${meusParticulares ? "seu particular já existe" : "1 particular disponível"}
+      (um por usuÃ¡rio da loja) Â· ${meusParticulares ? "seu particular jÃ¡ existe" : "1 particular disponÃ­vel"}
     </p>`;
 
   const box = $("#dashboardWorkspacesList");
@@ -1538,7 +1538,7 @@ function renderWorkspaces({animar = false} = {}){
     state.paineis.ativo = Number(b.dataset.painelEditar);
     state.paineis.editando = true;
     fecharMenuPaineis(); renderPainel();
-    // no celular não há punho nem canto para puxar: a instrução seria mentira
+    // no celular nÃ£o hÃ¡ punho nem canto para puxar: a instruÃ§Ã£o seria mentira
     toast(isCompactViewport()
       ? "Use as setas do card para reordenar e o + para adicionar."
       : "Arraste pelo punho, puxe o canto para redimensionar, use o + para adicionar.");
@@ -1549,7 +1549,7 @@ function renderWorkspaces({animar = false} = {}){
     b.disabled = true;
     try {
       await comAviso("Excluindo painel...", () => api.excluirPainel(id),
-        {sucesso: "Painel excluído", detalhe: nome});
+        {sucesso: "Painel excluÃ­do", detalhe: nome});
       if (state.paineis.ativo === id) state.paineis.ativo = null;
       await carregarDados();
       renderPainel();
@@ -1584,7 +1584,7 @@ function renderWorkspaces({animar = false} = {}){
           () => api.criarPainel({estabelecimento_id: state.estabelecimentoId,
                                  nome, compartilhado, cards: layoutPadrao()}),
           {sucesso: "Painel criado",
-           detalhe: `${nome} · ${compartilhado ? "compartilhado com a loja" : "particular"}`});
+           detalhe: `${nome} Â· ${compartilhado ? "compartilhado com a loja" : "particular"}`});
         state.paineis.criando = false;
         state.paineis.ativo = novo.id;
         state.paineis.editando = true;
@@ -1631,8 +1631,8 @@ function renderBiblioteca(){
       <div class="dashboard-manager-pill-row">
         ${cards.map(c => `
           <div class="dashboard-manager-pill is-active">
-            <span>${esc(CARDS[c.id].t)} · ${c.cols}×${c.rows}</span>
-            <button class="icon-button dashboard-manager-pill-action" type="button" data-lib-remover="${c.id}" aria-label="Remover ${esc(CARDS[c.id].t)}"><span aria-hidden="true">−</span></button>
+            <span>${esc(CARDS[c.id].t)} Â· ${c.cols}Ã—${c.rows}</span>
+            <button class="icon-button dashboard-manager-pill-action" type="button" data-lib-remover="${c.id}" aria-label="Remover ${esc(CARDS[c.id].t)}"><span aria-hidden="true">âˆ’</span></button>
           </div>`).join("") || '<div class="dashboard-manager-empty-mini">Nenhum card em uso no momento.</div>'}
       </div>
     </section>
@@ -1640,12 +1640,12 @@ function renderBiblioteca(){
       const doGrupo = disponiveis.filter(id => CARDS[id].g === g);
       if (!doGrupo.length) return "";
       return `<section class="dashboard-manager-panel-section">
-        <div class="dashboard-manager-panel-section-head"><strong>${esc(g)}</strong><span>${doGrupo.length} disponível(is)</span></div>
+        <div class="dashboard-manager-panel-section-head"><strong>${esc(g)}</strong><span>${doGrupo.length} disponÃ­vel(is)</span></div>
         <div class="dashboard-manager-library-grid">
           ${doGrupo.map(id => `
             <article class="dashboard-library-card" data-dashboard-card-size="${CARDS[id].tam}">
               <div>
-                <p class="eyebrow">${esc(g)} • ${CARDS[id].tam === "large" ? "Grande" : "Pequeno"}</p>
+                <p class="eyebrow">${esc(g)} â€¢ ${CARDS[id].tam === "large" ? "Grande" : "Pequeno"}</p>
                 <h4>${esc(CARDS[id].t)}</h4>
               </div>
               <button class="ghost-button" type="button" data-lib-adicionar="${id}">Adicionar</button>
@@ -1678,15 +1678,15 @@ function fecharBiblioteca(){
 }
 
 /* ==========================================================================
-   conteúdo dos cards
+   conteÃºdo dos cards
    ========================================================================== */
 function metricas(){
   const ses = sessoesDaLoja(), ven = daLoja(state.dados.vendas), e = loja();
   const energia = ses.reduce((a,s) => a + Number(s.energia_kwh||0), 0);
   const receita = ven.reduce((a,v) => a + Number(v.valor_brl||0), 0);
   const recarga = ses.reduce((a,s) => a + Number(s.valor_cobrado_brl||0), 0);
-  // o crédito devolvido é dinheiro que saiu: entra no saldo com sinal
-  // negativo, senão o painel mostra o retorno sem o custo que o gerou
+  // o crÃ©dito devolvido Ã© dinheiro que saiu: entra no saldo com sinal
+  // negativo, senÃ£o o painel mostra o retorno sem o custo que o gerou
   const cashback = ses.reduce((a,s) => a + Number(s.cashback_brl||0), 0);
   const lucro = receita * Number(e.margem_liquida_pct || 0) / 100;
   const custoEnergia = energia * Number(e.tarifa_kwh_brl || 0.789);
@@ -1713,29 +1713,29 @@ const cabecaCard = (eyebrow, titulo) =>
 function corpoCard(id, config){
   const m = metricas(), e = loja();
   switch (id){
-    case "lucro":    return kpi("Retorno","Lucro atribuído", brl(m.lucro),
+    case "lucro":    return kpi("Retorno","Lucro atribuÃ­do", brl(m.lucro),
                        `de ${brl(m.receita)} em vendas com cupom`, m.saldo > 0 ? "ok" : "warning");
-    case "vendas":   return kpi("Negócio","Vendas atribuídas", brl(m.receita),
-                       `${m.ven.length} vendas com cupom` + (m.recarga ? ` · ${brl(m.recarga)} cobrados na tomada` : ""));
-    case "sessoes":  return kpi("Operação","Sessões", num(m.ses.length), `${num(m.ses.length/30,1)} por dia, em média`);
-    case "clientes": return kpi("Público","Clientes únicos", num(m.clientes), "identificados pelo cupom");
+    case "vendas":   return kpi("NegÃ³cio","Vendas atribuÃ­das", brl(m.receita),
+                       `${m.ven.length} vendas com cupom` + (m.recarga ? ` Â· ${brl(m.recarga)} cobrados na tomada` : ""));
+    case "sessoes":  return kpi("OperaÃ§Ã£o","SessÃµes", num(m.ses.length), `${num(m.ses.length/30,1)} por dia, em mÃ©dia`);
+    case "clientes": return kpi("PÃºblico","Clientes Ãºnicos", num(m.clientes), "identificados pelo cupom");
     case "energia":  return kpi("Custo","Energia entregue", `${num(m.energia,0)} kWh`,
-                       `${brl(m.custoEnergia)} de conta de luz · ${Math.round(m.energia*KM_KWH)} km devolvidos`);
-    case "ticket":   return kpi("Comparação","Ticket de quem carrega", brl(Number(e.ticket_medio_brl||0) * (1 + UPLIFT)),
+                       `${brl(m.custoEnergia)} de conta de luz Â· ${Math.round(m.energia*KM_KWH)} km devolvidos`);
+    case "ticket":   return kpi("ComparaÃ§Ã£o","Ticket de quem carrega", brl(Number(e.ticket_medio_brl||0) * (1 + UPLIFT)),
                        `${Math.round(UPLIFT*100)}% acima do ticket normal da loja`);
-    case "cupons":   return kpi("Atribuição","Cupons usados",
+    case "cupons":   return kpi("AtribuiÃ§Ã£o","Cupons usados",
                        `${m.cuponsEmitidos ? Math.round(m.cuponsUsados/m.cuponsEmitidos*100) : 0}%`,
                        `${num(m.cuponsUsados)} de ${num(m.cuponsEmitidos)} emitidos voltaram no caixa`);
     case "retorno":  return `<div class="trend-card">
-                       ${cabecaCard("Retorno","Lucro atribuído × custo do carregador")}
+                       ${cabecaCard("Retorno","Lucro atribuÃ­do Ã— custo do carregador")}
                        <svg id="chartRetorno" viewBox="0 0 640 240" preserveAspectRatio="none" role="img" aria-label="Lucro contra custo por dia"></svg>
-                       <p class="dashboard-kpi-meta"><span style="color:var(--status-ok)">■</span> lucro atribuído + recarga cobrada &nbsp; <span style="color:var(--status-warning)">■</span> energia + equipamento</p></div>`;
+                       <p class="dashboard-kpi-meta"><span style="color:var(--status-ok)">â– </span> lucro atribuÃ­do + recarga cobrada &nbsp; <span style="color:var(--status-warning)">â– </span> energia + equipamento</p></div>`;
     case "horas":    return `<div class="trend-card">
-                       ${cabecaCard("Movimento","Sessões por hora do dia")}
-                       <svg id="chartHoras" viewBox="0 0 640 240" preserveAspectRatio="none" role="img" aria-label="Sessões por hora"></svg></div>`;
+                       ${cabecaCard("Movimento","SessÃµes por hora do dia")}
+                       <svg id="chartHoras" viewBox="0 0 640 240" preserveAspectRatio="none" role="img" aria-label="SessÃµes por hora"></svg></div>`;
     case "previsao": return `<div class="trend-card">
-                       ${cabecaCard("Inteligência","Quanto a previsão errou")}
-                       <svg id="chartPrevisao" viewBox="0 0 640 240" preserveAspectRatio="none" role="img" aria-label="Erro da previsão em minutos"></svg>
+                       ${cabecaCard("InteligÃªncia","Quanto a previsÃ£o errou")}
+                       <svg id="chartPrevisao" viewBox="0 0 640 240" preserveAspectRatio="none" role="img" aria-label="Erro da previsÃ£o em minutos"></svg>
                        <p class="dashboard-kpi-meta" id="previsaoResumo"></p></div>`;
     case "pontos":   return `<div class="trend-card">
                        ${cabecaCard("Agora","Carregadores")}
@@ -1751,30 +1751,30 @@ function corpoCard(id, config){
 
 
 /* ==========================================================================
-   Curva de recarga — o card detalhado
+   Curva de recarga â€” o card detalhado
 
-   O eixo do tempo é a SESSÃO, não o relógio. A primeira versão mostrava as
-   últimas 24 horas e ficava quase vazia: um carregador só reporta enquanto
-   alguém está carregando, então numa loja com três recargas por dia sobram
-   vinte horas de nada. Um gráfico com dois riscos e um deserto no meio não
-   informa — parece defeito.
+   O eixo do tempo Ã© a SESSÃƒO, nÃ£o o relÃ³gio. A primeira versÃ£o mostrava as
+   Ãºltimas 24 horas e ficava quase vazia: um carregador sÃ³ reporta enquanto
+   alguÃ©m estÃ¡ carregando, entÃ£o numa loja com trÃªs recargas por dia sobram
+   vinte horas de nada. Um grÃ¡fico com dois riscos e um deserto no meio nÃ£o
+   informa â€” parece defeito.
 
    Recortado numa recarga, o mesmo desenho fica denso e diz o que interessa:
-   a potência se mantém no teto do ponto, a carga sobe em rampa, e o fim da
-   rampa é onde o carro parou de aceitar. É a leitura que a referência tem
-   com o clima da sala, com a diferença de que lá tudo é °C e aqui potência é
-   kW e carga é % — daí dois eixos, um de cada lado.
+   a potÃªncia se mantÃ©m no teto do ponto, a carga sobe em rampa, e o fim da
+   rampa Ã© onde o carro parou de aceitar. Ã‰ a leitura que a referÃªncia tem
+   com o clima da sala, com a diferenÃ§a de que lÃ¡ tudo Ã© Â°C e aqui potÃªncia Ã©
+   kW e carga Ã© % â€” daÃ­ dois eixos, um de cada lado.
 
-   SVG à mão, sem biblioteca: a CSP é `script-src 'self'`, então CDN não
-   carrega, e o dossiê promete zero dependência de gráfico.
+   SVG Ã  mÃ£o, sem biblioteca: a CSP Ã© `script-src 'self'`, entÃ£o CDN nÃ£o
+   carrega, e o dossiÃª promete zero dependÃªncia de grÃ¡fico.
    ========================================================================== */
 const SERIES_CURVA = {
-  potencia: {rotulo:"Potência", cor:"--primary",        traco:"",    largura:2.4},
+  potencia: {rotulo:"PotÃªncia", cor:"--primary",        traco:"",    largura:2.4},
   nominal:  {rotulo:"Nominal",  cor:"--status-warning", traco:"4 3", largura:1.5},
   carga:    {rotulo:"Carga",    cor:"--status-ok",      traco:"7 4", largura:2},
 };
 
-/* As recargas que têm leitura suficiente para virar curva. */
+/* As recargas que tÃªm leitura suficiente para virar curva. */
 function sessoesComCurva(){
   const porSessao = new Map();
   state.dados.leituras.forEach(l => {
@@ -1830,11 +1830,11 @@ function corpoVaga(config){
   const situacao = String(sessao?.situacao || "").toLowerCase();
   const emUso = Boolean(sessao && !sessao.fim && !["concluida", "cancelada", "encerrada"].includes(situacao));
   const status = emUso ? "Em uso" : "Livre";
-  const potencia = emUso && sessao.potencia_kw ? `${num(sessao.potencia_kw, 1)} kW` : escolhido?.potencia_kw ? `${num(escolhido.potencia_kw, 1)} kW` : "—";
-  return `<div class="vaga-monitor-card"><div class="vaga-monitor-media" role="img" aria-label="Carro elétrico conectado ao carregador">
-    <img src="../img/carro.png" alt="Carro elétrico conectado ao carregador" loading="lazy"><div class="vaga-monitor-scrim"></div>
+  const potencia = emUso && sessao.potencia_kw ? `${num(sessao.potencia_kw, 1)} kW` : escolhido?.potencia_kw ? `${num(escolhido.potencia_kw, 1)} kW` : "â€”";
+  return `<div class="vaga-monitor-card"><div class="vaga-monitor-media" role="img" aria-label="Carro elÃ©trico conectado ao carregador">
+    <img src="./img/carro.png" alt="Carro elÃ©trico conectado ao carregador" loading="lazy"><div class="vaga-monitor-scrim"></div>
     <div class="vaga-monitor-head"><div><p class="eyebrow">Monitoramento ao vivo</p><h3>${esc(escolhido?.nome || "Nenhuma vaga selecionada")}</h3></div><span class="vaga-monitor-status ${emUso ? "is-uso" : "is-livre"}"><i></i>${status}</span></div>
-    <div class="vaga-monitor-data"><div><small>Tempo</small><strong>${emUso ? duracaoVaga(sessao) : "Disponível"}</strong></div><div><small>Potência</small><strong>${potencia}</strong></div><div><small>Energia</small><strong>${emUso && sessao?.energia_kwh != null ? `${num(sessao.energia_kwh, 1)} kWh` : "—"}</strong></div></div>
+    <div class="vaga-monitor-data"><div><small>Tempo</small><strong>${emUso ? duracaoVaga(sessao) : "DisponÃ­vel"}</strong></div><div><small>PotÃªncia</small><strong>${potencia}</strong></div><div><small>Energia</small><strong>${emUso && sessao?.energia_kwh != null ? `${num(sessao.energia_kwh, 1)} kWh` : "â€”"}</strong></div></div>
     <div class="vaga-monitor-config" data-vaga-config-box hidden><label>Vaga monitorada<select data-vaga-select aria-label="Escolher vaga monitorada">${carregadores.map(c => `<option value="${c.id}" ${c.id === escolhido?.id ? "selected" : ""}>${esc(c.nome || `Vaga #${c.id}`)}</option>`).join("")}</select></label></div>
     ${carregadores.length ? `<button type="button" class="vaga-monitor-config-button" data-vaga-config>Configurar vaga</button>` : `<span class="vaga-monitor-empty">Cadastre um carregador para monitorar esta vaga.</span>`}
   </div></div>`;
@@ -1852,7 +1852,7 @@ function corpoCurva(id, config){
   return `<div class="curva-card">
     <div class="curva-topo">
       <div class="curva-titulo">
-        <p class="eyebrow">Curva de recarga · ${esc(dataHora(sessao.inicio))}</p>
+        <p class="eyebrow">Curva de recarga Â· ${esc(dataHora(sessao.inicio))}</p>
         <h3>${esc(carregador?.nome || "Carregador")}</h3>
       </div>
       <div class="curva-lateral">
@@ -1860,21 +1860,21 @@ function corpoCurva(id, config){
           ${Object.values(SERIES_CURVA).map(x => `
             <span class="curva-chave"><i style="background:var(${x.cor})"></i>${esc(x.rotulo)}</span>`).join("")}
         </div>
-        <select class="curva-escolha" data-curva-sessao="${id}" aria-label="Recarga mostrada no gráfico">
+        <select class="curva-escolha" data-curva-sessao="${id}" aria-label="Recarga mostrada no grÃ¡fico">
           ${todas.map(x => `<option value="${x.sessao.id}" ${x.sessao.id === sessao.id ? "selected" : ""}>
-            ${esc(x.carregador?.nome || "")} · ${esc(dataHora(x.sessao.inicio))}</option>`).join("")}
+            ${esc(x.carregador?.nome || "")} Â· ${esc(dataHora(x.sessao.inicio))}</option>`).join("")}
         </select>
       </div>
     </div>
     <div class="curva-area">
       <svg class="curva-svg" id="curva_${id}" role="img"
-           aria-label="Potência e carga durante a recarga"></svg>
+           aria-label="PotÃªncia e carga durante a recarga"></svg>
       <div class="curva-dica" id="curvaDica_${id}" hidden></div>
     </div>
     <div class="curva-resumo">
       <span><b>${num(sessao.energia_kwh, 1)} kWh</b> entregues</span>
       <span><b>${minutos} min</b> de recarga</span>
-      <span>carga <b>${Math.round((sessao.soc_inicial ?? 0) * 100)}% → ${Math.round((sessao.soc_final ?? 0) * 100)}%</b></span>
+      <span>carga <b>${Math.round((sessao.soc_inicial ?? 0) * 100)}% â†’ ${Math.round((sessao.soc_final ?? 0) * 100)}%</b></span>
       <span><b>${Math.round(sessao.energia_kwh * KM_KWH)} km</b> devolvidos</span>
     </div>
   </div>`;
@@ -1887,7 +1887,7 @@ function desenharCurva(id, config){
   if (!escolha) return;
   const {sessao, carregador, leituras} = escolha;
 
-  // o viewBox acompanha o tamanho real do card, para o texto não esticar
+  // o viewBox acompanha o tamanho real do card, para o texto nÃ£o esticar
   const caixa = alvo.getBoundingClientRect();
   const W = Math.max(360, Math.round(caixa.width)) || 720;
   const H = Math.max(150, Math.round(caixa.height)) || 220;
@@ -1916,7 +1916,7 @@ function desenharCurva(id, config){
        + `<text x="${E - 8}" y="${(py + 3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="${suave}">${num(v, 1)}</text>`
        + `<text x="${W - D + 8}" y="${(yPct(25 * i) + 3.5).toFixed(1)}" text-anchor="start" font-size="10" fill="${suave}">${25 * i}%</text>`;
   }
-  // o eixo do tempo conta minutos desde o início — é o que a pessoa acompanha
+  // o eixo do tempo conta minutos desde o inÃ­cio â€” Ã© o que a pessoa acompanha
   const marcas = Math.max(3, Math.min(7, Math.floor((W - E - D) / 80)));
   for (let i = 0; i <= marcas; i++){
     const ms = t0 + (t1 - t0) * i / marcas, px = x(ms);
@@ -1958,7 +1958,7 @@ function desenharCurva(id, config){
     marca.setAttribute("opacity", "1");
     dica.hidden = false;
     dica.innerHTML = `<strong>${Math.round((new Date(melhor.momento) - t0) / 60000)} min de recarga</strong>
-      <span><i style="background:var(--primary)"></i>Potência <b>${num(melhor.potencia_kw, 2)} kW</b></span>
+      <span><i style="background:var(--primary)"></i>PotÃªncia <b>${num(melhor.potencia_kw, 2)} kW</b></span>
       <span><i style="background:var(--status-warning)"></i>Nominal <b>${num(nominal, 1)} kW</b></span>
       ${melhor.soc == null ? "" : `<span><i style="background:var(--status-ok)"></i>Carga <b>${Math.round(melhor.soc * 100)}%</b></span>`}`;
     const meia = (dica.offsetWidth || 150) / 2;
@@ -1977,13 +1977,13 @@ function desenharCurva(id, config){
     const card = cards.find(c => c.id === id);
     if (!card) return;
     card.config = {...card.config, sessao_id: Number(ev.target.value)};
-    guardarLayout(p, cards);        // a escolha é do card, e viaja com ele
+    guardarLayout(p, cards);        // a escolha Ã© do card, e viaja com ele
     renderPainel();
   };
 }
 
 /* ==========================================================================
-   gráficos
+   grÃ¡ficos
    ========================================================================== */
 const cor = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || "#8899aa";
 
@@ -2030,16 +2030,16 @@ function desenharGraficos(){
     faixa.forEach((v,i) => {
       const h = v*(H-T-B)/max;
       g += `<rect x="${(L+slot*i+(slot-bw)/2).toFixed(1)}" y="${(H-B-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(h,1).toFixed(1)}"
-                  rx="3" fill="${cor("--primary")}" opacity="${v===max?"1":"0.55"}"><title>${i+6}h — ${v} sessões</title></rect>`;
+                  rx="3" fill="${cor("--primary")}" opacity="${v===max?"1":"0.55"}"><title>${i+6}h â€” ${v} sessÃµes</title></rect>`;
       if (i%3===0) g += `<text x="${(L+slot*i+slot/2).toFixed(1)}" y="${H-B+16}" text-anchor="middle" font-size="11" fill="${cor("--muted")}">${i+6}h</text>`;
     });
     $("#chartHoras").innerHTML = g;
   }
 
   if ($("#chartPrevisao")){
-    // faixas de erro em minutos: é o card que audita a própria IA
+    // faixas de erro em minutos: Ã© o card que audita a prÃ³pria IA
     const erros = ses.map(erroPrevisao).filter(v => v != null);
-    const faixas = [[0,5,"até 5 min"],[5,10,"5 a 10"],[10,15,"10 a 15"],[15,30,"15 a 30"],[30,1e9,"mais de 30"]];
+    const faixas = [[0,5,"atÃ© 5 min"],[5,10,"5 a 10"],[10,15,"10 a 15"],[15,30,"15 a 30"],[30,1e9,"mais de 30"]];
     const contagem = faixas.map(([a,b]) => erros.filter(v => v >= a && v < b).length);
     const max = Math.max(1, ...contagem);
     const W=640,H=240,L=36,R=12,T=14,B=34, slot=(W-L-R)/faixas.length, bw=slot*0.55;
@@ -2048,14 +2048,14 @@ function desenharGraficos(){
       const h = v*(H-T-B)/max;
       const bom = i < 2;
       g += `<rect x="${(L+slot*i+(slot-bw)/2).toFixed(1)}" y="${(H-B-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(h,1).toFixed(1)}"
-                  rx="3" fill="${bom ? cor("--status-ok") : cor("--status-warning")}" opacity="0.85"><title>${v} sessões</title></rect>
+                  rx="3" fill="${bom ? cor("--status-ok") : cor("--status-warning")}" opacity="0.85"><title>${v} sessÃµes</title></rect>
             <text x="${(L+slot*i+slot/2).toFixed(1)}" y="${H-B+16}" text-anchor="middle" font-size="10" fill="${cor("--muted")}">${faixas[i][2]}</text>`;
     });
     $("#chartPrevisao").innerHTML = g;
     const dentro = erros.filter(v => v <= 10).length;
     $("#previsaoResumo").innerHTML = erros.length
-      ? `<strong>${Math.round(dentro/erros.length*100)}%</strong> das previsões erraram 10 minutos ou menos, em ${erros.length} sessões.`
-      : "Sem sessões concluídas para comparar.";
+      ? `<strong>${Math.round(dentro/erros.length*100)}%</strong> das previsÃµes erraram 10 minutos ou menos, em ${erros.length} sessÃµes.`
+      : "Sem sessÃµes concluÃ­das para comparar.";
   }
 
   if ($("#pontosAoVivo")){
@@ -2064,7 +2064,7 @@ function desenharGraficos(){
       <div class="linha-ponto">
         <div class="linha-ponto-copy">
           <strong>${esc(c.nome)}</strong>
-          <span>${num(c.potencia_kw,1)} kW · ${brl(c.preco_kwh_brl)}/kWh · ${num(c.cashback_pct,1)}% de volta</span>
+          <span>${num(c.potencia_kw,1)} kW Â· ${brl(c.preco_kwh_brl)}/kWh Â· ${num(c.cashback_pct,1)}% de volta</span>
         </div>
         ${chip(c.ativo ? "ativo" : "inativo", c.ativo ? "ok" : "offline")}
         <a class="ghost-button" href="../vaga/?vaga=${encodeURIComponent(c.nome)}&loja=${encodeURIComponent(e.nome||"")}&cashback=${c.cashback_pct}&preco=${c.preco_kwh_brl}&full=1" target="_blank" rel="noopener">Telinha</a>
@@ -2078,10 +2078,10 @@ function desenharGraficos(){
       ? `<p class="dashboard-kpi-meta">Cada visita deixa <strong>${brl(r.sobra)}</strong> depois da energia, da compra e do equipamento.</p>
          <strong class="dashboard-kpi-value">${num(r.pct,1)}%</strong>
          <p class="dashboard-kpi-meta">${r.cobreTudo
-             ? `a visita se paga mesmo devolvendo a recarga inteira (${brl(r.cobrado)} em média)`
-             : `de cashback por recarga, sobre os ${brl(r.cobrado)} médios cobrados`}</p>`
-      : `<p class="dashboard-kpi-meta">Cada visita deixa <strong>${brl(r.sobra)}</strong> — não sobra para devolver crédito.</p>
-         <strong class="dashboard-kpi-value" style="color:var(--status-critical)">Não se paga</strong>
+             ? `a visita se paga mesmo devolvendo a recarga inteira (${brl(r.cobrado)} em mÃ©dia)`
+             : `de cashback por recarga, sobre os ${brl(r.cobrado)} mÃ©dios cobrados`}</p>`
+      : `<p class="dashboard-kpi-meta">Cada visita deixa <strong>${brl(r.sobra)}</strong> â€” nÃ£o sobra para devolver crÃ©dito.</p>
+         <strong class="dashboard-kpi-value" style="color:var(--status-critical)">NÃ£o se paga</strong>
          <p class="dashboard-kpi-meta">Com esta margem e este ticket, o cashback consome o retorno.</p>`;
   }
 }
@@ -2095,21 +2095,21 @@ function renderFinanceiro(){
   const r = tetoDaLoja(e);
   const saldo = m.saldo;
   const veredito = saldo > 0
-    ? "o cashback está se pagando"
-    : "o cashback está grande demais para esta margem";
+    ? "o cashback estÃ¡ se pagando"
+    : "o cashback estÃ¡ grande demais para esta margem";
   const blocos = [
-    ["Entrou","Lucro atribuído", brl(m.lucro), `${m.ven.length} vendas com cupom`, ""],
+    ["Entrou","Lucro atribuÃ­do", brl(m.lucro), `${m.ven.length} vendas com cupom`, ""],
     ["Entrou","Recarga cobrada", brl(m.recarga), "pontos que cobram por kWh", ""],
     ["Saiu","Energia", brl(m.custoEnergia), `${num(m.energia,0)} kWh a ${brl(e.tarifa_kwh_brl)}/kWh`, "warning"],
-    ["Saiu","Equipamento", brl(m.custoEquip), `${brl(AMORT)} por sessão, 5 anos`, "warning"],
-    ["Saiu","Cashback devolvido", brl(m.cashback), `${brl(m.cashbackResgatado)} já resgatados no caixa`, "warning"],
+    ["Saiu","Equipamento", brl(m.custoEquip), `${brl(AMORT)} por sessÃ£o, 5 anos`, "warning"],
+    ["Saiu","Cashback devolvido", brl(m.cashback), `${brl(m.cashbackResgatado)} jÃ¡ resgatados no caixa`, "warning"],
     [saldo > 0 ? "No azul" : "No vermelho","Saldo", brl(saldo), veredito, saldo > 0 ? "ok" : "critical"],
   ];
   $("#screen-financeiro").innerHTML = `
     <article class="table-card">
       <div class="table-toolbar">
         <div class="toolbar-left"><h3 class="table-title">Resultado de ${esc(e.nome || "")}</h3></div>
-        <div class="toolbar-right"><span class="table-meta">${m.ses.length} sessões no período</span></div>
+        <div class="toolbar-right"><span class="table-meta">${m.ses.length} sessÃµes no perÃ­odo</span></div>
       </div>
       <div class="dashboard-canvas-grid dashboard-canvas-grid-small" style="padding:18px">
         ${blocos.map(([a,b,c,d,t]) =>
@@ -2118,14 +2118,14 @@ function renderFinanceiro(){
       <div class="table-section-banner">
         <strong>Cashback recomendado:</strong>
         ${r.pct >= 0.5
-          ? ` até ${num(r.pct,1)}% do valor da recarga.${r.cobreTudo
-              ? " Nesta loja o retorno da visita cobre a recarga inteira — 100% é o teto prático, não o da conta." : ""}
+          ? ` atÃ© ${num(r.pct,1)}% do valor da recarga.${r.cobreTudo
+              ? " Nesta loja o retorno da visita cobre a recarga inteira â€” 100% Ã© o teto prÃ¡tico, nÃ£o o da conta." : ""}
               Sai da margem de ${num(e.margem_liquida_pct,1)}% sobre um ticket de ${brl(e.ticket_medio_brl)}:
               ${brl(r.lucro)} de lucro por visita, mais ${brl(r.margemRecarga)} de margem na energia,
-              menos ${brl(AMORT)} do equipamento — sobre os ${brl(r.cobrado)} médios cobrados por recarga.`
-          : ` neste cenário o cashback não se paga. Com margem de ${num(e.margem_liquida_pct,1)}% e ticket de ${brl(e.ticket_medio_brl)},
+              menos ${brl(AMORT)} do equipamento â€” sobre os ${brl(r.cobrado)} mÃ©dios cobrados por recarga.`
+          : ` neste cenÃ¡rio o cashback nÃ£o se paga. Com margem de ${num(e.margem_liquida_pct,1)}% e ticket de ${brl(e.ticket_medio_brl)},
               cada visita deixa ${brl(r.sobra)} depois do equipamento.
-              Aqui o caminho é subir o preço por kWh antes de devolver crédito.`}
+              Aqui o caminho Ã© subir o preÃ§o por kWh antes de devolver crÃ©dito.`}
       </div>
     </article>`;
 }
@@ -2133,45 +2133,45 @@ function renderFinanceiro(){
 /* ==========================================================================
    fidelidade
 
-   Um modelo por loja, entre os três que existem. As colunas de cada modelo
+   Um modelo por loja, entre os trÃªs que existem. As colunas de cada modelo
    ficam todas em `estabelecimentos` (como margem_liquida_pct e afins) e
-   nunca se apagam ao trocar de modelo — voltar para um modelo antigo
-   reaproveita o que já estava configurado nele.
+   nunca se apagam ao trocar de modelo â€” voltar para um modelo antigo
+   reaproveita o que jÃ¡ estava configurado nele.
    ========================================================================== */
 const FIDELIDADE_MODELOS = {
   cashback: {
     titulo: "Cashback",
-    descricao: "O cliente gasta na loja e ganha um percentual de desconto na próxima carga. Simples de rodar: a loja só “paga” depois de já ter lucrado com a venda.",
-    exemplo: "Exemplo: cliente gasta R$ 40 no café e ganha 15% de desconto na próxima carga.",
+    descricao: "O cliente gasta na loja e ganha um percentual de desconto na prÃ³xima carga. Simples de rodar: a loja sÃ³ â€œpagaâ€ depois de jÃ¡ ter lucrado com a venda.",
+    exemplo: "Exemplo: cliente gasta R$ 40 no cafÃ© e ganha 15% de desconto na prÃ³xima carga.",
     campos: [
       {k:"fidelidade_cashback_pct", r:"Cashback (%)", t:"number", passo:"0.5", obrigatorio:true,
-       ajuda:"Percentual do valor gasto na loja que volta como desconto na próxima carga."},
+       ajuda:"Percentual do valor gasto na loja que volta como desconto na prÃ³xima carga."},
     ],
   },
   tiers: {
     titulo: "Tiers",
-    descricao: "Quanto mais o cliente volta, maior o benefício — fideliza de verdade, não é só uma promoção pontual.",
-    exemplo: "Exemplo: 1ª compra do mês dá 5% de desconto; a partir da 3ª compra, sobe para 10%.",
+    descricao: "Quanto mais o cliente volta, maior o benefÃ­cio â€” fideliza de verdade, nÃ£o Ã© sÃ³ uma promoÃ§Ã£o pontual.",
+    exemplo: "Exemplo: 1Âª compra do mÃªs dÃ¡ 5% de desconto; a partir da 3Âª compra, sobe para 10%.",
     campos: [
-      {k:"fidelidade_tiers_desconto_inicial_pct", r:"Desconto na 1ª compra do mês (%)", t:"number", passo:"0.5", obrigatorio:true},
-      {k:"fidelidade_tiers_a_partir_da_compra", r:"A partir de qual compra do mês sobe", t:"number", passo:"1", obrigatorio:true,
-       ajuda:"Da 2ª compra em diante — a 1ª já está coberta pelo desconto inicial."},
+      {k:"fidelidade_tiers_desconto_inicial_pct", r:"Desconto na 1Âª compra do mÃªs (%)", t:"number", passo:"0.5", obrigatorio:true},
+      {k:"fidelidade_tiers_a_partir_da_compra", r:"A partir de qual compra do mÃªs sobe", t:"number", passo:"1", obrigatorio:true,
+       ajuda:"Da 2Âª compra em diante â€” a 1Âª jÃ¡ estÃ¡ coberta pelo desconto inicial."},
       {k:"fidelidade_tiers_desconto_top_pct", r:"Desconto a partir dessa compra (%)", t:"number", passo:"0.5", obrigatorio:true},
     ],
   },
   creditos: {
-    titulo: "Créditos do app",
-    descricao: "O cliente acumula uma moeda própria da Smart Charge, usável na carga e, no futuro, em outras lojas parceiras. Cria efeito de rede.",
-    exemplo: "Exemplo: a cada R$ 10 gastos o cliente ganha 1 crédito; 1 crédito equivale a 5 minutos de carga.",
+    titulo: "CrÃ©ditos do app",
+    descricao: "O cliente acumula uma moeda prÃ³pria da Smart Charge, usÃ¡vel na carga e, no futuro, em outras lojas parceiras. Cria efeito de rede.",
+    exemplo: "Exemplo: a cada R$ 10 gastos o cliente ganha 1 crÃ©dito; 1 crÃ©dito equivale a 5 minutos de carga.",
     campos: [
-      {k:"fidelidade_creditos_reais_por_credito", r:"Reais gastos por crédito (R$)", t:"number", passo:"0.5", obrigatorio:true},
-      {k:"fidelidade_creditos_minutos_por_credito", r:"Minutos de carga por crédito", t:"number", passo:"1", obrigatorio:true},
+      {k:"fidelidade_creditos_reais_por_credito", r:"Reais gastos por crÃ©dito (R$)", t:"number", passo:"0.5", obrigatorio:true},
+      {k:"fidelidade_creditos_minutos_por_credito", r:"Minutos de carga por crÃ©dito", t:"number", passo:"1", obrigatorio:true},
     ],
   },
 };
 
-// Rascunho na tela, antes de salvar. `undefined` == ainda não abriu a seção
-// nesta sessão de uso; a partir da primeira renderização vira o modelo ativo
+// Rascunho na tela, antes de salvar. `undefined` == ainda nÃ£o abriu a seÃ§Ã£o
+// nesta sessÃ£o de uso; a partir da primeira renderizaÃ§Ã£o vira o modelo ativo
 // da loja (ou `null`, se nenhum foi escolhido ainda).
 let fidelidadeSelecao;
 
@@ -2183,8 +2183,8 @@ function renderFidelidade(){
 
   const aviso = !editavel ? `
     <div class="aviso-somente-leitura">
-      <span aria-hidden="true">🔒</span>
-      <span>Seu papel vê o programa de fidelidade, mas não altera. Quem edita é o gerente.</span>
+      <span aria-hidden="true">ðŸ”’</span>
+      <span>Seu papel vÃª o programa de fidelidade, mas nÃ£o altera. Quem edita Ã© o gerente.</span>
     </div>` : "";
 
   const cartoes = Object.entries(FIDELIDADE_MODELOS).map(([id, m]) => `
@@ -2204,7 +2204,7 @@ function renderFidelidade(){
     <div class="fidelidade-config">
       <div class="card-heading">
         <div><h3>Personalizar ${esc(modelo.titulo)}</h3>
-        <p>Estes números valem para toda a loja, a partir de quando você salvar.</p></div>
+        <p>Estes nÃºmeros valem para toda a loja, a partir de quando vocÃª salvar.</p></div>
       </div>
       <form class="inline-form" id="formFidelidade">
         ${modelo.campos.map(c => campoHtml(c, e[c.k])).join("")}
@@ -2247,7 +2247,7 @@ async function salvarFidelidade(ev){
   const payload = {fidelidade_tipo: fidelidadeSelecao};
   for (const c of modelo.campos){
     const el = $(`#formFidelidade [data-campo="${c.k}"]`);
-    if (c.obrigatorio && el.value === ""){ toast(`${c.r} é obrigatório.`, "error"); return; }
+    if (c.obrigatorio && el.value === ""){ toast(`${c.r} Ã© obrigatÃ³rio.`, "error"); return; }
     payload[c.k] = el.value === "" ? null : Number(el.value);
   }
   const botao = $("#formFidelidade button[type=submit]");
@@ -2258,7 +2258,7 @@ async function salvarFidelidade(ev){
       {sucesso: "Fidelidade atualizada", detalhe: `${modelo.titulo} salvo para ${loja().nome}.`});
     await carregarDados();
     renderTudo();
-  } catch { /* comAviso já mostrou */ }
+  } catch { /* comAviso jÃ¡ mostrou */ }
   finally { if (botao) botao.disabled = false; }
 }
 
@@ -2307,12 +2307,12 @@ function initAssistente(){
       dizer(r.resposta, "assistant");
       state.conversa.push({papel:"assistant", texto:r.resposta});
     } catch (erro){
-      if (erro instanceof ErroApi && erro.semSessao) return mostrarLogin("Sua sessão expirou. Entre de novo.", "erro");
+      if (erro instanceof ErroApi && erro.semSessao) return mostrarLogin("Sua sessÃ£o expirou. Entre de novo.", "erro");
       const motivo = erro instanceof ErroApi && erro.status === 503
-        ? "O assistente não está configurado neste servidor (falta a chave da OpenRouter)."
-        : "Não consegui responder agora. Tente de novo em instantes.";
+        ? "O assistente nÃ£o estÃ¡ configurado neste servidor (falta a chave da OpenRouter)."
+        : "NÃ£o consegui responder agora. Tente de novo em instantes.";
       dizer(motivo, "assistant");
-      aviso("O assistente não respondeu", "erro", {detalhe: motivo});
+      aviso("O assistente nÃ£o respondeu", "erro", {detalhe: motivo});
     } finally {
       orb()?.setAttribute("state", "idle");
       $("#globalAiChatStatus").lastElementChild.textContent = "Pronta para responder sobre esta tela";
@@ -2329,7 +2329,7 @@ function saudarAssistente(){
   state.conversa = [];
   dizer(pode("ver_financeiro")
     ? "Pergunte sobre o retorno, o cashback, os carregadores ou os clientes desta loja."
-    : "Pergunte sobre as recargas, os carregadores e os clientes. O financeiro é com o gerente.",
+    : "Pergunte sobre as recargas, os carregadores e os clientes. O financeiro Ã© com o gerente.",
     "assistant");
 }
 
@@ -2337,24 +2337,24 @@ function saudarAssistente(){
 /* ==========================================================================
    Ditar em vez de digitar
 
-   Grava no navegador e transcreve no servidor. A primeira versão usava o
-   reconhecimento de fala do próprio navegador — grátis e instantâneo, mas só
-   Chrome e derivados têm, cada um conversa com um serviço diferente, e quando
-   esse serviço não responde a API fica muda: nem `onstart`, nem `onerror`,
-   nada. Era o que travava o botão em "Abrindo..." sem explicação possível.
+   Grava no navegador e transcreve no servidor. A primeira versÃ£o usava o
+   reconhecimento de fala do prÃ³prio navegador â€” grÃ¡tis e instantÃ¢neo, mas sÃ³
+   Chrome e derivados tÃªm, cada um conversa com um serviÃ§o diferente, e quando
+   esse serviÃ§o nÃ£o responde a API fica muda: nem `onstart`, nem `onerror`,
+   nada. Era o que travava o botÃ£o em "Abrindo..." sem explicaÃ§Ã£o possÃ­vel.
 
-   `MediaRecorder` existe em Chrome, Edge, Opera, Firefox e Safari há anos, e
-   o que ele produz é um arquivo — ou grava, ou dá erro. A transcrição passou
-   a sair do mesmo lugar de onde já sai o resto do assistente.
+   `MediaRecorder` existe em Chrome, Edge, Opera, Firefox e Safari hÃ¡ anos, e
+   o que ele produz Ã© um arquivo â€” ou grava, ou dÃ¡ erro. A transcriÃ§Ã£o passou
+   a sair do mesmo lugar de onde jÃ¡ sai o resto do assistente.
 
-   O áudio é convertido para WAV 16 kHz mono aqui mesmo: é o formato que o
-   modelo aceita, e reamostrar antes de subir corta o arquivo para um terço
+   O Ã¡udio Ã© convertido para WAV 16 kHz mono aqui mesmo: Ã© o formato que o
+   modelo aceita, e reamostrar antes de subir corta o arquivo para um terÃ§o
    sem perder nada da fala.
    ========================================================================== */
 const GRAVACAO_MAXIMA = 60000;      // um minuto: o suficiente para uma pergunta
 
-/* WAV de 16 bits a partir das amostras já reamostradas. São 44 bytes de
-   cabeçalho e os dados crus — não vale trazer biblioteca para isso. */
+/* WAV de 16 bits a partir das amostras jÃ¡ reamostradas. SÃ£o 44 bytes de
+   cabeÃ§alho e os dados crus â€” nÃ£o vale trazer biblioteca para isso. */
 function paraWav(amostras, taxa){
   const buffer = new ArrayBuffer(44 + amostras.length * 2);
   const v = new DataView(buffer);
@@ -2378,7 +2378,7 @@ function paraWav(amostras, taxa){
   return buffer;
 }
 
-/* Mistura os canais e reamostra para 16 kHz — taxa de fala, um terço do
+/* Mistura os canais e reamostra para 16 kHz â€” taxa de fala, um terÃ§o do
    tamanho de 48 kHz e nenhuma perda que importe para voz. */
 async function prepararAudio(blob){
   const contexto = new (window.AudioContext || window.webkitAudioContext)();
@@ -2396,7 +2396,7 @@ async function prepararAudio(blob){
 
   const bytes = new Uint8Array(paraWav(saida, destino));
   let bruto = "";
-  // em pedaços: String.fromCharCode com centenas de milhares de argumentos
+  // em pedaÃ§os: String.fromCharCode com centenas de milhares de argumentos
   // estoura a pilha de chamada
   for (let i = 0; i < bytes.length; i += 8192){
     bruto += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
@@ -2410,7 +2410,7 @@ function initVoz(){
   const status = $("#globalAiChatStatus");
   const temGravador = typeof MediaRecorder !== "undefined"
                    && Boolean(navigator.mediaDevices?.getUserMedia);
-  if (!botao || !temGravador) return;      // sem gravador, sem botão
+  if (!botao || !temGravador) return;      // sem gravador, sem botÃ£o
   botao.hidden = false;
 
   let gravador = null, faixa = null, pedacos = [], relogio = null, contador = null;
@@ -2427,39 +2427,39 @@ function initVoz(){
     botao.setAttribute("aria-pressed", String(estado === "gravando"));
     $("span", botao).textContent = rotulo;
   };
-  /* Volta ao repouso e solta o microfone aconteça o que acontecer. Botão
-     travado num estado intermediário é pior que botão que falha. */
+  /* Volta ao repouso e solta o microfone aconteÃ§a o que acontecer. BotÃ£o
+     travado num estado intermediÃ¡rio Ã© pior que botÃ£o que falha. */
   const soltar = (texto, estado = "", aviso_ = null) => {
     clearTimeout(relogio); clearInterval(contador);
     relogio = contador = null;
     faixa?.getTracks().forEach(t => t.stop());
     faixa = null; gravador = null; pedacos = [];
-    pintarBotao("", "Áudio");
+    pintarBotao("", "Ãudio");
     if (texto) dizerStatus(texto, estado);
     if (aviso_) aviso(aviso_.titulo, "erro", {detalhe: aviso_.detalhe, vida: 12000});
   };
 
-  const AJUDA_DESBLOQUEIO = "Clique no cadeado ao lado do endereço, ponha "
-    + "Microfone em Permitir e recarregue a página.";
+  const AJUDA_DESBLOQUEIO = "Clique no cadeado ao lado do endereÃ§o, ponha "
+    + "Microfone em Permitir e recarregue a pÃ¡gina.";
 
   function explicarFalhaDoMicrofone(erro){
     const nome = erro?.name || "";
     if (nome === "NotAllowedError" || nome === "SecurityError")
-      return {titulo: "O microfone está bloqueado", detalhe: AJUDA_DESBLOQUEIO};
+      return {titulo: "O microfone estÃ¡ bloqueado", detalhe: AJUDA_DESBLOQUEIO};
     if (nome === "NotFoundError" || nome === "DevicesNotFoundError")
       return {titulo: "Nenhum microfone encontrado",
-              detalhe: "Este computador não tem microfone disponível, ou ele está "
-                     + "desativado nas configurações do sistema."};
+              detalhe: "Este computador nÃ£o tem microfone disponÃ­vel, ou ele estÃ¡ "
+                     + "desativado nas configuraÃ§Ãµes do sistema."};
     if (nome === "NotReadableError" || nome === "TrackStartError")
-      return {titulo: "O microfone está ocupado",
-              detalhe: "Outro programa está usando o microfone. Feche-o e tente de novo."};
-    return {titulo: "Não consegui abrir o microfone",
+      return {titulo: "O microfone estÃ¡ ocupado",
+              detalhe: "Outro programa estÃ¡ usando o microfone. Feche-o e tente de novo."};
+    return {titulo: "NÃ£o consegui abrir o microfone",
             detalhe: `${nome || "erro"}: ${erro?.message || ""}`.trim()};
   }
 
   async function comecar(){
     pintarBotao("abrindo", "Abrindo...");
-    dizerStatus("Abrindo o microfone — aceite o pedido do navegador.", "is-processing");
+    dizerStatus("Abrindo o microfone â€” aceite o pedido do navegador.", "is-processing");
     try {
       faixa = await navigator.mediaDevices.getUserMedia({audio: true});
     } catch (erro){
@@ -2467,22 +2467,22 @@ function initVoz(){
       return soltar(motivo.titulo + ".", "is-error", motivo);
     }
 
-    // cada navegador prefere um contêiner; o primeiro que ele aceitar serve,
-    // porque a conversão para WAV acontece depois de qualquer jeito
+    // cada navegador prefere um contÃªiner; o primeiro que ele aceitar serve,
+    // porque a conversÃ£o para WAV acontece depois de qualquer jeito
     const tipo = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"]
       .find(t => MediaRecorder.isTypeSupported?.(t));
     try {
       gravador = new MediaRecorder(faixa, tipo ? {mimeType: tipo} : undefined);
     } catch (erro){
-      return soltar("Este navegador não conseguiu gravar.", "is-error",
-                    {titulo: "Não consegui gravar",
+      return soltar("Este navegador nÃ£o conseguiu gravar.", "is-error",
+                    {titulo: "NÃ£o consegui gravar",
                      detalhe: `${erro?.name || "erro"}: ${erro?.message || ""}`.trim()});
     }
 
     pedacos = [];
     gravador.ondataavailable = ev => { if (ev.data?.size) pedacos.push(ev.data); };
-    gravador.onerror = ev => soltar("A gravação falhou.", "is-error",
-      {titulo: "A gravação falhou", detalhe: ev?.error?.message || "erro do gravador"});
+    gravador.onerror = ev => soltar("A gravaÃ§Ã£o falhou.", "is-error",
+      {titulo: "A gravaÃ§Ã£o falhou", detalhe: ev?.error?.message || "erro do gravador"});
     gravador.onstop = enviar;
     gravador.start();
 
@@ -2493,7 +2493,7 @@ function initVoz(){
       const seg = Math.round((Date.now() - inicio) / 1000);
       $("span", botao).textContent = `Parar ${seg}s`;
     }, 500);
-    // não deixa uma gravação esquecida virar um arquivo gigante
+    // nÃ£o deixa uma gravaÃ§Ã£o esquecida virar um arquivo gigante
     relogio = setTimeout(() => { if (gravador?.state === "recording") gravador.stop(); },
                          GRAVACAO_MAXIMA);
   }
@@ -2507,32 +2507,32 @@ function initVoz(){
     const blob = new Blob(pedacos, {type: pedacos[0]?.type || "audio/webm"});
     pedacos = [];
     if (blob.size < 1200){
-      return soltar("Não ouvi nada. Fale mais perto do microfone.", "is-error");
+      return soltar("NÃ£o ouvi nada. Fale mais perto do microfone.", "is-error");
     }
 
     pintarBotao("enviando", "Transcrevendo...");
-    dizerStatus("Transcrevendo o que você falou...", "is-processing");
+    dizerStatus("Transcrevendo o que vocÃª falou...", "is-processing");
     try {
       const {base64, segundos} = await prepararAudio(blob);
-      if (segundos < 0.4) return soltar("Gravação curta demais.", "is-error");
+      if (segundos < 0.4) return soltar("GravaÃ§Ã£o curta demais.", "is-error");
       const r = await api.transcrever(base64);
       const texto = (r.texto || "").trim();
       if (!texto){
-        return soltar("Não entendi o que foi falado. Tente de novo.", "is-error");
+        return soltar("NÃ£o entendi o que foi falado. Tente de novo.", "is-error");
       }
       campo.value = (campo.value.trim() ? campo.value.trim() + " " : "") + texto;
       campo.focus();
       campo.setSelectionRange(campo.value.length, campo.value.length);
-      soltar("Confira o texto e envie — dá para corrigir antes.", "");
+      soltar("Confira o texto e envie â€” dÃ¡ para corrigir antes.", "");
     } catch (erro){
       if (erro instanceof ErroApi && erro.semSessao){
         soltar("");
-        return mostrarLogin("Sua sessão expirou. Entre de novo.", "erro");
+        return mostrarLogin("Sua sessÃ£o expirou. Entre de novo.", "erro");
       }
-      soltar("Não consegui transcrever.", "is-error", {
-        titulo: "Não consegui transcrever",
+      soltar("NÃ£o consegui transcrever.", "is-error", {
+        titulo: "NÃ£o consegui transcrever",
         detalhe: erro instanceof ErroApi ? erro.message
-               : "Falha ao preparar o áudio neste navegador.",
+               : "Falha ao preparar o Ã¡udio neste navegador.",
       });
     }
   }
@@ -2542,15 +2542,15 @@ function initVoz(){
     if (!gravador) comecar();
   };
 
-  // fechar o chat com o microfone aberto deixaria ele gravando às escondidas
+  // fechar o chat com o microfone aberto deixaria ele gravando Ã s escondidas
   $("#globalAiChatClose").addEventListener("click", () => {
     if (gravador?.state === "recording"){ gravador.onstop = null; gravador.stop(); }
     soltar("");
   });
 }
 
-/* A barra do topo é atalho para o mesmo chat: manda a pergunta e abre a
-   conversa já esperando a resposta, em vez de ser uma segunda IA. */
+/* A barra do topo Ã© atalho para o mesmo chat: manda a pergunta e abre a
+   conversa jÃ¡ esperando a resposta, em vez de ser uma segunda IA. */
 function initBarraDeComando(){
   const form = $("#globalAiCommandForm"), campo = $("#globalAiCommandInput");
   if (!form) return;
@@ -2568,12 +2568,12 @@ function initBarraDeComando(){
 }
 
 /* ==========================================================================
-   perfil, configurações e atualização automática
+   perfil, configuraÃ§Ãµes e atualizaÃ§Ã£o automÃ¡tica
    ========================================================================== */
-/* A foto vive dentro de `usuarios.preferencias`, como data URI de 128px. Não
-   é o ideal para um produto grande — imagem em banco não escala —, mas evita
-   inventar armazenamento de arquivo só para um avatar, e o corte no navegador
-   garante que o que chega ao servidor já é pequeno. */
+/* A foto vive dentro de `usuarios.preferencias`, como data URI de 128px. NÃ£o
+   Ã© o ideal para um produto grande â€” imagem em banco nÃ£o escala â€”, mas evita
+   inventar armazenamento de arquivo sÃ³ para um avatar, e o corte no navegador
+   garante que o que chega ao servidor jÃ¡ Ã© pequeno. */
 function pintarAvatar(no, u){
   if (!no) return;
   const foto = state.prefs?.foto;
@@ -2599,7 +2599,7 @@ async function renderPerfil(){
   const u = perfilCarregado.usuario;
   const papel = {main:"Desenvolvedor", gerente:"Gerente", operador:"Operador"}[u.papel] || u.papel;
   $("#profilePanelName").textContent = u.nome;
-  $("#profilePanelMeta").textContent = `${papel} · ${u.email}`;
+  $("#profilePanelMeta").textContent = `${papel} Â· ${u.email}`;
   pintarAvatar($("#profileAvatarLarge"), u);
 
   const linha = (rotulo, valor) => `<dt>${esc(rotulo)}</dt><dd>${valor}</dd>`;
@@ -2609,18 +2609,18 @@ async function renderPerfil(){
     linha("E-mail", esc(u.email)),
     linha(lojas.length > 1 ? "Estabelecimentos" : "Estabelecimento",
           lojas.map(l => esc(l.nome)).join("<br>") || "<span class='table-cell-muted'>nenhum</span>"),
-    linha("Último acesso", dataHora(u.ultimo_acesso)),
+    linha("Ãšltimo acesso", dataHora(u.ultimo_acesso)),
     linha("Conta criada em", dataHora(u.criado_em)),
-    linha("Sessões abertas", `${perfilCarregado.sessoes_abertas}`),
-    linha("Pode editar dados", pode("editar_dados") ? "sim" : "não"),
-    linha("Vê o financeiro", pode("ver_financeiro") ? "sim" : "não"),
-    linha("Troca de estabelecimento", pode("trocar_estabelecimento") ? "sim" : "não"),
+    linha("SessÃµes abertas", `${perfilCarregado.sessoes_abertas}`),
+    linha("Pode editar dados", pode("editar_dados") ? "sim" : "nÃ£o"),
+    linha("VÃª o financeiro", pode("ver_financeiro") ? "sim" : "nÃ£o"),
+    linha("Troca de estabelecimento", pode("trocar_estabelecimento") ? "sim" : "nÃ£o"),
   ].join("");
 
   const n = perfilCarregado.sessoes_abertas;
   $("#profileSessoesTexto").textContent = n > 1
-    ? `Você tem ${n} sessões abertas. Encerrar derruba as outras e mantém esta.`
-    : "Esta é a sua única sessão aberta.";
+    ? `VocÃª tem ${n} sessÃµes abertas. Encerrar derruba as outras e mantÃ©m esta.`
+    : "Esta Ã© a sua Ãºnica sessÃ£o aberta.";
   $("#profileEncerrarOutras").disabled = n <= 1;
 }
 
@@ -2636,10 +2636,10 @@ function statusPerfil(no, texto, tipo = ""){
 function reduzirImagem(arquivo, lado = 128){
   return new Promise((ok, falha) => {
     const leitor = new FileReader();
-    leitor.onerror = () => falha(new Error("não consegui ler o arquivo"));
+    leitor.onerror = () => falha(new Error("nÃ£o consegui ler o arquivo"));
     leitor.onload = () => {
       const img = new Image();
-      img.onerror = () => falha(new Error("arquivo não é uma imagem válida"));
+      img.onerror = () => falha(new Error("arquivo nÃ£o Ã© uma imagem vÃ¡lida"));
       img.onload = () => {
         const corte = Math.min(img.width, img.height);
         const tela = document.createElement("canvas");
@@ -2668,12 +2668,12 @@ function initPerfil(){
   $("#profileSettingsClose").onclick = () => abrir(false);
   modal.onclick = ev => { if (ev.target === modal) abrir(false); };
 
-  // sanfonas do modal, como na referência
+  // sanfonas do modal, como na referÃªncia
   $$("[data-collapse-toggle]", modal).forEach(b => b.onclick = () => {
     const cartao = b.closest("[data-collapsible]");
     const aberto = cartao.classList.toggle("is-open");
     b.setAttribute("aria-expanded", String(aberto));
-    $(".collapse-icon", b).textContent = aberto ? "−" : "+";
+    $(".collapse-icon", b).textContent = aberto ? "âˆ’" : "+";
   });
 
   // ---- nome ----
@@ -2689,9 +2689,9 @@ function initPerfil(){
       $("#nomeSenhaAtual").value = "";
       aplicarPapel();
       renderPerfil();
-      statusPerfil("#profileSettingsStatus", `Agora você aparece como ${r.nome}.`, "ok");
+      statusPerfil("#profileSettingsStatus", `Agora vocÃª aparece como ${r.nome}.`, "ok");
     } catch (erro){
-      statusPerfil("#profileSettingsStatus", erro.message || "Não consegui salvar.", "erro");
+      statusPerfil("#profileSettingsStatus", erro.message || "NÃ£o consegui salvar.", "erro");
     } finally { botao.disabled = false; }
   };
 
@@ -2700,7 +2700,7 @@ function initPerfil(){
     ev.preventDefault();
     const nova = $("#senhaNova").value;
     if (nova !== $("#senhaConfirma").value){
-      statusPerfil("#profileSettingsStatus", "As duas senhas novas não batem.", "erro");
+      statusPerfil("#profileSettingsStatus", "As duas senhas novas nÃ£o batem.", "erro");
       return;
     }
     const botao = $("button[type=submit]", ev.target);
@@ -2709,15 +2709,15 @@ function initPerfil(){
       const r = await comAviso("Trocando senha...",
         () => api.trocarSenha($("#senhaAtual").value, nova),
         {sucesso: "Senha trocada",
-         detalhe: "Use a nova na próxima vez que entrar."});
+         detalhe: "Use a nova na prÃ³xima vez que entrar."});
       ev.target.reset();
       renderPerfil();
       statusPerfil("#profileSettingsStatus",
         r.outras_sessoes_encerradas
-          ? `Senha trocada. ${r.outras_sessoes_encerradas} outra(s) sessão(ões) encerrada(s).`
+          ? `Senha trocada. ${r.outras_sessoes_encerradas} outra(s) sessÃ£o(Ãµes) encerrada(s).`
           : "Senha trocada.", "ok");
     } catch (erro){
-      statusPerfil("#profileSettingsStatus", erro.message || "Não consegui trocar.", "erro");
+      statusPerfil("#profileSettingsStatus", erro.message || "NÃ£o consegui trocar.", "erro");
     } finally { botao.disabled = false; }
   };
 
@@ -2744,14 +2744,14 @@ function initPerfil(){
     if (await guardarFoto("Enviando foto...", "Foto de perfil atualizada")){
       statusPerfil("#profileSettingsStatus", "Foto aplicada.", "ok");
     } else {
-      state.prefs.foto = antes;   // devolve o que estava, já que não gravou
+      state.prefs.foto = antes;   // devolve o que estava, jÃ¡ que nÃ£o gravou
       pintarAvatar($("#profileAvatar"), state.usuario);
       pintarAvatar($("#profileAvatarLarge"), state.usuario);
     }
   };
   $("#fotoRemover").onclick = async () => {
     const antes = state.prefs.foto;
-    if (!antes){ statusPerfil("#profileSettingsStatus", "Você ainda não tem foto.", ""); return; }
+    if (!antes){ statusPerfil("#profileSettingsStatus", "VocÃª ainda nÃ£o tem foto.", ""); return; }
     delete state.prefs.foto;
     fotoNova = null;
     $("#fotoPrevia").hidden = true;
@@ -2768,12 +2768,12 @@ function initPerfil(){
     pintarAvatar($("#profileAvatarLarge"), state.usuario);
     try {
       await comAviso(rotulo, () => api.preferencias(state.prefs),
-        {sucesso, detalhe: "Vale em qualquer computador onde você entrar."});
+        {sucesso, detalhe: "Vale em qualquer computador onde vocÃª entrar."});
       return true;
     } catch { return false; }
   }
 
-  // ---- atualização automática ----
+  // ---- atualizaÃ§Ã£o automÃ¡tica ----
   const rotuloIntervalo = ms => ({60000:"1 min", 300000:"5 min",
                                    900000:"15 min", 1800000:"30 min"}[ms] || `${ms/60000} min`);
   $("#autoRefreshEnabled").onchange = ev => {
@@ -2781,10 +2781,10 @@ function initPerfil(){
     $("#autoRefreshIntervalField").hidden = !ev.target.checked;
     aplicarAutoRefresh();
     salvarPrefs();
-    aviso(ev.target.checked ? "Atualização automática ligada" : "Atualização automática desligada",
+    aviso(ev.target.checked ? "AtualizaÃ§Ã£o automÃ¡tica ligada" : "AtualizaÃ§Ã£o automÃ¡tica desligada",
           "ok", {detalhe: ev.target.checked
-            ? `Os dados serão buscados a cada ${rotuloIntervalo(Number(state.prefs.autoRefreshMs) || 300000)}.`
-            : "Os números só mudam quando você atualizar."});
+            ? `Os dados serÃ£o buscados a cada ${rotuloIntervalo(Number(state.prefs.autoRefreshMs) || 300000)}.`
+            : "Os nÃºmeros sÃ³ mudam quando vocÃª atualizar."});
   };
   $("#autoRefreshInterval").onchange = ev => {
     state.prefs.autoRefreshMs = Number(ev.target.value);
@@ -2793,16 +2793,16 @@ function initPerfil(){
     aviso("Intervalo alterado", "ok", {detalhe: `Agora a cada ${rotuloIntervalo(Number(ev.target.value))}.`});
   };
 
-  // ---- encerrar outras sessões ----
+  // ---- encerrar outras sessÃµes ----
   $("#profileEncerrarOutras").onclick = async () => {
-    statusPerfil("#profileStatus", "Para encerrar as outras, troque a senha em Configurações — "
-      + "é o que garante que quem está do outro lado não volte a entrar.", "");
+    statusPerfil("#profileStatus", "Para encerrar as outras, troque a senha em ConfiguraÃ§Ãµes â€” "
+      + "Ã© o que garante que quem estÃ¡ do outro lado nÃ£o volte a entrar.", "");
     $("#profileSettingsButton").click();
   };
 }
 
-/* Atualização automática: busca os dados de novo sem recarregar a página.
-   Não roda com a aba escondida — atualizar o que ninguém está olhando só
+/* AtualizaÃ§Ã£o automÃ¡tica: busca os dados de novo sem recarregar a pÃ¡gina.
+   NÃ£o roda com a aba escondida â€” atualizar o que ninguÃ©m estÃ¡ olhando sÃ³
    gasta o plano gratuito do servidor. */
 let relogioAuto = null;
 function aplicarAutoRefresh(){
@@ -2820,7 +2820,7 @@ function aplicarAutoRefresh(){
   relogioAuto = setInterval(async () => {
     if (document.hidden || state.paineis.editando || editorCtx) return;
     try { await carregarDados(); renderTudo(); }
-    catch (erro){ if (erro instanceof ErroApi && erro.semSessao) mostrarLogin("Sua sessão expirou."); }
+    catch (erro){ if (erro instanceof ErroApi && erro.semSessao) mostrarLogin("Sua sessÃ£o expirou."); }
   }, intervalo);
 }
 
@@ -2849,25 +2849,25 @@ function esconderCarregando(){
   tela.style.display = "none";
 }
 
-/* Entra de fato: guarda quem é, aplica papel, busca dados, restaura a tela. */
+/* Entra de fato: guarda quem Ã©, aplica papel, busca dados, restaura a tela. */
 async function entrarNoPainel(sessao){
-  // Sessão de motorista não abre o painel — mas também NÃO é expulsa daqui.
+  // SessÃ£o de motorista nÃ£o abre o painel â€” mas tambÃ©m NÃƒO Ã© expulsa daqui.
   //
-  // A versão anterior redirecionava para a área do cliente, e isso quebrava o
+  // A versÃ£o anterior redirecionava para a Ã¡rea do cliente, e isso quebrava o
   // caso que este painel existe para atender: a mesma pessoa tem duas contas,
-  // a dela e a da loja. Chegando com a sessão de motorista aberta, ela era
-  // mandada de volta antes de conseguir digitar o acesso de lojista, e não
-  // havia como entrar na loja sem sair da própria conta primeiro.
+  // a dela e a da loja. Chegando com a sessÃ£o de motorista aberta, ela era
+  // mandada de volta antes de conseguir digitar o acesso de lojista, e nÃ£o
+  // havia como entrar na loja sem sair da prÃ³pria conta primeiro.
   //
-  // Agora a porta de login desta tela aparece, que é o que ela veio buscar. O
-  // login de lojista simplesmente substitui a sessão.
+  // Agora a porta de login desta tela aparece, que Ã© o que ela veio buscar. O
+  // login de lojista simplesmente substitui a sessÃ£o.
   //
-  // Lançar, em vez de chamar mostrarLogin() aqui, cobre os dois caminhos que
-  // passam por esta função: o carregamento da página e o próprio formulário.
+  // LanÃ§ar, em vez de chamar mostrarLogin() aqui, cobre os dois caminhos que
+  // passam por esta funÃ§Ã£o: o carregamento da pÃ¡gina e o prÃ³prio formulÃ¡rio.
   if (sessao?.usuario?.papel === "motorista"){
     throw new ErroApi(403,
-      "Esta é a entrada do painel da loja. Sua conta atual é de motorista — "
-      + "entre com o acesso de lojista que você recebeu.");
+      "Esta Ã© a entrada do painel da loja. Sua conta atual Ã© de motorista â€” "
+      + "entre com o acesso de lojista que vocÃª recebeu.");
   }
 
   state.usuario = sessao.usuario;
@@ -2884,8 +2884,8 @@ async function entrarNoPainel(sessao){
   state.estabelecimentoId = lojas.some(l => l.id === preferida) ? preferida : lojas[0]?.id ?? null;
   if (!state.estabelecimentoId){
     // erro de verdade, para o login mostrar em vez de abrir um painel vazio
-    throw new ErroApi(409, "Seu usuário não está ligado a nenhuma loja. "
-                         + "Peça ao gerente para vincular seu acesso.");
+    throw new ErroApi(409, "Seu usuÃ¡rio nÃ£o estÃ¡ ligado a nenhuma loja. "
+                         + "PeÃ§a ao gerente para vincular seu acesso.");
   }
   state.paineis.ativo = state.prefs.painelAtivo?.[state.estabelecimentoId] ?? null;
 
@@ -2916,7 +2916,7 @@ function ligarPainelUI(){
 
   $("[data-dashboard-layout-close]").onclick = () => {
     sairDaEdicao(); renderPainel();
-    aviso("Edição concluída", "ok", {detalhe: "O layout já está gravado.", vida: 2600});
+    aviso("EdiÃ§Ã£o concluÃ­da", "ok", {detalhe: "O layout jÃ¡ estÃ¡ gravado.", vida: 2600});
   };
   $("[data-dashboard-layout-reset]").onclick = () => {
     const p = painelAtual(); if (!p || !podeEditarPainel(p)) return;
@@ -2968,16 +2968,17 @@ async function iniciar(){
     fecharEditor();
   });
 
-  // Restos de versões antigas que guardavam painel no navegador; sem eles
-  // uma pessoa poderia ficar presa vendo dado que não veio do servidor.
+  // Restos de versÃµes antigas que guardavam painel no navegador; sem eles
+  // uma pessoa poderia ficar presa vendo dado que nÃ£o veio do servidor.
   try { localStorage.removeItem("pr.demo.paineis"); localStorage.removeItem("pr.prefs"); } catch {}
 
   try {
     await entrarNoPainel(await api.eu());
   } catch (erro){
-    // 401 é o caso normal de quem ainda não entrou: login limpo, sem alarme.
+    // 401 Ã© o caso normal de quem ainda nÃ£o entrou: login limpo, sem alarme.
     mostrarLogin(erro instanceof ErroApi && erro.semSessao ? "" : explicarFalha(erro));
   }
 }
 
 iniciar();
+
