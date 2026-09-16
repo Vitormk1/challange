@@ -7,10 +7,10 @@
 <meta name="description" content="Suas recargas e o cashback acumulado nas lojas parceiras do Smart Charge.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#F4F4F6">
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916g">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916g">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916g">
-<link rel="stylesheet" href="./cliente.css?v=20260916g">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916k">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916k">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916k">
+<link rel="stylesheet" href="./cliente.css?v=20260916k">
 </head>
 <body class="pagina-cliente">
 
@@ -51,6 +51,15 @@
         </a>
       </div>
     </div>
+  </section>
+
+  <!-- Reservas. A seção inteira só aparece quando há alguma: um bloco vazio
+       dizendo "nenhuma reserva" ocupa a mesma altura e não informa nada que a
+       ausência já não diga. -->
+  <section class="bloco-cliente" id="blocoReservas" aria-labelledby="tituloReservas" hidden>
+    <h2 id="tituloReservas">Suas reservas</h2>
+    <ul class="lista-reservas" id="listaReservas"></ul>
+    <p class="nota-cliente" id="avisoReservas"></p>
   </section>
 
   <section class="bloco-cliente" aria-labelledby="tituloRecargas">
@@ -137,6 +146,6 @@
   servidor. Ative-o e recarregue a página.</p>
 </noscript>
 
-<script type="module" src="./cliente.js?v=20260916g"></script>
+<script type="module" src="./cliente.js?v=20260916k"></script>
 </body>
 </html>

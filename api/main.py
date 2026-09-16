@@ -1096,6 +1096,9 @@ def excluir_painel(painel_id: int, u: dict = Depends(usuario_atual)):
 from carteira import registrar_carteira, estado_configuracao
 registrar_carteira(app, usuario_atual)
 
+from reservas import registrar_reservas
+registrar_reservas(app, usuario_atual)
+
 # ---------------------------------------------------------------- perfil ---
 
 

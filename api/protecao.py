@@ -74,6 +74,17 @@ LIMITE_CADASTRO_IP = (20, 3600)
 #     Três em meia hora cobre "não chegou, manda de novo" e não cobre assédio.
 #   por IP — segura o laço automatizado, que gastaria o nosso limite de envio
 #     no provedor de e-mail pedindo reenvio para endereços aleatórios.
+# Reserva. O teto é por PESSOA, não por IP: reservar exige login, então há
+# sempre a quem atribuir. Por IP seria pior nos dois sentidos — uma família na
+# mesma rede compartilharia o balde, e quem quisesse abusar trocaria de rede.
+#
+# Doze por hora, e contadas DEPOIS da validação (ver reservas.py). A primeira
+# versão contava tentativas e custou uma falha no próprio teste: horário no
+# passado, antecedência curta e vaga já tomada gastavam cota igual, e quem
+# estivesse procurando um horário livre era bloqueado por procurar. É o mesmo
+# erro que o limite de cadastro já tinha cometido.
+LIMITE_RESERVA = (12, 3600)
+
 LIMITE_REENVIO_EMAIL = (3, 1800)
 LIMITE_REENVIO_IP = (10, 1800)
 
@@ -204,6 +215,16 @@ def limitar_reenvio(request: Request, email: str) -> None:
         if not ok:
             raise HTTPException(429, f"Muitos pedidos de reenvio. "
                                      f"Espere {espera // 60 + 1} min.")
+
+
+def limitar_reserva(request: Request, usuario_id: int) -> None:
+    """Teto de tentativas de reserva, por pessoa."""
+    _limpar_velhas()
+    quantas, janela = LIMITE_RESERVA
+    ok, espera = _bater(f"reserva:{usuario_id}", quantas, janela)
+    if not ok:
+        raise HTTPException(429, f"Você fez {quantas} reservas nesta hora. "
+                                 f"Espere {espera // 60 + 1} min.")
 
 
 def zerar_login(request: Request, email: str) -> None:

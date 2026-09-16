@@ -92,6 +92,9 @@ export const api = {
   /* Responde 200 mesmo para e-mail que não existe, de propósito: senão a rota
      viraria um verificador de quem tem conta, aberto e sem login. */
   reenviar: email => pedir("/auth/reenviar", {metodo:"POST", corpo:{email}}),
+
+  reservas:        () => pedir("/reservas"),
+  cancelarReserva: id => pedir(`/reservas/${id}/cancelar`, {metodo:"POST", corpo:{}}),
   sair:    () => pedir("/auth/logout", {metodo:"POST"}),
   eu:      () => pedir("/auth/eu"),
 
