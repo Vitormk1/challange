@@ -1,0 +1,47 @@
+/* ==========================================================================
+   Fontes hospedadas aqui mesmo
+
+   Antes as telas pediam Sora e JetBrains Mono ao fonts.googleapis.com. No
+   GitHub Pages funcionava; em smartcharge.ia.br nao, porque a CSP declara
+   `style-src 'self'` e `font-src 'self'` -- o navegador recusava a folha do
+   Google e as telas caiam para a fonte do sistema. O layout continuava de pe,
+   so nao era o desenhado, e por isso ninguem percebeu olhando rapido.
+
+   Abrir a CSP para o dominio do Google resolveria em uma linha e custaria a
+   garantia que ela da. Hospedar custa 63 KB e nao custa garantia nenhuma
+   -- e tira um terceiro do caminho de renderizacao.
+
+   Duas familias, DOIS arquivos: sao fontes variaveis, e um arquivo cobre toda
+   a faixa de pesos. O css2 do Google repete a mesma URL em cada bloco de peso,
+   o que engana quem baixa por peso e acaba gravando copias identicas.
+
+   Subset `latin` apenas: portugues cabe inteiro em U+0000-00FF.
+
+   SIL Open Font License 1.1 -- texto completo em OFL-*.txt, que a licenca
+   exige que acompanhem os arquivos. Arquivo GERADO: para atualizar, refaca o
+   download em vez de editar na mao.
+   ========================================================================== */
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  /* Faixa, e nao peso unico: a fonte e variavel, entao 500 e interpolado de
+     verdade em vez de cair no 400 ou no 600 mais proximo. */
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('./jetbrains-mono.woff2') format('woff2-variations'),
+       url('./jetbrains-mono.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Sora';
+  font-style: normal;
+  /* Faixa, e nao peso unico: a fonte e variavel, entao 500 e interpolado de
+     verdade em vez de cair no 400 ou no 600 mais proximo. */
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('./sora.woff2') format('woff2-variations'),
+       url('./sora.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

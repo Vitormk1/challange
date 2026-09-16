@@ -1,0 +1,26 @@
+Fontes hospedadas no proprio projeto
+====================================
+
+Sora e JetBrains Mono, subset `latin`, formato woff2, gerados a partir do
+endpoint css2 do Google Fonts.
+
+Por que estao aqui e nao no fonts.googleapis.com
+------------------------------------------------
+A CSP do smartcharge.ia.br declara `style-src 'self'` e `font-src 'self'`. A
+folha de estilo do Google era recusada pelo navegador, e as telas caiam para a
+fonte do sistema -- sem quebrar nada visivelmente, que e por que passou tanto
+tempo despercebido. Abrir a CSP para o dominio do Google resolveria em uma
+linha e custaria a garantia que ela da; hospedar custa ~220 KB e nao custa
+garantia nenhuma.
+
+Licenca
+-------
+Ambas sao SIL Open Font License 1.1. O texto completo de cada uma esta em
+OFL-Sora.txt e OFL-JetBrainsMono.txt, baixados do repositorio google/fonts.
+A OFL exige que a licenca acompanhe os arquivos -- por isso eles estao aqui e
+nao devem ser removidos.
+
+Para atualizar
+--------------
+Refaca o download a partir do css2 em vez de editar fontes.css na mao. O
+arquivo e gerado.
