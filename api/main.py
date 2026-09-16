@@ -906,7 +906,7 @@ def vincular_cliente(cliente_id: int, corpo: dict = Body(...), u: dict = Depends
 # A resposta devolve o layout já normalizado, e o painel adota o que voltou.
 # É assim que um card descartado fica visível em vez de "salvei e sumiu".
 CARDS_PERMITIDOS = {
-    "retorno", "teto", "horas", "pontos", "previsao", "curva",
+    "vaga", "retorno", "teto", "horas", "pontos", "previsao", "curva",
     "lucro", "vendas", "sessoes", "clientes", "energia", "ticket", "cupons",
 }
 GRUPOS_PERMITIDOS = {"large", "small"}
