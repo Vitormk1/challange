@@ -16,9 +16,9 @@
       a tela de login diz isso, e é só o que ela faz.
    ========================================================================== */
 
-import "./static/js/aiEntity.js?v=20260916k";
-import { createTourModule } from "./static/js/tour.js?v=20260916k";
-import { api, BASE, ErroApi } from "./api.js?v=20260916k";
+import "./static/js/aiEntity.js?v=20260916m";
+import { createTourModule } from "./static/js/tour.js?v=20260916m";
+import { api, BASE, ErroApi } from "./api.js?v=20260916m";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -1835,7 +1835,7 @@ function corpoVaga(config){
     <img src="./img/carro.png" alt="Carro elétrico conectado ao carregador" loading="lazy"><div class="vaga-monitor-scrim"></div>
     <div class="vaga-monitor-head"><div><p class="eyebrow">Monitoramento ao vivo</p><h3>${esc(escolhido?.nome || "Nenhuma vaga selecionada")}</h3></div><span class="vaga-monitor-status ${emUso ? "is-uso" : "is-livre"}"><i></i>${status}</span></div>
     <div class="vaga-monitor-data"><div><small>Tempo</small><strong>${emUso ? duracaoVaga(sessao) : "Disponível"}</strong></div><div><small>Potência</small><strong>${potencia}</strong></div><div><small>Energia</small><strong>${emUso && sessao?.energia_kwh != null ? `${num(sessao.energia_kwh, 1)} kWh` : "—"}</strong></div></div>
-    ${emEdicao ? `<div class="vaga-monitor-config" data-vaga-config-box hidden><label>Vaga monitorada<select data-vaga-select aria-label="Escolher vaga monitorada">${carregadores.map(c => `<option value="${c.id}" ${c.id === escolhido?.id ? "selected" : ""}>${esc(c.nome || `Vaga #${c.id}`)}</option>`).join("")}</select></label></div>
+    ${state.paineis.editando ? `<div class="vaga-monitor-config" data-vaga-config-box hidden><label>Vaga monitorada<select data-vaga-select aria-label="Escolher vaga monitorada">${carregadores.map(c => `<option value="${c.id}" ${c.id === escolhido?.id ? "selected" : ""}>${esc(c.nome || `Vaga #${c.id}`)}</option>`).join("")}</select></label></div>
     ${carregadores.length ? `<button type="button" class="vaga-monitor-config-button" data-vaga-config>Configurar vaga</button>` : `<span class="vaga-monitor-empty">Cadastre um carregador para monitorar esta vaga.</span>`}` : ""}
   </div></div>`;
 }
