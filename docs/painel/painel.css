@@ -97,6 +97,8 @@ body.editando-painel .global-ai-command { display: none !important; }
 .vaga-monitor-config-button { right: 20px; bottom: 20px; border: 1px solid rgba(255,255,255,.4); border-radius: 999px; padding: 9px 14px; color: #fff; background: rgba(0,0,0,.55); font: inherit; font-size: .76rem; font-weight: 750; cursor: pointer; }
 .vaga-monitor-config-button:hover { background: var(--primary, #b4160f); border-color: transparent; }
 .vaga-monitor-config { left: 20px; right: 20px; bottom: 72px; padding: 12px; border-radius: 14px; background: rgba(12,12,15,.92); box-shadow: 0 8px 26px rgba(0,0,0,.3); }
+body:not(.editando-painel) .vaga-monitor-config-button,
+body:not(.editando-painel) .vaga-monitor-config { display: none !important; }
 .vaga-monitor-config label { display: grid; gap: 6px; color: #fff; font-size: .76rem; font-weight: 700; }
 .vaga-monitor-config select { width: 100%; padding: 9px 10px; border: 1px solid rgba(255,255,255,.25); border-radius: 9px; color: #fff; background: #26262d; font: inherit; }
 .vaga-monitor-empty { position: absolute; inset: auto 20px 20px; z-index: 1; color: #fff; font-size: .82rem; }
