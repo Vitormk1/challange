@@ -659,3 +659,94 @@ ALTER TABLE clientes ADD COLUMN IF NOT EXISTS fidelidade_creditos numeric(10,2)
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS fidelidade_compras_mes integer
   NOT NULL DEFAULT 0 CHECK (fidelidade_compras_mes >= 0);
 ALTER TABLE clientes ADD COLUMN IF NOT EXISTS fidelidade_mes_referencia date;
+
+
+-- ==========================================================================
+-- Reserva de carregador
+-- ==========================================================================
+
+-- Coordenadas na LOJA, e nao no carregador: as vagas de um mesmo
+-- estabelecimento ficam no mesmo endereco, e repetir o par em cada carregador
+-- criaria duas verdades para a mesma coisa.
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS lat numeric(9,6);
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS lng numeric(9,6);
+
+COMMENT ON COLUMN estabelecimentos.lat IS
+  'Latitude do ponto no mapa publico. NULL = nao aparece no mapa.';
+
+-- O mapa so mostra quem tem coordenada, entao este indice parcial e o que ele
+-- percorre.
+CREATE INDEX IF NOT EXISTS ix_estabelecimentos_mapa
+  ON estabelecimentos (id) WHERE lat IS NOT NULL AND lng IS NOT NULL;
+
+
+CREATE TABLE IF NOT EXISTS reservas (
+  id             bigint      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  carregador_id  bigint      NOT NULL REFERENCES carregadores(id) ON DELETE CASCADE,
+  usuario_id     bigint      NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  inicio         timestamptz NOT NULL,
+  fim            timestamptz NOT NULL,
+  -- ativa     reservada, ainda vai acontecer
+  -- cumprida  a pessoa apareceu e carregou
+  -- cancelada desistiu dentro do prazo; o valor voltou para a carteira
+  -- expirada  passou da hora e nao apareceu; o valor fica com a loja
+  situacao       text        NOT NULL DEFAULT 'ativa'
+                 CHECK (situacao IN ('ativa','cumprida','cancelada','expirada')),
+  valor_brl      numeric(10,2) NOT NULL CHECK (valor_brl >= 0),
+  criado_em      timestamptz NOT NULL DEFAULT now(),
+  encerrada_em   timestamptz,
+  CHECK (fim > inicio)
+);
+
+CREATE INDEX IF NOT EXISTS ix_reservas_usuario     ON reservas (usuario_id, inicio DESC);
+CREATE INDEX IF NOT EXISTS ix_reservas_carregador  ON reservas (carregador_id, inicio);
+
+-- Duas reservas nao podem ocupar o mesmo carregador ao mesmo tempo, e quem
+-- garante isso e o banco.
+--
+-- A alternativa seria consultar antes de inserir, e ela tem um buraco que so
+-- aparece em producao: entre a consulta e a insercao cabe outra reserva. Com
+-- duas pessoas olhando o mesmo horario -- que e exatamente quando a disputa
+-- acontece -- as duas consultam, as duas veem livre, e as duas reservam.
+--
+-- EXCLUDE resolve no proprio indice: `carregador_id WITH =` junta as linhas do
+-- mesmo carregador, `tstzrange(inicio, fim) WITH &&` recusa quando os periodos
+-- se cruzam. Precisa do btree_gist para misturar igualdade com intervalo no
+-- mesmo indice.
+--
+-- O WHERE limita a regra as reservas ativas: cancelada e expirada podem
+-- conviver com uma nova no mesmo horario, e devem.
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conrelid = 'reservas'::regclass
+                    AND conname = 'reservas_sem_sobreposicao') THEN
+    ALTER TABLE reservas ADD CONSTRAINT reservas_sem_sobreposicao
+      EXCLUDE USING gist (carregador_id WITH =, tstzrange(inicio, fim) WITH &&)
+      WHERE (situacao = 'ativa');
+  END IF;
+END $$;
+
+
+-- A carteira precisa saber lancar reserva e devolucao de reserva.
+--
+-- Esta restricao e compartilhada: a carteira e de outra pessoa da equipe, e
+-- tipos novos entram aqui. Se dois commits acrescentarem tipos diferentes, o
+-- ultimo a rodar vence e derruba o do outro em silencio -- ja aconteceu neste
+-- projeto com o papel do usuario. Por isso a lista abaixo e a UNIAO de tudo
+-- que existe, e quem acrescentar um tipo deve acrescentar aqui, nao criar
+-- outro bloco.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint
+              WHERE conrelid = 'carteira_lancamentos'::regclass
+                AND conname = 'carteira_lancamentos_tipo_check') THEN
+    ALTER TABLE carteira_lancamentos DROP CONSTRAINT carteira_lancamentos_tipo_check;
+  END IF;
+  ALTER TABLE carteira_lancamentos ADD CONSTRAINT carteira_lancamentos_tipo_check
+    CHECK (tipo IN ('recarga_pix','credito_teste','pagamento_recarga','estorno',
+                    'reserva','estorno_reserva'));
+END $$;
+
