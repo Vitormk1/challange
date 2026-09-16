@@ -374,16 +374,27 @@ ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_acesso timestamptz;
 
 DO $$
 BEGIN
-  -- papeis antigos (lojista/admin) viram os tres de agora
+  -- papeis antigos (lojista/admin) viram os de agora
   IF EXISTS (SELECT 1 FROM information_schema.constraint_column_usage
               WHERE table_name = 'usuarios' AND constraint_name = 'usuarios_papel_check') THEN
     ALTER TABLE usuarios DROP CONSTRAINT usuarios_papel_check;
   END IF;
   UPDATE usuarios SET papel = 'main'    WHERE papel = 'admin';
   UPDATE usuarios SET papel = 'gerente' WHERE papel = 'lojista';
-  ALTER TABLE usuarios ADD CONSTRAINT usuarios_papel_check
-    CHECK (papel IN ('main','gerente','operador'));
   ALTER TABLE usuarios ALTER COLUMN papel SET DEFAULT 'operador';
+  -- A restricao NAO e recriada aqui. Ela tem um dono so, no fim do arquivo.
+  --
+  -- Este bloco ja a recriou uma vez, com a lista de tres papeis que valia
+  -- quando foi escrito. Quando 'motorista' chegou, o bloco do fim passou a
+  -- ampliar a lista para quatro -- mas este roda ANTES, e no instante em que
+  -- existiu o primeiro motorista na tabela ele passou a estourar
+  --
+  --     check constraint "usuarios_papel_check" is violated by some row
+  --
+  -- abortando o script inteiro antes que o bloco do fim consertasse. O
+  -- schema.sql ficava impossivel de aplicar justamente no banco que ja tinha
+  -- usuarios de verdade, que e o unico que importa. Duas linhas escrevendo a
+  -- mesma restricao e uma delas desatualizada e uma armadilha; agora e uma.
 END $$;
 
 -- quem nao tem senha nao entra, entao nao e usuario de nada
