@@ -36,6 +36,16 @@ DURACAO_MIN = 60              # cada reserva ocupa uma hora
 ANTECEDENCIA_MIN = 15         # não dá para reservar para daqui a dois minutos
 JANELA_DIAS = 14              # nem para daqui a três meses
 DEVOLVE_ATE_MIN = 30          # cancelou com mais de 30 min? devolve tudo
+
+# PENDENTE (ver RESERVAS.md, "3. Compensacao"): quando a vaga esta OCUPADA no
+# inicio da reserva por quem nao reservou, o dono da reserva perde o horario e
+# hoje perde os R$ 10 tambem -- cancelar em cima da hora nao devolve.
+#
+# O conserto nao e de dinheiro: a maquina de estorno ja existe logo abaixo e ja
+# roda no cancelamento. Falta o GATILHO, que depende do carregador informar que
+# ha um carro plugado. O servidor conhece reservas, nao sessoes fisicas.
+#
+# Nao resolver com um botao de "nao consegui usar": qualquer um clicaria.
 CHEGADA_ANTES_MIN = 15        # dá para avisar que chegou 15 min antes
 ATIVAS_POR_PESSOA = 3         # teto de reservas em aberto ao mesmo tempo
 

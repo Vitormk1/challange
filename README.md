@@ -113,6 +113,13 @@ que decidiram essa arquitetura estão em [HOSPEDAGEM.md](HOSPEDAGEM.md).
 
 ---
 
+## Reservar uma vaga
+
+Quem dirige reserva um horário e paga R$ 10,00 da carteira, que voltam ao
+cancelar a tempo ou viram crédito da recarga ao aparecer. As regras, e o que
+acontece quando alguém sem reserva chega perto do horário de outra pessoa,
+estão em **[RESERVAS.md](RESERVAS.md)** — inclusive a parte que ainda falta.
+
 ## Arquitetura de dados
 
 A carteira Pix, os eventos do webhook e as variáveis da Asaas estão documentados

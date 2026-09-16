@@ -1189,14 +1189,30 @@ h3 { font-size: clamp(1.05rem, 1.6vw, 1.25rem); letter-spacing: -0.01em; }
   h1 { font-size: clamp(1.9rem, 3.4vw, 2.7rem); }
   h2 { font-size: clamp(1.5rem, 2.6vw, 2.1rem); }
 
-  .cabeca-secao { margin-bottom: clamp(20px, 2.2vw, 30px); }
+  .cabeca-secao { margin-bottom: clamp(16px, 1.8vw, 24px); }
 
-  /* As molduras sao o item mais alto da pagina inteira; sao elas que fazem a
-     secao do motorista passar de uma tela e meia. */
-  .telas-app { gap: 18px; margin: 26px 0 12px; }
-  .moldura-celular { border-width: 6px; border-radius: 20px; }
-  .telas-app h3 { margin: 12px 0 4px; font-size: .96rem; }
-  .telas-app p { font-size: .86rem; line-height: 1.45; }
+  /* A moldura e o item mais alto da pagina inteira, e era ela que fazia esta
+     secao passar da tela sozinha.
+
+     A altura dela deixou de ser consequencia da largura da coluna e passou a
+     sair do espaco que SOBRA: `100vh` menos o que o resto da secao ocupa
+     (titulo, texto, legendas e respiros -- medidos, uns 400px). Com
+     `aspect-ratio` e `width: auto`, a largura acompanha sozinha, entao o
+     celular encolhe inteiro em vez de ser cortado.
+
+     O `clamp` poe um piso e um teto: abaixo de 230px nao da para enxergar o
+     que ha na tela do celular, e acima de 520px ela volta a ser o problema. */
+  .telas-app { gap: 18px; margin: 22px 0 10px; }
+  .moldura-celular {
+    height: clamp(230px, calc(100vh - 445px), 520px);
+    width: auto;
+    max-width: 100%;
+    margin-inline: auto;
+    border-width: 6px;
+    border-radius: 20px;
+  }
+  .telas-app h3 { margin: 10px 0 4px; font-size: .94rem; }
+  .telas-app p { font-size: .84rem; line-height: 1.42; }
 
   /* O print do painel tem 1500x866. Ocupando a coluna inteira ele sozinho
      passa dos 700px de altura -- mais que a tela do notebook. Limitar a
@@ -1214,7 +1230,10 @@ h3 { font-size: clamp(1.05rem, 1.6vw, 1.25rem); letter-spacing: -0.01em; }
    a moldura para de acompanhar a coluna e passa a ser limitada pela altura
    disponivel, que e a medida que realmente falta. */
 @media (min-width: 860px) and (max-height: 780px) {
-  .secao { padding: 36px 0; }
+  .secao { padding: 32px 0; }
   .telas-app { gap: 14px; }
-  .moldura-celular { max-width: min(100%, 218px); margin-inline: auto; }
+  /* Numa tela ainda mais baixa o titulo e o paragrafo tambem precisam ceder,
+     senao sobra pouco demais para a moldura e ela bate no piso do clamp. */
+  .cabeca-secao { margin-bottom: 16px; }
+  .cabeca-secao p { font-size: .98rem; }
 }
