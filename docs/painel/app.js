@@ -331,7 +331,7 @@ function erroPrevisao(s){
    aguenta bem menos espaÃ§o. Sem esse piso por card, redimensionar quebra
    justamente os cards que mais importam. */
 const CARDS = {
-  vaga:     {t:"Vaga monitorada", g:"OperaÃƒÂ§ÃƒÂ£o", tam:"large", cols:9, rows:4, min:{cols:6, rows:3}, mob:4},
+  vaga:     {t:"Vaga monitorada", g:"Operação", tam:"large", cols:9, rows:4, min:{cols:6, rows:3}, mob:4},
   retorno:  {t:"Lucro atribuÃ­do Ã— custo", g:"Retorno",  tam:"large", cols:11, rows:4, min:{cols:7, rows:3}, mob:3, financeiro:true},
   cashback: {t:"Teto de cashback",        g:"Retorno",  tam:"large", cols:9,  rows:4, min:{cols:5, rows:3}, mob:3, financeiro:true},
   horas:    {t:"SessÃµes por hora",        g:"OperaÃ§Ã£o", tam:"large", cols:11, rows:4, min:{cols:7, rows:3}, mob:3},
