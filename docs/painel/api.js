@@ -100,6 +100,8 @@ export const api = {
   consultarPix: id => pedir(`/carteira/pix/${encodeURIComponent(id)}`),
   creditoTeste: () => pedir("/carteira/credito-teste", {metodo:"POST"}),
 
+  minhaFidelidade: () => pedir("/fidelidade"),
+
   dados:   id => pedir(`/dados?estabelecimento_id=${id}`),
 
   criar:   (tabela, corpo) => pedir(`/registros/${tabela}`, {metodo:"POST", corpo}),

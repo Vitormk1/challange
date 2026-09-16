@@ -51,6 +51,46 @@ function paraLogin(){
   location.replace(`./entrar.html${volta}`);
 }
 
+/* ------------------------------------------------------------ fidelidade */
+
+const brl = v => new Intl.NumberFormat("pt-BR", {style:"currency", currency:"BRL"}).format(Number(v || 0));
+const num = (v, casas = 0) => Number(v || 0).toLocaleString("pt-BR", {maximumFractionDigits: casas});
+
+/* Uma linha por loja onde a pessoa tem ficha e a loja tem um modelo ativo.
+   O texto muda com o tipo porque cashback, tiers e créditos não têm o mesmo
+   "valor que importa" — mostrar sempre um número genérico esconderia o que
+   cada modelo realmente promete. */
+function linhaFidelidade(item){
+  const nome = item.estabelecimento_nome || "Loja";
+  if (item.tipo === "cashback"){
+    return `<li><span>${nome}<small>Cashback</small></span><b>${brl(item.saldo_brl)}</b></li>`;
+  }
+  if (item.tipo === "tiers"){
+    return `<li><span>${nome}<small>${num(item.compras_mes)} compra(s) no mês</small></span>`
+         + `<b>${num(item.desconto_pct, 1)}% de desconto</b></li>`;
+  }
+  if (item.tipo === "creditos"){
+    return `<li><span>${nome}<small>Créditos do app</small></span>`
+         + `<b>${num(item.creditos, 1)} · ${num(item.minutos)} min</b></li>`;
+  }
+  return "";
+}
+
+async function carregarFidelidade(){
+  const lista = document.querySelector("[data-fidelidade-lista]");
+  const vazio = document.querySelector("[data-fidelidade-vazio]");
+  if (!lista || !vazio) return;
+  try {
+    const itens = await api.minhaFidelidade();
+    lista.hidden = itens.length === 0;
+    vazio.hidden = itens.length > 0;
+    lista.innerHTML = itens.map(linhaFidelidade).join("");
+  } catch {
+    // sem sessão ou servidor fora do ar: o estado "vazio" já cobre a tela,
+    // e o restante da página (recargas, como funciona) continua útil
+  }
+}
+
 /* ----------------------------------------------------------------- barra */
 
 function ligarBarra(){
@@ -127,6 +167,7 @@ if (usuario?.papel === "motorista"){
     const primeiro = (usuario.nome || "").trim().split(/\s+/)[0];
     saudacao.textContent = primeiro ? `Olá, ${primeiro}` : "Olá";
   }
+  carregarFidelidade();
 } else if (usuario && exigir){
   // Sessão de loja aberta nesta área: manda para a tela de entrada, não para
   // o painel.
