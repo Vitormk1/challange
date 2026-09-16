@@ -1,4 +1,4 @@
-import { api, ErroApi } from "./api.js?v=20260916n";
+import { api, ErroApi } from "./api.js?v=20260916p";
 
 const el = s => document.querySelector(s);
 const brl = v => new Intl.NumberFormat("pt-BR", {style:"currency", currency:"BRL"}).format(Number(v));
@@ -43,8 +43,12 @@ function historicoPix() {
   for (const p of cobrancas) {
     const linha = criar("li"), titulo = criar("span");
     const expirado = p.expira_em && new Date(p.expira_em) <= new Date() && !pago(p);
-    titulo.append(criar("strong", brl(p.valor_brl)), criar("small", `${nomes[p.status] || p.status}${expirado && p.status === "PENDING" ? " · código vencido" : ""} · ${data(p.criado_em)}`));
-    const botao = criar("button", p.status === "PENDING" && !expirado ? "Ver Pix" : "Conferir", "botao-texto"); botao.type = "button";
+    /* A forma entra no rótulo: com Pix, boleto e cartão na mesma lista, uma
+       linha que só diz o valor e a data não deixa distinguir qual cobrança é
+       qual -- e "Ver Pix" num boleto promete a tela errada. */
+    const rp = ROTULOS[p.forma || "pix"] || ROTULOS.pix;
+    titulo.append(criar("strong", brl(p.valor_brl)), criar("small", `${rp.selo} · ${nomes[p.status] || p.status}${expirado && p.status === "PENDING" ? " · código vencido" : ""} · ${data(p.criado_em)}`));
+    const botao = criar("button", p.status === "PENDING" && !expirado ? rp.ver : "Conferir", "botao-texto"); botao.type = "button";
     botao.onclick = async () => { mostrarPix(p); if (!p.copia_e_cola && p.status === "PENDING") await conferir(); };
     linha.append(titulo, botao); lista.append(linha);
   }
@@ -76,20 +80,84 @@ async function carregar({retomar = false} = {}) {
   } catch (e) { falha(e); }
   finally { el("[data-atualizar]").disabled = false; }
 }
+/* A forma escolhida no formulário. Fonte única: o próprio rádio marcado, em
+   vez de uma variável que precisaria ser mantida em sincronia com ele. */
+const formaEscolhida = () =>
+  (document.querySelector('input[name="forma"]:checked') || {}).value || "pix";
+
+const ROTULOS = {
+  pix:    {selo: "PIX",    botao: "Gerar Pix",     gerando: "Gerando seu Pix…",
+           pronto: "Pix pronto. Escaneie o QR Code ou copie o código para o app do banco.",
+           titulo: "Pague pelo app do seu banco", ver: "Ver Pix"},
+  boleto: {selo: "BOLETO", botao: "Gerar boleto",  gerando: "Gerando seu boleto…",
+           pronto: "Boleto pronto. A compensação leva de 1 a 3 dias úteis — o saldo entra depois disso.",
+           titulo: "Pague o boleto no seu banco", ver: "Ver boleto"},
+  cartao: {selo: "CARTÃO", botao: "Pagar com cartão", gerando: "Preparando o pagamento…",
+           pronto: "Tudo pronto. Abra o pagamento seguro para digitar o cartão.",
+           titulo: "Finalize no ambiente da Asaas", ver: "Pagar"},
+};
+
 function validade() {
   if (!ativa) return;
   const restante = ativa.expira_em ? new Date(ativa.expira_em).getTime() - Date.now() : null;
   const encerrado = pago(ativa) || ["REFUNDED", "DELETED"].includes(ativa.status);
   const vencido = !encerrado && restante !== null && restante <= 0;
   const prazo = restante !== null && restante >= 86400000 ? `${Math.ceil(restante / 86400000)} dias restantes` : `${Math.ceil(restante / 60000)} min restantes`;
-  el("[data-pix-validade]").textContent = encerrado ? "" : restante === null ? "Recupere o código para ver a validade." : vencido ? "Este código venceu. Confira o pagamento antes de gerar outro Pix." : `Válido até ${data(ativa.expira_em)} · ${prazo}`;
-  el("[data-copiar]").hidden = encerrado;
+  /* Cada forma tem o seu prazo, e a frase do Pix não serve para as outras: o
+     cartão não vence, e o boleto vence num dia, não em minutos. Dizer
+     "recupere o código para ver a validade" num cartão seria pedir à pessoa
+     que resolvesse um problema que não existe. */
+  const forma = ativa.forma || "pix";
+  el("[data-pix-validade]").textContent =
+      encerrado ? ""
+    : forma === "cartao" ? ""
+    : forma === "boleto"
+      ? (vencido ? "Este boleto venceu. Gere outro para adicionar saldo."
+         : restante === null ? "O saldo entra de 1 a 3 dias úteis após o pagamento."
+         : `Vence em ${data(ativa.expira_em)} · o saldo entra de 1 a 3 dias úteis após o pagamento.`)
+    : restante === null ? "Recupere o código para ver a validade."
+    : vencido ? "Este código venceu. Confira o pagamento antes de gerar outro Pix."
+    : `Válido até ${data(ativa.expira_em)} · ${prazo}`;
+  /* Esta função roda a cada 30s e depois de mostrarPix, então é ela quem dá a
+     última palavra sobre o que fica visível. Sem a condição da forma, o botão
+     "Copiar código Pix" reaparecia sozinho em cima de um boleto. */
+  el("[data-copiar]").hidden = encerrado || forma !== "pix";
+  el("[data-copiar-linha]").hidden = encerrado || forma !== "boleto";
+  el("[data-pdf]").hidden = encerrado || forma !== "boleto" || !ativa.url_boleto;
+  el("[data-checkout]").hidden = encerrado || forma !== "cartao" || !ativa.url_pagamento;
   el("[data-copiar]").disabled = encerrado || vencido || !ativa.copia_e_cola;
   el("[data-qr]").hidden = encerrado || vencido || !ativa.imagem_base64; el("[data-copia]").hidden = encerrado || vencido || !ativa.copia_e_cola;
   if (vencido || encerrado) { clearTimeout(timer); timer = null; }
 }
 function mostrarPix(p, foco = true) {
   ativa = p; el("[data-pix]").hidden = false; el("[data-pix-valor]").textContent = brl(p.valor_brl); el("[data-copia]").value = p.copia_e_cola || "";
+
+  /* Cada forma mostra a sua peça, e só a sua. O bloco do Pix continua onde
+     sempre esteve; boleto e cartão entram ao lado, escondidos por padrão.
+     Quem decide é `p.forma`, que vem do servidor — a tela não adivinha pelo
+     que chegou preenchido, senão um boleto sem linha digitável ainda em
+     recuperação seria confundido com um cartão. */
+  const forma = p.forma || "pix", rot = ROTULOS[forma] || ROTULOS.pix;
+  const ehBoleto = forma === "boleto", ehCartao = forma === "cartao";
+
+  const seloCobranca = el("[data-selo-cobranca]");
+  if (seloCobranca) seloCobranca.textContent = rot.selo;
+
+  el("[data-boleto]").hidden = !ehBoleto;
+  el("[data-cartao]").hidden = !ehCartao;
+  if (ehBoleto) {
+    el("[data-linha]").value = p.linha_digitavel || "";
+    el("[data-copiar-linha]").disabled = !p.linha_digitavel;
+    const pdf = el("[data-pdf]");
+    pdf.href = p.url_boleto || "#";
+    pdf.hidden = !p.url_boleto;
+  }
+  if (ehCartao) {
+    const ir = el("[data-checkout]");
+    ir.href = p.url_pagamento || "#";
+    ir.hidden = !p.url_pagamento;
+  }
+
   if (p.imagem_base64) {
     /* A Asaas normalmente envia somente o Base64, mas algumas respostas e
        integrações podem devolver o valor já como Data URL. Prefixar sempre
@@ -105,7 +173,7 @@ function mostrarPix(p, foco = true) {
   if (confirmado) mensagem("Saldo atualizado. Seu pagamento já aparece no extrato.");
   el("[data-verificar]").textContent = confirmado ? "Conferir status na Asaas" : "Já paguei · conferir pagamento";
   el("[data-pix-status]").textContent = confirmado ? "Pagamento confirmado. O crédito está no seu saldo." : p.status === "REFUNDED" ? "Este Pix foi devolvido. Consulte o estorno no extrato." : p.status === "DELETED" ? "Esta cobrança foi cancelada." : "Aguardando a confirmação do pagamento.";
-  el("[data-pix-titulo]").textContent = confirmado ? "Tudo certo! Saldo adicionado" : "Pague pelo app do seu banco";
+  el("[data-pix-titulo]").textContent = confirmado ? "Tudo certo! Saldo adicionado" : rot.titulo;
   validade(); clearTimeout(timer); timer = null;
   if (!confirmado && p.status === "PENDING" && (!p.expira_em || new Date(p.expira_em) > new Date())) timer = setTimeout(acompanhar, 6000);
   if (foco) el("[data-pix]").scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block:"start"});
@@ -136,13 +204,32 @@ export function valorDigitado(texto) {
   const n = Number(limpo.includes(",") ? limpo.replace(/\./g, "").replace(",", ".") : limpo);
   return n >= 5 && n <= 1000 ? n.toFixed(2) : null;
 }
+/* O botão e o selo acompanham a escolha. Manter "Gerar Pix" escrito enquanto
+   a pessoa marcou boleto é pequeno e é o tipo de coisa que faz duvidar se o
+   clique vai fazer o que diz. */
+function ajustarRotulos() {
+  const r = ROTULOS[formaEscolhida()];
+  el("[data-enviar-pix]").textContent = r.botao;
+  const selo = el("[data-selo-forma]");
+  if (selo) selo.textContent = r.selo;
+}
+document.querySelectorAll('input[name="forma"]').forEach(x => x.onchange = () => {
+  ajustarRotulos();
+  mensagem(formaEscolhida() === "boleto"
+    ? "Boleto compensa em 1 a 3 dias úteis. Para usar o saldo hoje, escolha Pix ou cartão."
+    : "");
+});
+ajustarRotulos();
+
 el("[data-form-pix]").onsubmit = async e => {
   e.preventDefault(); const valor = valorDigitado(el("[data-valor]").value);
   if (!valor) { mensagem("Informe de R$ 5,00 a R$ 1.000,00, com até duas casas decimais.", true); el("[data-valor]").focus(); return; }
-  const b = el("[data-enviar-pix]"); b.disabled = true; b.textContent = "Gerando seu Pix…"; mensagem("Preparando o código. Aguarde sem fechar esta página.");
-  try { const p = await api.criarPix(valor, el("[data-cpf]").value); mostrarPix(p); el("[data-cpf]").value = ""; mensagem("Pix pronto. Escaneie o QR Code ou copie o código para o app do banco."); await carregar(); }
+  const forma = formaEscolhida(), r = ROTULOS[forma];
+  const b = el("[data-enviar-pix]"); b.disabled = true; b.textContent = r.gerando;
+  mensagem("Preparando a cobrança. Aguarde sem fechar esta página.");
+  try { const p = await api.criarPix(valor, el("[data-cpf]").value, forma); mostrarPix(p); el("[data-cpf]").value = ""; mensagem(r.pronto); await carregar(); }
   catch (e) { falha(e); await carregar({retomar:true}); }
-  finally { b.disabled = false; b.textContent = "Gerar Pix"; }
+  finally { b.disabled = false; ajustarRotulos(); }
 };
 document.querySelectorAll("[data-valor-rapido]").forEach(b => {
   b.onclick = () => { el("[data-valor]").value = `${b.dataset.valorRapido},00`; document.querySelectorAll("[data-valor-rapido]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); mensagem(""); };
@@ -154,6 +241,12 @@ el("[data-copiar]").onclick = async () => {
   try { await navigator.clipboard.writeText(el("[data-copia]").value); el("[data-copiar]").textContent = "Código copiado ✓"; setTimeout(() => { el("[data-copiar]").textContent = "Copiar código Pix"; }, 2500); }
   catch { el("[data-copia]").focus(); el("[data-copia]").select(); mensagem("Selecione e copie o código acima para colar no app do banco."); }
 };
+el("[data-copiar-linha]").onclick = async () => {
+  const campo = el("[data-linha]");
+  try { await navigator.clipboard.writeText(campo.value); el("[data-copiar-linha]").textContent = "Linha copiada ✓"; setTimeout(() => { el("[data-copiar-linha]").textContent = "Copiar linha digitável"; }, 2500); }
+  catch { campo.focus(); campo.select(); mensagem("Selecione e copie a linha acima para pagar no app do banco."); }
+};
+
 document.querySelectorAll("[data-filtro]").forEach(b => { b.onclick = () => { filtro = b.dataset.filtro; document.querySelectorAll("[data-filtro]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); extrato(); }; });
 el("[data-exportar]").onclick = () => {
   const linhas = [["Data", "Descrição", "Tipo", "Valor (BRL)"], ...movimentos.map(l => [data(l.criado_em), l.descricao, l.tipo, String(l.valor_brl).replace(".", ",")])];

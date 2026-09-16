@@ -9,7 +9,7 @@ import hmac
 import os
 import re
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 
 import requests
@@ -22,6 +22,18 @@ SANDBOX = "https://api-sandbox.asaas.com/v3"
 PRODUCAO = "https://api.asaas.com/v3"
 BRASIL = timezone(timedelta(hours=-3))
 PAGOS = {"CONFIRMED", "RECEIVED"}
+
+# As tres formas que a carteira aceita, e o nome que cada uma tem na Asaas.
+#
+# CARTAO NAO PASSA POR AQUI. A cobranca e criada por nos, mas o numero do
+# cartao e digitado no checkout hospedado da Asaas (o invoiceUrl que toda
+# cobranca devolve). Nenhum dado de cartao entra neste servidor -- o que
+# mantem o projeto inteiro fora do escopo do PCI-DSS. Receber o numero aqui
+# para repassar seria menos codigo numa tela e muito mais responsabilidade em
+# tudo: log, memoria, backup, e a hospedagem no meio.
+FORMAS = {"pix": "PIX", "boleto": "BOLETO", "cartao": "CREDIT_CARD"}
+LANCAMENTO = {"pix": "recarga_pix", "boleto": "recarga_boleto", "cartao": "recarga_cartao"}
+COMO_ENTROU = {"pix": "via Pix", "boleto": "via boleto", "cartao": "via cartao"}
 EVENTOS = {"PAYMENT_CONFIRMED", "PAYMENT_RECEIVED", "PAYMENT_OVERDUE",
            "PAYMENT_DELETED", "PAYMENT_REFUNDED", "PAYMENT_PARTIALLY_REFUNDED",
            "PAYMENT_UPDATED", "PAYMENT_RESTORED"}
@@ -128,13 +140,24 @@ def pix_publico(linha):
     d = serializar(linha)
     return {"id": d["asaas_pagamento_id"], "valor_brl": d["valor_brl"],
             "status": d["status"], "recebido_em": d.get("recebido_em"),
+            "forma": d.get("forma") or "pix",
+            # Pix: QR e copia-e-cola. Boleto: linha digitavel e PDF. Cartao:
+            # o checkout da Asaas. Quem nao usa o campo recebe nulo, e a tela
+            # decide o que mostrar pela `forma`.
             "copia_e_cola": d.get("payload_pix"),
             "imagem_base64": d.get("imagem_base64"),
+            "linha_digitavel": d.get("linha_digitavel"),
+            "url_boleto": d.get("url_boleto"),
+            "url_pagamento": d.get("url_pagamento"),
             "expira_em": d.get("expiracao_em"),
             "criado_em": d.get("criado_em")}
 
 
 def gravar_qr(cur, pix):
+    # Boleto e cartao nao tem QR de Pix. Pedir um a Asaas devolveria erro, e o
+    # erro viraria 502 numa tela que so queria mostrar a linha digitavel.
+    if (pix.get("forma") or "pix") != "pix":
+        return pix
     if pix["status"] not in {"PENDING", "OVERDUE"}:
         return pix
     qr = asaas("GET", f"/payments/{pix['asaas_pagamento_id']}/pixQrCode")
@@ -152,10 +175,35 @@ def gravar_qr(cur, pix):
     return cur.fetchone()
 
 
+def gravar_boleto(cur, pix):
+    """Busca a linha digitavel do boleto e guarda.
+
+    Separado da criacao pelo mesmo motivo que o QR do Pix: se esta chamada
+    falhar, a cobranca ja esta gravada e a pessoa recupera depois. Perder a
+    linha digitavel e chato; perder a cobranca e dinheiro.
+    """
+    if (pix.get("forma") or "pix") != "boleto" or pix["linha_digitavel"]:
+        return pix
+    if pix["status"] not in {"PENDING", "OVERDUE"}:
+        return pix
+    dados = asaas("GET", f"/payments/{pix['asaas_pagamento_id']}/identificationField")
+    linha = dados.get("identificationField")
+    if not linha:
+        return pix
+    cur.execute("UPDATE carteira_pix SET linha_digitavel=%s WHERE id=%s RETURNING *",
+                (linha, pix["id"]))
+    return cur.fetchone()
+
+
 def aplicar_pagamento(cur, pix, pagamento):
     """Aplica um retrato consultado na Asaas, com a linha do Pix bloqueada."""
+    # O billingType conferido e o da FORMA daquela linha, e nao "PIX" fixo: a
+    # mesma tabela guarda boleto e cartao desde que a carteira deixou de ser so
+    # Pix. Conferir continua importando -- e a garantia de que o retrato veio
+    # da cobranca certa, e nao de outra com o mesmo id em outro ambiente.
+    esperado = FORMAS.get(pix.get("forma") or "pix", "PIX")
     if (pagamento.get("id") != pix["asaas_pagamento_id"]
-            or pagamento.get("billingType") != "PIX"
+            or pagamento.get("billingType") != esperado
             or dinheiro(pagamento.get("value")) != pix["valor_brl"]):
         raise HTTPException(409, "A cobrança precisa ser conferida antes de atualizar o saldo.")
     status = "DELETED" if pagamento.get("deleted") else pagamento.get("status", pix["status"])
@@ -169,9 +217,11 @@ def aplicar_pagamento(cur, pix, pagamento):
     # Um estorno pode chegar antes da notificação de recebimento: o retrato
     # atual comprova tanto o crédito original quanto a devolução.
     if status in PAGOS or devolvido:
+        forma = pix.get("forma") or "pix"
         cur.execute("INSERT INTO carteira_lancamentos "
                     "(usuario_id,tipo,valor_brl,descricao,referencia) "
-                    "VALUES (%s,'recarga_pix',%s,'Saldo adicionado via Pix',%s) "
+                    f"VALUES (%s,'{LANCAMENTO[forma]}',%s,"
+                    f"'Saldo adicionado {COMO_ENTROU[forma]}',%s) "
                     "ON CONFLICT (referencia) DO NOTHING", (pix["usuario_id"],
                     pix["valor_brl"], f"asaas:{pix['asaas_pagamento_id']}"))
         cur.execute("UPDATE carteira_pix SET recebido_em=coalesce(recebido_em,now()) WHERE id=%s", (pix["id"],))
@@ -234,6 +284,11 @@ def registrar_carteira(app, usuario_atual):
 
     @router.post("/carteira/pix")
     def criar_pix(corpo: dict = Body(...), u=Depends(motorista)):
+        # `forma` chega do corpo; sem ela, Pix, que era o unico jeito antes e
+        # continua sendo o caminho de quem ja tinha a tela aberta.
+        forma = str(corpo.get("forma") or "pix").lower()
+        if forma not in FORMAS:
+            raise HTTPException(422, "Escolha Pix, boleto ou cartao.")
         valor = valor_pix(corpo.get("valor"))
         limitar_carteira(u["id"], "criar")
         base, _ = configuracao()
@@ -241,9 +296,12 @@ def registrar_carteira(app, usuario_atual):
             raise HTTPException(503, "O Pix está aguardando a configuração de confirmação de pagamentos.")
         with conectar() as con, con.cursor() as cur:
             cur.execute("SELECT pg_advisory_xact_lock(%s,%s)", (73421, u["id"]))
+            # Pendente DA MESMA FORMA: um boleto em aberto nao pode impedir de
+            # gerar um Pix para pagar agora, que e justamente o caso de quem
+            # desistiu de esperar a compensacao.
             cur.execute("SELECT * FROM carteira_pix WHERE usuario_id=%s AND valor_brl=%s AND status='PENDING' "
-                        "AND (expiracao_em>now() OR expiracao_em IS NULL) "
-                        "ORDER BY id DESC LIMIT 1", (u["id"], valor))
+                        "AND forma=%s AND (expiracao_em>now() OR expiracao_em IS NULL) "
+                        "ORDER BY id DESC LIMIT 1", (u["id"], valor, forma))
             pendente = cur.fetchone()
             if pendente:
                 if dinheiro(pendente["valor_brl"]) != valor:
@@ -271,7 +329,8 @@ def registrar_carteira(app, usuario_atual):
         with conectar() as con, con.cursor() as cur:
             cur.execute("SELECT pg_advisory_xact_lock(%s,%s)", (73421, u["id"]))
             cur.execute("SELECT * FROM carteira_pix WHERE usuario_id=%s AND valor_brl=%s AND status='PENDING' "
-                        "AND (expiracao_em>now() OR expiracao_em IS NULL) ORDER BY id DESC LIMIT 1", (u["id"], valor))
+                        "AND forma=%s AND (expiracao_em>now() OR expiracao_em IS NULL) "
+                        "ORDER BY id DESC LIMIT 1", (u["id"], valor, forma))
             pendente = cur.fetchone()
             if pendente:
                 if dinheiro(pendente["valor_brl"]) != valor:
@@ -279,7 +338,12 @@ def registrar_carteira(app, usuario_atual):
                 return pix_publico(gravar_qr(cur, pendente) if not pendente["payload_pix"] else pendente)
             # A mesma referência é reutilizada após falha de rede/gravação.
             cur.execute("SELECT pix_referencia FROM carteiras WHERE usuario_id=%s", (u["id"],))
-            ref = cur.fetchone()["pix_referencia"] or f"smartcharge-carteira-{u['id']}-{secrets.token_hex(16)}"
+            # A forma entra na referencia: sem ela, uma cobranca de Pix deixada
+            # para tras por uma falha seria recuperada como se fosse o boleto
+            # que a pessoa acabou de pedir, e a conferencia de billingType
+            # rejeitaria depois, com a cobranca ja gravada.
+            ref = (cur.fetchone()["pix_referencia"]
+                   or f"smartcharge-carteira-{u['id']}-{forma}-{secrets.token_hex(16)}")
             cur.execute("UPDATE carteiras SET pix_referencia=%s WHERE usuario_id=%s", (ref, u["id"]))
             con.commit()
         with conectar() as con, con.cursor() as cur:
@@ -289,16 +353,30 @@ def registrar_carteira(app, usuario_atual):
             if atual != ref:
                 raise HTTPException(409, "Sua cobrança foi atualizada. Recarregue a carteira.")
             existentes = asaas("GET", f"/payments?externalReference={ref}").get("data") or []
+            # Boleto precisa de prazo: emitir com vencimento hoje daria um
+            # papel que vence antes de compensar. Pix e cartao sao na hora.
+            vence = datetime.now(BRASIL).date() + timedelta(days=3 if forma == "boleto" else 0)
             cobranca = existentes[0] if existentes else asaas("POST", "/payments", {
-                "customer": cliente_id, "billingType": "PIX", "value": float(valor),
-                "dueDate": datetime.now(BRASIL).date().isoformat(),
+                "customer": cliente_id, "billingType": FORMAS[forma], "value": float(valor),
+                "dueDate": vence.isoformat(),
                 "description": "Adicionar saldo na carteira Smart Charge", "externalReference": ref})
             if dinheiro(cobranca.get("value")) != valor:
                 raise HTTPException(409, "Há uma cobrança anterior em recuperação. Tente novamente com o valor original.")
-            cur.execute("INSERT INTO carteira_pix (usuario_id,asaas_pagamento_id,valor_brl,status,asaas_base) "
-                        "VALUES (%s,%s,%s,%s,%s) ON CONFLICT (asaas_pagamento_id) DO UPDATE "
+            # Para o boleto, `expiracao_em` recebe o vencimento: e a mesma
+            # pergunta que a coluna ja respondia para o Pix -- ate quando esta
+            # cobranca vale. Reaproveitar evita uma coluna nova e faz a
+            # recuperacao de pendente funcionar de graca: enquanto o boleto
+            # nao vencer, pedir outro devolve o mesmo, em vez de emitir dois.
+            # Cartao fica nulo: nao vence.
+            expira = (datetime.combine(vence, time(23, 59, 59), BRASIL)
+                      if forma == "boleto" else None)
+            cur.execute("INSERT INTO carteira_pix "
+                        "  (usuario_id,asaas_pagamento_id,valor_brl,status,asaas_base,"
+                        "   forma,url_pagamento,url_boleto,expiracao_em) "
+                        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (asaas_pagamento_id) DO UPDATE "
                         "SET asaas_pagamento_id=EXCLUDED.asaas_pagamento_id RETURNING *",
-                        (u["id"], cobranca["id"], valor, "PENDING", base))
+                        (u["id"], cobranca["id"], valor, "PENDING", base, forma,
+                         cobranca.get("invoiceUrl"), cobranca.get("bankSlipUrl"), expira))
             pix = cur.fetchone()
             cur.execute("UPDATE carteiras SET pix_referencia=NULL WHERE usuario_id=%s", (u["id"],))
             # Salvar ANTES do QR: uma falha no QR não perde uma cobrança real.
@@ -308,7 +386,9 @@ def registrar_carteira(app, usuario_atual):
             atual = cur.fetchone()
             if cobranca.get("status") in PAGOS or cobranca.get("refunds"):
                 atual = aplicar_pagamento(cur, atual, asaas("GET", f"/payments/{atual['asaas_pagamento_id']}"))
-            return pix_publico(gravar_qr(cur, atual))
+            # Cada forma completa o que falta. Cartao nao precisa de nada: o
+            # invoiceUrl ja veio na criacao.
+            return pix_publico(gravar_boleto(cur, gravar_qr(cur, atual)))
 
     @router.get("/carteira/pix/{pagamento_id}")
     def consultar_pix(pagamento_id: str, u=Depends(motorista)):
@@ -332,8 +412,10 @@ def registrar_carteira(app, usuario_atual):
                 raise HTTPException(409, "Este Pix pertence a outro ambiente de pagamentos.")
             pagamento = asaas("GET", f"/payments/{pix['asaas_pagamento_id']}")
             pix = aplicar_pagamento(cur, pix, pagamento)
-            if not pix["payload_pix"] and pix["status"] == "PENDING":
-                pix = gravar_qr(cur, pix)
+            if pix["status"] == "PENDING":
+                if not pix["payload_pix"]:
+                    pix = gravar_qr(cur, pix)
+                pix = gravar_boleto(cur, pix)
             return pix_publico(pix)
 
     @router.post("/carteira/credito-teste")
