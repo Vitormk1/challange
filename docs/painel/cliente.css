@@ -384,6 +384,12 @@
 .extrato-carteira b { color: var(--cl-ok); white-space: nowrap; }
 .extrato-carteira b.debito { color: var(--cl-primaria); }
 
+/* `display: grid` de cima vence o `display: none` padrão do navegador para
+   `[hidden]` — regra de autor sempre ganha da regra do navegador, mesmo com
+   especificidade menor. Sem isto, `elemento.hidden = true` no JS marcava o
+   atributo mas o elemento continuava visível, como grade vazia. */
+.vazio-cliente[hidden], .extrato-carteira[hidden] { display: none; }
+
 /* ==========================================================================
    Convivência com o mapa
 
