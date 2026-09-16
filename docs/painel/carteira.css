@@ -103,7 +103,21 @@
   border-color: var(--cl-primaria, #b4160f);
   background: var(--cl-primaria-fraca, rgba(180, 22, 15, 0.09));
 }
-.formas-pagamento input { accent-color: var(--cl-primaria, #b4160f); flex: 0 0 auto; }
+/* O reset aqui nao e zelo: `.form-carteira input` veste TODO input do
+   formulario de campo de texto -- width:100%, borda, padding. Aplicado a um
+   radio, ele empurrava o rotulo para fora do cartao e cortava "Cartao" no
+   meio. Desfazer e mais barato que reescrever a regra de cima, que os campos
+   de valor e CPF continuam precisando. */
+.formas-pagamento input {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  accent-color: var(--cl-primaria, #b4160f);
+}
+.formas-pagamento label > span { flex: 1 1 auto; min-width: 0; }
 .formas-pagamento b { display: block; font-size: 0.9rem; line-height: 1.2; }
 .formas-pagamento small { display: block; margin-top: 2px; font-size: 0.74rem; color: var(--cl-suave, #5b5b66); }
 
