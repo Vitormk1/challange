@@ -20,7 +20,7 @@
    nada.
    ========================================================================== */
 
-import { api, ErroApi } from "./api.js";
+import { api, ErroApi, BASE } from "./api.js";
 
 /* Segura a cortina de carregamento ate esta tela ter o que mostrar.
    A chamada e sincrona de proposito: modulos sao avaliados antes do `load`,
@@ -103,11 +103,36 @@ async function carregarFidelidade(){
 
 /* ----------------------------------------------------------------- barra */
 
-function ligarBarra(){
+/* O avatar aparece em dois tamanhos e em duas telas, entao mora aqui, onde as
+   duas alcancam.
+
+   Sem foto, desenha a inicial do nome em vez de um boneco cinza generico: a
+   inicial ja e a pessoa, e some a duvida de "e esse boneco sou eu ou e um
+   botao de entrar?".
+
+   A imagem vem por URL, e nao embutida em base64: assim o navegador cacheia
+   entre as telas. `foto_v` na query e o que fura esse cache quando a foto
+   muda -- sem isso, a foto nova so apareceria no ano que vem. */
+export function pintarAvatar(elemento, usuario){
+  if (!elemento || !usuario) return;
+  const inicial = (usuario.nome || "?").trim().charAt(0).toUpperCase();
+  if (usuario.foto_v){
+    elemento.style.backgroundImage = `url("${BASE}/perfil/foto?v=${usuario.foto_v}")`;
+    elemento.textContent = "";
+    elemento.classList.add("tem-foto");
+  } else {
+    elemento.style.backgroundImage = "";
+    elemento.textContent = inicial;
+    elemento.classList.remove("tem-foto");
+  }
+}
+
+function ligarBarra(usuario){
   const barra = document.querySelector(".barra-app");
   if (!barra) return;
   barra.hidden = false;
   document.body.classList.add("tem-barra");
+  barra.querySelectorAll("[data-avatar]").forEach(a => pintarAvatar(a, usuario));
 
   // aria-current marca a aba da página atual, e é o que o leitor de tela
   // anuncia. O CSS pendura o traço vermelho no mesmo atributo, então não há
@@ -236,7 +261,12 @@ aplicarTemaSalvo();
 
 const exigir = paginaAtual() !== "mapa.html";
 
-let sessao = null;
+/* Exportada para quem roda junto nesta tela nao pedir a mesma coisa de novo.
+   A tela de ajustes carregava este modulo E chamava `api.eu()` por conta
+   propria: duas idas ao servidor para a mesma resposta, uma esperando a
+   outra. Num telefone em rede ruim isso e a diferenca entre abrir e
+   parecer travado. */
+export let sessao = null;
 try {
   sessao = await api.eu();
 } catch (erro){
@@ -259,7 +289,7 @@ const usuario = sessao?.usuario;
 const espera = [];
 
 if (usuario?.papel === "motorista"){
-  ligarBarra();
+  ligarBarra(usuario);
   ligarSair();
 
   espera.push(mostrarReservas());

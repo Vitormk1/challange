@@ -108,7 +108,12 @@ body:not(.tem-barra) { --barra-h: 0px; }
   bottom: 0;
   z-index: 900;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* Uma coluna por aba, seja qual for o numero delas. Estava fixo em 3, e a
+     quarta aba caiu para uma segunda linha, dobrando a altura da barra por
+     cima do conteudo. Assim ela acompanha sem depender de alguem lembrar de
+     contar de novo. */
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   background: color-mix(in srgb, var(--cl-superficie) 92%, transparent);
   -webkit-backdrop-filter: saturate(180%) blur(14px);
   backdrop-filter: saturate(180%) blur(14px);
@@ -552,3 +557,133 @@ body:not(.tem-barra) { --barra-h: 0px; }
 :root[data-theme="dark"] .reserva-chegar { color: #140403; }
 .reserva-chegar:disabled { opacity: 0.6; cursor: default; }
 .reserva-situacao.is-cumprida { background: color-mix(in srgb, var(--cl-ok) 16%, transparent); color: var(--cl-ok); }
+
+/* ==========================================================================
+   Ajustes da conta
+   ========================================================================== */
+
+/* O avatar. Dois tamanhos, uma regra.
+   Sem foto ele mostra a inicial do nome, e nao um boneco cinza: a inicial ja
+   e a pessoa, e o boneco sempre parece um botao de "entrar". */
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--cl-primaria-fraca);
+  background-size: cover;
+  background-position: center;
+  color: var(--cl-primaria);
+  font: 700 12px/1 system-ui, sans-serif;
+  /* A borda so aparece quando ha foto: em cima de uma inicial ela viraria um
+     circulo dentro de outro. */
+  box-shadow: inset 0 0 0 1px transparent;
+}
+.avatar.tem-foto {
+  background-color: var(--cl-linha);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12);
+}
+.avatar-grande {
+  width: 92px;
+  height: 92px;
+  font-size: 36px;
+  flex: 0 0 auto;
+}
+
+/* Na barra de abas o avatar ocupa o lugar do icone, entao precisa do mesmo
+   espaco que um svg de 24px ocupa ali. */
+.barra-app-item .avatar { width: 24px; height: 24px; font-size: 11px; }
+.barra-app-item[aria-current="page"] .avatar { box-shadow: inset 0 0 0 2px var(--cl-primaria); }
+
+.ajustes-foto {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.ajustes-foto-acoes { display: grid; gap: 10px; min-width: 0; }
+.ajustes-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.ajustes-botoes .botao-cliente,
+.ajustes-botoes .botao-secundario { margin: 0; }
+
+/* Tres colunas nao cabem num celular estreito com "Automático" escrito por
+   extenso; empilhar e mais legivel que encolher a fonte. */
+.ajustes-tema { margin-bottom: 4px; }
+
+.ajustes-conta li { justify-content: space-between; }
+.ajustes-conta b { font-variant-numeric: tabular-nums; }
+
+@media (max-width: 460px) {
+  .ajustes-foto { flex-direction: column; align-items: flex-start; }
+}
+
+/* ==========================================================================
+   Grupo de escolha em cartoes
+
+   Nasceu na carteira, para escolher Pix/cartao/boleto, e por isso se chama
+   `formas-pagamento`. Hoje a tela de ajustes usa o mesmo desenho para escolher
+   o tema, entao o bloco mudou de arquivo -- de carteira.css para ca, que as
+   duas telas carregam.
+
+   O nome ficou. Renomear tocaria o html e o js das duas e o ganho seria so o
+   nome; e o mesmo raciocinio que deixou a tabela `carteira_pix` guardar boleto
+   e cartao.
+   ========================================================================== */
+
+/* ---------- escolha da forma de pagamento ----------
+   Três cartões lado a lado, com o prazo escrito embaixo de cada um. O prazo
+   é a informação que decide: quem precisa do saldo agora não pode descobrir
+   depois de gerar o boleto que ele leva dois dias. */
+.formas-pagamento {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+}
+.formas-pagamento legend {
+  padding: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cl-suave, #5b5b66);
+}
+.formas-pagamento label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 10px;
+  border: 1px solid var(--cl-linha, #e2e2e7);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color .16s ease, background-color .16s ease;
+}
+.formas-pagamento label:has(input:checked) {
+  border-color: var(--cl-primaria, #b4160f);
+  background: var(--cl-primaria-fraca, rgba(180, 22, 15, 0.09));
+}
+/* O reset aqui nao e zelo: `.form-carteira input` veste TODO input do
+   formulario de campo de texto -- width:100%, borda, padding. Aplicado a um
+   radio, ele empurrava o rotulo para fora do cartao e cortava "Cartao" no
+   meio. Desfazer e mais barato que reescrever a regra de cima, que os campos
+   de valor e CPF continuam precisando. */
+.formas-pagamento input {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  accent-color: var(--cl-primaria, #b4160f);
+}
+.formas-pagamento label > span { flex: 1 1 auto; min-width: 0; }
+.formas-pagamento b { display: block; font-size: 0.9rem; line-height: 1.2; }
+.formas-pagamento small { display: block; margin-top: 2px; font-size: 0.74rem; color: var(--cl-suave, #5b5b66); }
+
+/* Num celular estreito três colunas espremem "1 a 3 dias úteis" em quatro
+   linhas. Empilhar é mais legível que encolher a fonte. */
+@media (max-width: 460px) {
+  .formas-pagamento { grid-template-columns: 1fr; }
+}

@@ -208,7 +208,12 @@ def usuario_atual(praca_sessao: str | None = Cookie(default=None)) -> dict:
     if not praca_sessao:
         raise HTTPException(401, "sem sessão")
     linhas = consultar(
-        "SELECT u.id, u.nome, u.email, u.papel, u.preferencias, s.expira_em "
+        "SELECT u.id, u.nome, u.email, u.papel, u.preferencias, s.expira_em, "
+        # Marca curta da foto, nao a foto: 8 caracteres viajam de graca dentro
+        # de uma consulta que ja acontece, e servem para furar o cache da
+        # imagem quando ela muda. Buscar isso numa consulta separada custava
+        # uma ida inteira ao banco (~400 ms) em TODA requisicao autenticada.
+        "       left(md5(u.foto), 8) AS foto_v "
         "  FROM sessoes_web s JOIN usuarios u ON u.id = s.usuario_id "
         " WHERE s.token = %s AND u.ativo",
         (praca_sessao,),
@@ -614,7 +619,8 @@ def eu(u: dict = Depends(usuario_atual)):
     lojas = consultar(
         "SELECT * FROM estabelecimentos WHERE id = ANY(%s) ORDER BY nome", (ids,)) if ids else []
     return {
-        "usuario": {k: u[k] for k in ("id", "nome", "email", "papel", "preferencias")},
+        "usuario": {k: u[k] for k in ("id", "nome", "email", "papel",
+                                      "preferencias", "foto_v")},
         "permissoes": u["permissoes"],
         "secoes_bloqueadas": u["secoes_bloqueadas"],
         "estabelecimentos": lojas if pode(u["papel"], "ver_financeiro") else sem_financeiro(lojas),
@@ -1158,8 +1164,8 @@ def minha_fidelidade(u: dict = Depends(usuario_atual)):
 def perfil(u: dict = Depends(usuario_atual)):
     """Quem é a pessoa, e a que ela tem acesso."""
     dados_usuario = consultar(
-        "SELECT id, nome, email, papel, ultimo_acesso, criado_em FROM usuarios WHERE id = %s",
-        (u["id"],))[0]
+        "SELECT id, nome, email, papel, ultimo_acesso, criado_em, "
+        "       left(md5(foto), 8) AS foto_v FROM usuarios WHERE id = %s", (u["id"],))[0]
     lojas = consultar(
         "SELECT e.nome, e.segmento FROM estabelecimentos e WHERE e.id = ANY(%s) ORDER BY e.nome",
         (lojas_do_usuario(u),))
@@ -1216,6 +1222,69 @@ def trocar_senha_propria(corpo: dict = Body(...), u: dict = Depends(usuario_atua
         derrubadas = cur.rowcount
         con.commit()
     return {"ok": True, "outras_sessoes_encerradas": derrubadas}
+
+
+# O teto e generoso de proposito: o navegador manda 256x256, que da uns 20 KB,
+# e 400 mil caracteres cabem ate um PNG mal comportado. O que ele impede e o
+# caso de alguem chamar a rota direto, sem passar pela tela, e usar a coluna
+# como deposito.
+FOTO_MAXIMA = 400_000
+FOTO_TIPOS = ("data:image/png;base64,", "data:image/jpeg;base64,",
+              "data:image/webp;base64,")
+
+
+@app.get("/perfil/foto")
+def ver_foto(u: dict = Depends(usuario_atual)):
+    """Devolve a foto como imagem, nao como texto dentro de um JSON.
+
+    Assim o navegador trata como imagem: cacheia, reaproveita entre telas e
+    nao repassa o base64 em toda navegacao. O cache e longo porque a URL leva
+    a marca da foto -- trocou a foto, muda a URL.
+    """
+    linha = consultar("SELECT foto FROM usuarios WHERE id = %s", (u["id"],))[0]
+    if not linha["foto"]:
+        raise HTTPException(404, "sem foto")
+    cabecalho, dados = linha["foto"].split(",", 1)
+    tipo = cabecalho.split(";")[0].removeprefix("data:") or "image/png"
+    return Response(base64.b64decode(dados), media_type=tipo,
+                    headers={"Cache-Control": "private, max-age=31536000, immutable"})
+
+
+@app.post("/perfil/foto")
+def trocar_foto(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
+    """Guarda a foto de perfil como data URL.
+
+    Nao pede a senha atual, ao contrario da troca de nome. A diferenca e o que
+    cada campo permite: o nome aparece ao lado de quem mexeu no que, entao
+    trocar nome e um jeito de se passar por outra pessoa. Uma foto nao e -- e
+    quem esta na sessao ja provou quem e.
+    """
+    foto = str(corpo.get("foto") or "")
+    if not foto.startswith(FOTO_TIPOS):
+        raise HTTPException(422, "Envie uma imagem PNG, JPEG ou WebP.")
+    if len(foto) > FOTO_MAXIMA:
+        raise HTTPException(413, "A imagem ficou grande demais. Escolha outra.")
+    # O conteudo depois da virgula tem que ser base64 de verdade: sem isto, a
+    # coluna aceitaria qualquer texto com o prefixo certo.
+    corpo_base64 = foto.split(",", 1)[1] if "," in foto else ""
+    try:
+        base64.b64decode(corpo_base64, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(422, "A imagem chegou corrompida. Tente de novo.")
+    with conectar() as con, con.cursor() as cur:
+        cur.execute("UPDATE usuarios SET foto = %s WHERE id = %s "
+                    "RETURNING left(md5(foto), 8) AS v", (foto, u["id"]))
+        marca = cur.fetchone()["v"]
+        con.commit()
+    return {"foto_v": marca}
+
+
+@app.delete("/perfil/foto")
+def remover_foto(u: dict = Depends(usuario_atual)):
+    with conectar() as con, con.cursor() as cur:
+        cur.execute("UPDATE usuarios SET foto = NULL WHERE id = %s", (u["id"],))
+        con.commit()
+    return {"foto_v": None}
 
 
 # ----------------------------------------------------------- preferências ---
@@ -1712,6 +1781,12 @@ def transcrever(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
 #
 # Sem a variável, o mapa cai no endpoint anônimo da CARTO, que funciona e é
 # limitado. Assim o ambiente local roda sem configurar nada.
+# CUIDADO AO CRIAR ARQUIVO EM docs/painel/: esta ROTA ocupa o caminho
+# /painel/config.js, e rotas sao resolvidas antes dos mounts. Um arquivo
+# chamado config.js naquela pasta nunca chegaria ao navegador -- e o sintoma e
+# traicoeiro, porque a rota responde 200 com JavaScript valido, entao a tela
+# carrega, nao acusa erro nenhum, e simplesmente nao faz nada. Foi assim que a
+# tela de ajustes nasceu morta e precisou ser renomeada para ajustes.js.
 @app.get("/painel/config.js", include_in_schema=False)
 def config_do_mapa():
     chave = os.environ.get("CARTO_KEY", "").strip()

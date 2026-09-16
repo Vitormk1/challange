@@ -826,3 +826,34 @@ BEGIN
                     'reserva','estorno_reserva'));
 END $$;
 
+
+
+-- ==========================================================================
+-- Foto de perfil
+--
+-- Guardada como data URL (base64) numa coluna de texto, e nao como arquivo.
+-- Nao e o que um sistema grande faria -- imagem em banco engorda backup e
+-- nao ganha CDN --, mas aqui nao ha armazenamento de objetos, o Render
+-- gratuito tem disco efemero (arquivo enviado some no proximo deploy), e a
+-- imagem e recortada em 256x256 no navegador antes de subir: ~20 KB por
+-- pessoa. A alternativa honesta seria contratar um bucket; a desonesta seria
+-- gravar em disco e descobrir na banca que as fotos sumiram.
+--
+-- O teto e imposto no servidor (api/main.py), nao aqui: o CHECK serve para o
+-- caso de alguem escrever direto no banco.
+-- ==========================================================================
+
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS foto text;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conrelid = 'usuarios'::regclass
+                    AND conname = 'usuarios_foto_check') THEN
+    ALTER TABLE usuarios ADD CONSTRAINT usuarios_foto_check
+      CHECK (foto IS NULL OR (foto LIKE 'data:image/%' AND length(foto) <= 400000));
+  END IF;
+END $$;
+
+COMMENT ON COLUMN usuarios.foto IS
+  'Data URL da foto de perfil, 256x256, recortada no navegador. Nulo = icone padrao.';

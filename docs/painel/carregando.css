@@ -64,13 +64,31 @@
   text-align: center;
 }
 
-.carregando-giro {
-  width: 34px;
-  height: 34px;
+/* O selo: o logo parado no meio, um anel girando em volta.
+   O caminho da imagem e relativo a ESTA folha, nao ao documento -- e por isso
+   que `../img/` funciona igual nas telas de /painel/, nas de /vaga/ e na
+   pagina de apresentacao, que moram em profundidades diferentes. */
+.carregando-selo {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 78px;
+}
+.carregando-selo::before {
+  content: "";
+  width: 44px;
+  height: 44px;
+  background: url("../img/logo.png") center / contain no-repeat;
+}
+.carregando-selo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
   border: 3px solid var(--carregando-linha);
   border-top-color: var(--carregando-marca);
   border-radius: 50%;
-  animation: carregando-girar .8s linear infinite;
+  animation: carregando-girar .9s linear infinite;
 }
 
 .carregando-marca {
@@ -108,9 +126,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Sem giro e sem fade. A cortina continua cobrindo e continua saindo -- o
-     que muda é que ela troca de estado direto, sem movimento. */
-  .carregando-giro { animation: none; border-top-color: var(--carregando-marca); opacity: .75; }
+  /* O anel continua girando, mais devagar.
+     Desligar era exagero meu: `prefers-reduced-motion` existe para conter
+     movimento amplo -- parallax, deslize de tela inteira, coisa que embrulha
+     o estomago de quem tem sensibilidade vestibular. Um anel de 78px girando
+     no lugar nao e isso, e sem ele a tela parece travada em vez de carregando,
+     que e justamente a duvida que a cortina veio tirar.
+     O que sai e o fade: troca de estado seca, sem transicao. */
+  .carregando-selo::after { animation-duration: 1.8s; }
   #carregando { animation-duration: 0s; animation-delay: 12s; }
   #carregando.saiu { transition: none; }
 }

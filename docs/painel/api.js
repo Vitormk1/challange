@@ -126,6 +126,10 @@ export const api = {
   perfil:      () => pedir("/perfil"),
   trocarNome:  (nome, senha_atual) => pedir("/perfil/nome", {metodo:"POST", corpo:{nome, senha_atual}}),
   trocarSenha: (senha_atual, nova) => pedir("/perfil/senha", {metodo:"POST", corpo:{senha_atual, nova}}),
+  /* A foto sobe como data URL e desce como imagem, por /perfil/foto. O que
+     volta aqui e so a marca curta que fura o cache quando ela muda. */
+  trocarFoto:  foto => pedir("/perfil/foto", {metodo:"POST", corpo:{foto}}),
+  removerFoto: () => pedir("/perfil/foto", {metodo:"DELETE"}),
 
   perguntar: (pergunta, estabelecimento_id, historico) =>
     pedir("/ia/perguntar", {metodo:"POST", corpo:{pergunta, estabelecimento_id, historico}}),
