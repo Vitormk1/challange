@@ -467,7 +467,7 @@ CAMPOS_EDITAVEIS = {
                      "preco_kwh_brl", "cashback_pct",
                      "carencia_min", "taxa_ociosidade_min", "ativo"},
     "clientes": {"apelido", "modelo_veiculo", "bateria_kwh", "consentimento_lgpd"},
-    "vendas": {"valor_brl", "cupom_id", "sessao_id", "momento"},
+    "vendas": {"valor_brl", "cupom_id", "sessao_id", "momento", "cliente_id"},
     "estabelecimentos": {"nome", "segmento", "margem_liquida_pct", "ticket_medio_brl",
                          "tarifa_kwh_brl", "demanda_contratada_kw",
                          "fidelidade_tipo", "fidelidade_cashback_pct",
@@ -517,6 +517,51 @@ def _historico(tabela: str, registro_id: int) -> list[str]:
     return achados
 
 
+# ------------------------------------------------------- fidelidade ---
+# Uma venda com cliente identificado conta para o modelo que a loja tiver
+# escolhido (ver fidelidade_tipo em estabelecimentos). Sem modelo escolhido,
+# não mexe em nada — é só uma venda comum.
+#
+# "vendas" nasceu só para o que carrega um cupom de cashback de carga atrás
+# (comentário na tabela, em schema.sql): garante que todo real contado no
+# painel tem uma venda de verdade. Isso deixava de fora a compra comum de
+# balcão, sem carregar nada — exatamente o exemplo do programa ("cliente
+# gasta R$40 no café"). Por isso a fidelidade resolve o cliente de dois
+# jeitos: o `cliente_id` direto da venda, ou, na falta dele, quem carregou
+# na sessão do cupom usado.
+def aplicar_fidelidade(cur, estabelecimento_id: int, cliente_id: int, valor_brl: float) -> None:
+    cur.execute(
+        "SELECT fidelidade_tipo, fidelidade_cashback_pct, fidelidade_creditos_reais_por_credito "
+        "  FROM estabelecimentos WHERE id = %s", (estabelecimento_id,))
+    loja = cur.fetchone()
+    if not loja or not loja["fidelidade_tipo"]:
+        return
+    tipo = loja["fidelidade_tipo"]
+    if tipo == "cashback":
+        pct = float(loja["fidelidade_cashback_pct"] or 0)
+        if pct > 0:
+            cur.execute(
+                "UPDATE clientes SET fidelidade_saldo_cashback_brl = fidelidade_saldo_cashback_brl + %s "
+                " WHERE id = %s", (round(valor_brl * pct / 100, 2), cliente_id))
+    elif tipo == "tiers":
+        # conta as compras do mês corrente; muda de mês, o contador reinicia
+        cur.execute(
+            "UPDATE clientes SET "
+            "  fidelidade_compras_mes = CASE "
+            "    WHEN fidelidade_mes_referencia = date_trunc('month', now())::date "
+            "    THEN fidelidade_compras_mes + 1 ELSE 1 END, "
+            "  fidelidade_mes_referencia = date_trunc('month', now())::date "
+            " WHERE id = %s", (cliente_id,))
+    elif tipo == "creditos":
+        reais_por_credito = float(loja["fidelidade_creditos_reais_por_credito"] or 0)
+        if reais_por_credito > 0:
+            ganhos = int(valor_brl // reais_por_credito)
+            if ganhos:
+                cur.execute(
+                    "UPDATE clientes SET fidelidade_creditos = fidelidade_creditos + %s WHERE id = %s",
+                    (ganhos, cliente_id))
+
+
 @app.post("/registros/{tabela}")
 def criar(tabela: str, corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
     exigir(u, "editar_dados")
@@ -542,7 +587,25 @@ def criar(tabela: str, corpo: dict = Body(...), u: dict = Depends(usuario_atual)
     )
     with conectar() as con, con.cursor() as cur:
         cur.execute(comando, list(campos.values()))
-        return limpar(cur.fetchone())
+        linha = limpar(cur.fetchone())
+        if tabela == "vendas":
+            cliente_id = linha.get("cliente_id")
+            if not cliente_id and linha.get("cupom_id"):
+                cur.execute(
+                    "SELECT s.cliente_id FROM cupons c JOIN sessoes s ON s.id = c.sessao_id "
+                    " WHERE c.id = %s", (linha["cupom_id"],))
+                achado = cur.fetchone()
+                cliente_id = achado["cliente_id"] if achado else None
+            if cliente_id:
+                # o cliente tem que ser desta loja -- sem isto, um cliente_id
+                # de outra loja no corpo da requisição creditaria fidelidade
+                # cruzando estabelecimentos
+                cur.execute(
+                    "SELECT 1 FROM clientes WHERE id = %s AND estabelecimento_id = %s",
+                    (cliente_id, linha["estabelecimento_id"]))
+                if cur.fetchone():
+                    aplicar_fidelidade(cur, linha["estabelecimento_id"], cliente_id, float(linha["valor_brl"]))
+        return linha
 
 
 @app.patch("/registros/{tabela}/{registro_id}")
