@@ -750,3 +750,23 @@ BEGIN
                     'reserva','estorno_reserva'));
 END $$;
 
+
+-- --------------------------------------------------------------------------
+-- Lojas que existem so para o mapa
+--
+-- Os 12 pontos do mapa viraram estabelecimentos de verdade para poderem ser
+-- reservados. Eles nao tem operacao nenhuma -- nenhuma recarga, nenhuma
+-- venda, ninguem vinculado -- e mesmo assim apareciam no seletor de lojas do
+-- painel, porque o papel 'main' enxerga todas as lojas ativas. O seletor
+-- passou de 3 para 15, com 12 vazias no meio.
+--
+-- `so_mapa` separa as duas coisas. Quem vende de verdade aparece no painel;
+-- ponto de mapa aparece no mapa. E uma coluna e nao uma tabela porque a
+-- diferenca e de proposito, nao de natureza: o dia que um desses pontos virar
+-- cliente, muda um booleano.
+-- --------------------------------------------------------------------------
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS so_mapa boolean NOT NULL DEFAULT false;
+
+COMMENT ON COLUMN estabelecimentos.so_mapa IS
+  'true = ponto de demonstracao do mapa; nao aparece no seletor do painel.';
+

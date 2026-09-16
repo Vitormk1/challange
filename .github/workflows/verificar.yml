@@ -111,6 +111,24 @@ jobs:
           fi
           echo "ok: nenhum segredo encontrado"
 
+      - name: Nenhuma variável usada sem existir
+        run: |
+          # Uma regra só, `no-undef`, e ela existe por um caso concreto: um
+          # commit usou `emEdicao`, que nunca foi declarada, e o painel inteiro
+          # parou de abrir para quem tinha aquele card salvo. A tela ficava no
+          # carregamento para sempre, sem mensagem.
+          #
+          # O `node --check` acima NÃO pega isso: a sintaxe estava correta. Só
+          # aparece ao executar — e executar era justamente o que ninguém fez
+          # antes de mesclar.
+          #
+          # Sem package.json de propósito: o projeto não usa npm, e o --yes
+          # baixa o eslint só para esta checagem. A configuração está em
+          # eslint.config.mjs, e dá para rodar igual na sua máquina:
+          #
+          #     npx eslint docs/painel
+          npx --yes eslint@9 docs/painel
+
       - name: Acentos não podem estar corrompidos
         run: |
           # Um editor gravando em Latin-1 no lugar de UTF-8 transforma "ação"

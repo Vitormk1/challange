@@ -535,3 +535,20 @@ body:not(.tem-barra) { --barra-h: 0px; }
   .reserva-situacao { justify-self: start; }
   .reserva-cancelar { justify-self: end; }
 }
+
+/* O "Cheguei" é ação principal: aparece só na janela do horário, e é o que
+   devolve o depósito. Por isso preenchido, enquanto "Cancelar" é contorno. */
+.reserva-chegar {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cl-primaria);
+  color: #fff;
+  padding: 8px 16px;
+  font: 700 13px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+}
+:root[data-theme="dark"] .reserva-chegar { color: #140403; }
+.reserva-chegar:disabled { opacity: 0.6; cursor: default; }
+.reserva-situacao.is-cumprida { background: color-mix(in srgb, var(--cl-ok) 16%, transparent); color: var(--cl-ok); }
