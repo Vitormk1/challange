@@ -7,11 +7,11 @@
 <meta name="description" content="Carteira digital do Smart Charge: pagar a recarga e guardar o cashback no mesmo lugar.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#F4F4F6">
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916n">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916n">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916n">
-<link rel="stylesheet" href="./cliente.css?v=20260916n">
-<link rel="stylesheet" href="./carteira.css?v=20260916n">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916p">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916p">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916p">
+<link rel="stylesheet" href="./cliente.css?v=20260916p">
+<link rel="stylesheet" href="./carteira.css?v=20260916p">
 </head>
 <body class="pagina-cliente">
 
@@ -42,12 +42,24 @@
 
   <div class="carteira-grade">
     <section class="bloco-cliente" aria-labelledby="tituloAdicionar">
-      <div class="carteira-titulo"><h2 id="tituloAdicionar">Adicionar saldo</h2><span class="pix-selo">PIX</span></div>
+      <div class="carteira-titulo"><h2 id="tituloAdicionar">Adicionar saldo</h2><span class="pix-selo" data-selo-forma>PIX</span></div>
       <div class="cartao-cliente">
         <div class="carteira-indisponivel" data-pix-indisponivel hidden>
           <strong>Pix aguardando ativação</strong><p>O recebimento de pagamentos ainda não foi ativado. Seu saldo e extrato continuam disponíveis.</p>
         </div>
         <form class="form-carteira" data-form-pix hidden>
+          <!-- A forma vem antes do valor de propósito: ela muda o texto do
+               botão, o prazo e o que aparece depois. Escolher no fim faria a
+               tela se reescrever embaixo de quem já tinha decidido. -->
+          <fieldset class="formas-pagamento">
+            <legend>Como você quer pagar?</legend>
+            <label><input type="radio" name="forma" value="pix" checked>
+              <span><b>Pix</b><small>Cai na hora</small></span></label>
+            <label><input type="radio" name="forma" value="cartao">
+              <span><b>Cartão</b><small>Cai na hora</small></span></label>
+            <label><input type="radio" name="forma" value="boleto">
+              <span><b>Boleto</b><small>1 a 3 dias úteis</small></span></label>
+          </fieldset>
           <label for="valorPix">Quanto você quer adicionar?</label>
           <span class="campo-moeda"><span>R$</span><input id="valorPix" data-valor inputmode="decimal" autocomplete="off" placeholder="0,00" required aria-describedby="limitesPix" maxlength="12"></span>
           <div class="valores-rapidos" role="group" aria-label="Valores sugeridos">
@@ -67,19 +79,37 @@
         </form>
         <p class="mensagem-carteira" data-mensagem role="status" aria-live="polite"></p>
         <section class="pix-cobranca" data-pix hidden aria-labelledby="tituloPix">
-          <div class="pix-topo"><span class="pix-selo">PIX</span><button class="botao-texto" type="button" data-fechar-pix aria-label="Fechar código Pix">Fechar ×</button></div>
+          <div class="pix-topo"><span class="pix-selo" data-selo-cobranca>PIX</span><button class="botao-texto" type="button" data-fechar-pix aria-label="Fechar código Pix">Fechar ×</button></div>
           <h3 id="tituloPix" data-pix-titulo>Pague pelo app do seu banco</h3>
           <strong class="pix-valor" data-pix-valor></strong>
           <img data-qr alt="QR Code Pix para adicionar saldo" hidden width="220" height="220">
           <p class="ajuda-carteira" data-pix-validade></p>
           <textarea data-copia readonly aria-label="Pix copia e cola" hidden></textarea>
           <button class="botao-cliente" type="button" data-copiar>Copiar código Pix</button>
+
+          <!-- Boleto: linha digitável para digitar no app do banco, e o PDF
+               para quem prefere imprimir ou pagar no caixa. -->
+          <div data-boleto hidden>
+            <label class="sr-only" for="linhaBoleto">Linha digitável do boleto</label>
+            <textarea id="linhaBoleto" data-linha readonly aria-label="Linha digitável"></textarea>
+            <button class="botao-cliente" type="button" data-copiar-linha>Copiar linha digitável</button>
+            <a class="botao-secundario" data-pdf target="_blank" rel="noopener">Abrir boleto em PDF ↗</a>
+          </div>
+
+          <!-- Cartão: a pessoa vai para o checkout da Asaas. O número do
+               cartão nunca passa por este site — é o que mantém o projeto
+               fora do escopo de PCI. -->
+          <div data-cartao hidden>
+            <a class="botao-cliente" data-checkout target="_blank" rel="noopener">Pagar com cartão ↗</a>
+            <p class="ajuda-carteira">Você será levado para o ambiente seguro da
+            Asaas. O número do cartão não passa pelo Smart Charge.</p>
+          </div>
           <p class="mensagem-carteira" data-pix-status aria-live="polite">Esperando o pagamento.</p>
           <button class="botao-secundario" type="button" data-verificar>Já paguei · conferir pagamento</button>
         </section>
         <button class="botao-secundario" type="button" data-credito-teste hidden>Adicionar crédito fictício de teste</button>
       </div>
-      <details class="carteira-como"><summary>Como funciona o Pix?</summary><ol><li>Escolha um valor e gere o código.</li><li>No app do banco, escaneie o QR Code ou use Pix copia e cola.</li><li>Volte aqui. O saldo entra após a confirmação. Se demorar, toque em “Já paguei”.</li></ol><p>O pagamento das recargas pela carteira ainda depende da integração com os carregadores. Cashback é crédito da loja e não se mistura com este saldo.</p></details>
+      <details class="carteira-como"><summary>Como funciona?</summary><ol><li>Escolha a forma de pagamento e o valor.</li><li><b>Pix:</b> escaneie o QR Code no app do banco, ou use o copia e cola.<br><b>Cartão:</b> você vai para o ambiente seguro da Asaas — o número do cartão não passa por aqui.<br><b>Boleto:</b> copie a linha digitável ou abra o PDF.</li><li>Volte aqui. Pix e cartão entram na hora; o boleto leva de 1 a 3 dias úteis para compensar. Se demorar mais que isso, toque em “Já paguei”.</li></ol><p>O pagamento das recargas pela carteira ainda depende da integração com os carregadores. Cashback é crédito da loja e não se mistura com este saldo.</p></details>
     </section>
 
     <section class="bloco-cliente" aria-labelledby="tituloExtrato">
@@ -93,8 +123,8 @@
         <p class="ajuda-carteira" data-extrato-contagem>Últimos 50 movimentos</p>
         <ul class="extrato-carteira" data-extrato><li class="extrato-vazio"><span>Carregando movimentações…</span></li></ul>
       </div>
-      <details class="carteira-historico" data-historico-pix hidden><summary>Histórico de Pix <span>últimas 12 cobranças</span></summary><ul data-cobrancas class="cobrancas-lista"></ul></details>
-      <section class="carteira-cashback" aria-labelledby="tituloCashback"><h3 id="tituloCashback">Créditos nas lojas</h3><p class="ajuda-carteira">Seu cashback vale na loja onde foi emitido e fica separado do saldo Pix.</p><ul data-cashback class="cobrancas-lista"><li>Carregando créditos…</li></ul></section>
+      <details class="carteira-historico" data-historico-pix hidden><summary>Histórico de cobranças <span>últimas 12</span></summary><ul data-cobrancas class="cobrancas-lista"></ul></details>
+      <section class="carteira-cashback" aria-labelledby="tituloCashback"><h3 id="tituloCashback">Créditos nas lojas</h3><p class="ajuda-carteira">Seu cashback vale na loja onde foi emitido e fica separado do saldo da carteira.</p><ul data-cashback class="cobrancas-lista"><li>Carregando créditos…</li></ul></section>
     </section>
   </div>
 
@@ -137,7 +167,7 @@
   servidor. Ative-o e recarregue a página.</p>
 </noscript>
 
-<script type="module" src="./cliente.js?v=20260916n"></script>
-<script type="module" src="./carteira-app.js?v=20260916n"></script>
+<script type="module" src="./cliente.js?v=20260916p"></script>
+<script type="module" src="./carteira-app.js?v=20260916p"></script>
 </body>
 </html>

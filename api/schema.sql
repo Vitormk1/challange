@@ -770,3 +770,59 @@ ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS so_mapa boolean NOT NULL D
 COMMENT ON COLUMN estabelecimentos.so_mapa IS
   'true = ponto de demonstracao do mapa; nao aparece no seletor do painel.';
 
+
+-- ==========================================================================
+-- Carteira: boleto e cartao, alem do Pix
+--
+-- A tabela continua chamando-se carteira_pix. Renomear seria mais bonito e
+-- mais caro: ela e referenciada em dezenas de lugares no carteira.py, no
+-- webhook e no front, e o ganho seria so o nome. O que passa a distinguir as
+-- formas e a coluna `forma`.
+-- ==========================================================================
+
+ALTER TABLE carteira_pix ADD COLUMN IF NOT EXISTS forma text NOT NULL DEFAULT 'pix';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conrelid = 'carteira_pix'::regclass
+                    AND conname = 'carteira_pix_forma_check') THEN
+    ALTER TABLE carteira_pix ADD CONSTRAINT carteira_pix_forma_check
+      CHECK (forma IN ('pix','boleto','cartao'));
+  END IF;
+END $$;
+
+-- Pix mostra QR e copia-e-cola; boleto mostra linha digitavel e PDF; cartao
+-- manda para o checkout da Asaas. Cada forma guarda o que precisa, e o que
+-- nao usa fica nulo.
+ALTER TABLE carteira_pix ADD COLUMN IF NOT EXISTS url_pagamento   text;
+ALTER TABLE carteira_pix ADD COLUMN IF NOT EXISTS linha_digitavel text;
+ALTER TABLE carteira_pix ADD COLUMN IF NOT EXISTS url_boleto      text;
+
+COMMENT ON COLUMN carteira_pix.forma IS
+  'pix | boleto | cartao. A tabela guarda as tres; o nome ficou do tempo em que so havia Pix.';
+COMMENT ON COLUMN carteira_pix.url_pagamento IS
+  'Checkout hospedado da Asaas (invoiceUrl). E por onde o cartao e digitado: o numero nunca passa por este servidor.';
+
+-- Uma cobranca pendente por forma, e nao uma no total: ter um boleto em
+-- aberto nao pode impedir de gerar um Pix para pagar agora.
+CREATE INDEX IF NOT EXISTS ix_carteira_pix_pendente
+  ON carteira_pix (usuario_id, forma, status) WHERE status = 'PENDING';
+
+
+-- O extrato passa a dizer por onde o dinheiro entrou. Lista completa: quem
+-- acrescentar tipo novo acrescenta AQUI, sem criar outro bloco -- dois
+-- blocos mexendo na mesma restricao ja se derrubaram neste projeto.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint
+              WHERE conrelid = 'carteira_lancamentos'::regclass
+                AND conname = 'carteira_lancamentos_tipo_check') THEN
+    ALTER TABLE carteira_lancamentos DROP CONSTRAINT carteira_lancamentos_tipo_check;
+  END IF;
+  ALTER TABLE carteira_lancamentos ADD CONSTRAINT carteira_lancamentos_tipo_check
+    CHECK (tipo IN ('recarga_pix','recarga_boleto','recarga_cartao',
+                    'credito_teste','pagamento_recarga','estorno',
+                    'reserva','estorno_reserva'));
+END $$;
+

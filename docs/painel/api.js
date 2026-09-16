@@ -100,7 +100,10 @@ export const api = {
   eu:      () => pedir("/auth/eu"),
 
   carteira: () => pedir("/carteira"),
-  criarPix: (valor, cpfCnpj) => pedir("/carteira/pix", {metodo:"POST", corpo:{valor, cpfCnpj}}),
+  /* `forma` é "pix", "boleto" ou "cartao". Sem ela o servidor assume Pix, que
+     era o único caminho antes — é o que mantém uma tela antiga funcionando. */
+  criarPix: (valor, cpfCnpj, forma) =>
+    pedir("/carteira/pix", {metodo:"POST", corpo:{valor, cpfCnpj, forma}}),
   consultarPix: id => pedir(`/carteira/pix/${encodeURIComponent(id)}`),
   verificarPix: id => pedir(`/carteira/pix/${encodeURIComponent(id)}/verificar`, {metodo:"POST"}),
   creditoTeste: () => pedir("/carteira/credito-teste", {metodo:"POST"}),

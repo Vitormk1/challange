@@ -68,3 +68,63 @@
 .pagina-cliente button:disabled { opacity: .55; cursor: wait; }
 .pagina-cliente button:focus-visible, .pagina-cliente summary:focus-visible { outline: 2px solid var(--cl-primaria); outline-offset: 3px; }
 @media (max-width: 680px) { .carteira-grade { grid-template-columns: 1fr; gap: 0; } .carteira-saldo { padding: 22px; } .saldo-marca { font-size: .55rem; } }
+
+/* ---------- escolha da forma de pagamento ----------
+   Três cartões lado a lado, com o prazo escrito embaixo de cada um. O prazo
+   é a informação que decide: quem precisa do saldo agora não pode descobrir
+   depois de gerar o boleto que ele leva dois dias. */
+.formas-pagamento {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+}
+.formas-pagamento legend {
+  padding: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cl-suave, #5b5b66);
+}
+.formas-pagamento label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 10px;
+  border: 1px solid var(--cl-linha, #e2e2e7);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color .16s ease, background-color .16s ease;
+}
+.formas-pagamento label:has(input:checked) {
+  border-color: var(--cl-primaria, #b4160f);
+  background: var(--cl-primaria-fraca, rgba(180, 22, 15, 0.09));
+}
+.formas-pagamento input { accent-color: var(--cl-primaria, #b4160f); flex: 0 0 auto; }
+.formas-pagamento b { display: block; font-size: 0.9rem; line-height: 1.2; }
+.formas-pagamento small { display: block; margin-top: 2px; font-size: 0.74rem; color: var(--cl-suave, #5b5b66); }
+
+/* Num celular estreito três colunas espremem "1 a 3 dias úteis" em quatro
+   linhas. Empilhar é mais legível que encolher a fonte. */
+@media (max-width: 460px) {
+  .formas-pagamento { grid-template-columns: 1fr; }
+}
+
+[data-boleto] textarea {
+  width: 100%;
+  min-height: 72px;
+  margin-bottom: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86rem;
+  word-break: break-all;
+}
+[data-boleto] [data-pdf],
+[data-cartao] [data-checkout] {
+  display: block;
+  margin-top: 8px;
+  text-align: center;
+  text-decoration: none;
+}

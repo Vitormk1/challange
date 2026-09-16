@@ -10,7 +10,7 @@
    ali mesmo, sem obrigar a pessoa a voltar e refazer o caminho.
    ========================================================================== */
 
-import { api, ErroApi } from "./api.js?v=20260916n";
+import { api, ErroApi } from "./api.js?v=20260916p";
 
 const $ = s => document.querySelector(s);
 
