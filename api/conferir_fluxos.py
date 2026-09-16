@@ -62,12 +62,25 @@ def secao(titulo: str) -> None:
     print(f"\n== {titulo} ==")
 
 
+# UMA conexao para o teste inteiro, reaproveitada.
+#
+# A primeira versao abria uma conexao por consulta. Parecia inofensivo e nao
+# era: o Aiven deste plano permite 20 conexoes no total, e uma rodada do teste
+# chegou a segurar 18 ao mesmo tempo -- com o site de producao disputando as
+# mesmas 20. Um teste que derruba o que veio testar nao serve.
+_conexao = None
+
+
 def banco():
-    return psycopg.connect(os.environ["DATABASE_URL"], row_factory=dict_row)
+    global _conexao
+    if _conexao is None or _conexao.closed:
+        _conexao = psycopg.connect(os.environ["DATABASE_URL"], row_factory=dict_row,
+                                   autocommit=True, application_name="conferir_fluxos")
+    return _conexao
 
 
 def uma(sql: str, *args):
-    with banco() as c, c.cursor() as cur:
+    with banco().cursor() as cur:
         cur.execute(sql, args)
         return cur.fetchone()
 
@@ -166,22 +179,27 @@ def main() -> int:
         r = motorista.post(f"{API}/carteira/pix",
                            json={"valor": "5.00", "forma": "cheque"}, timeout=TEMPO)
         ok("forma de pagamento invalida e recusada", r.status_code == 422, f"HTTP {r.status_code}")
-        # Forma ausente ou vazia vira Pix de proposito: e o que mantem uma tela
-        # velha, aberta antes do cartao existir, funcionando. Entao o esperado
-        # aqui NAO e 422 -- e passar da validacao e chegar na Asaa
-        # (503 quando ela nao esta configurada, como fora do Render).
+        # Forma ausente vira Pix de proposito: e o que mantem funcionando uma
+        # tela aberta antes de o cartao existir.
+        #
+        # Nao da para conferir isso pelo codigo de status. Sem `forma`, o pedido
+        # passa da validacao e segue ate a Asaa, que exige CPF para criar o
+        # cliente -- e o 422 que volta e sobre o CPF, nao sobre a forma. Mandar
+        # um CPF de verdade so para o teste passar criaria cadastro na conta de
+        # producao deles. Entao o que se confere e a MENSAGEM: seja qual for a
+        # recusa, ela nao pode ser a de forma invalida.
         r = motorista.post(f"{API}/carteira/pix", json={"valor": "5.00"}, timeout=TEMPO)
-        ok("sem forma, assume Pix (compatibilidade)", r.status_code != 422,
-           f"HTTP {r.status_code}")
+        ok("sem forma, nao reclama da forma (assume Pix)",
+           "pix, boleto ou cart" not in r.text.lower(),
+           f"HTTP {r.status_code} · {r.text[:60]}")
 
         # Credita direto no banco: e o mesmo caminho que o webhook usa, e evita
         # criar cobranca real na Asaas so para ter saldo de teste.
-        with banco() as cx, cx.cursor() as cur:
+        with banco().cursor() as cur:
             cur.execute("INSERT INTO carteira_lancamentos "
                         "(usuario_id,tipo,valor_brl,descricao,referencia) "
                         "VALUES (%s,'credito_teste',50,'Conferencia automatica',%s)",
                         (usuario_id, f"conferencia:{marca}"))
-            cx.commit()
         saldo = motorista.get(f"{API}/carteira", timeout=TEMPO).json()
         ok("saldo reflete o lancamento", float(saldo["saldo_brl"]) == 50.0,
            f"R$ {saldo['saldo_brl']}")
@@ -378,11 +396,10 @@ def main() -> int:
                            + ", ".join(str(i.get("estabelecimento_nome")) for i in itens)[:40])
 
                     # limpeza deste trecho
-                    with banco() as cx, cx.cursor() as cur:
+                    with banco().cursor() as cur:
                         if venda_id:
                             cur.execute("DELETE FROM vendas WHERE id=%s", (venda_id,))
                         cur.execute("UPDATE clientes SET usuario_id=NULL WHERE id=%s", (cliente_id,))
-                        cx.commit()
                     r = lojista.delete(f"{API}/registros/clientes/{cliente_id}", timeout=TEMPO)
                     ok("lojista APAGA cliente", r.status_code in (200, 204),
                        f"HTTP {r.status_code}")
@@ -404,21 +421,23 @@ def main() -> int:
         # ------------------------------------------------------- limpeza
         secao("limpeza")
         if usuario_id:
-            with banco() as cx, cx.cursor() as cur:
-                for tabela in ("carteira_lancamentos", "carteira_pix", "reservas",
-                               "verificacoes_email", "sessoes_web", "carteiras"):
-                    try:
+            for tabela in ("carteira_lancamentos", "carteira_pix", "reservas",
+                           "verificacoes_email", "sessoes_web", "carteiras"):
+                try:
+                    with banco().cursor() as cur:
                         cur.execute(f"DELETE FROM {tabela} WHERE usuario_id=%s", (usuario_id,))
-                    except psycopg.Error:
-                        cx.rollback()
+                except psycopg.Error as e:
+                    aviso(f"limpeza de {tabela}: {e}")
+            with banco().cursor() as cur:
                 cur.execute("DELETE FROM usuarios WHERE id=%s", (usuario_id,))
-                cx.commit()
             sobrou = uma("SELECT id FROM usuarios WHERE id=%s", usuario_id)
             ok("motorista de teste removido", sobrou is None, f"#{usuario_id}")
         try:
             lojista.post(f"{API}/auth/logout", timeout=TEMPO)
         except requests.RequestException:
             pass
+        if _conexao is not None and not _conexao.closed:
+            _conexao.close()
 
     print("\n" + "=" * 74)
     for a in avisos:
