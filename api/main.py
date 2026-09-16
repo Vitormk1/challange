@@ -1285,6 +1285,18 @@ def saude():
     except Exception:
         banco = False
     return {"ok": banco, "banco": banco,
+            # Qual commit esta REALMENTE no ar. O Render injeta isto sozinho.
+            #
+            # Existe porque faltou exatamente isto quando um build falhou: o
+            # servico continua servindo a versao anterior, entao de fora um
+            # deploy quebrado e um deploy bem-sucedido sao indistinguiveis --
+            # site de pe, /saude ok, e a correcao que voce publicou
+            # simplesmente nao esta la. Sem este campo a unica forma de saber
+            # era abrir o painel do Render.
+            #
+            # Sete caracteres, que e o que o git mostra e o que da para
+            # comparar de olho com o `git log --oneline`.
+            "versao": os.environ.get("RENDER_GIT_COMMIT", "")[:7] or "local",
             "ia": bool(os.environ.get("OPENROUTER_API_KEY")),
             "origens": os.environ.get("ORIGENS_PERMITIDAS", ""),
             "cookie": {"samesite": os.environ.get("COOKIE_SAMESITE", "lax"),
