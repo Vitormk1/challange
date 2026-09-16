@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import base64
 import binascii
-import hmac
 import json
 import os
 import secrets
@@ -979,138 +978,11 @@ def excluir_painel(painel_id: int, u: dict = Depends(usuario_atual)):
     return {"ok": True, "id": painel_id}
 
 
-# ---------------------------------------------------------------- perfil ---
 # -------------------------------------------------------------- carteira ---
-# A Asaas e' a fonte da confirmacao de dinheiro. O navegador apenas pede a
-# cobranca e mostra o QR; ele jamais recebe chave da Asaas, nem decide saldo.
-ASAAS_BASE_PADRAO = "https://api-sandbox.asaas.com/v3"
+from carteira import registrar_carteira, estado_configuracao
+registrar_carteira(app, usuario_atual)
 
-
-def exigir_motorista(u: dict) -> None:
-    if u["papel"] != "motorista":
-        raise HTTPException(403, "a carteira e exclusiva para contas de motorista")
-
-
-def _asaas_configurado() -> tuple[str, str]:
-    chave = os.environ.get("ASAAS_API_KEY", "").strip()
-    if not chave:
-        raise HTTPException(503, "Pagamentos Pix ainda nao foram configurados neste ambiente.")
-    base = os.environ.get("ASAAS_API_BASE", ASAAS_BASE_PADRAO).strip().rstrip("/")
-    if not base.startswith("https://api") or not base.endswith("/v3"):
-        raise HTTPException(500, "ASAAS_API_BASE invalida no servidor")
-    return base, chave
-
-
-def _asaas(method: str, caminho: str, *, chave: str, corpo: dict | None = None) -> dict:
-    try:
-        resposta = requests.request(method, caminho, json=corpo, timeout=20,
-            headers={"access_token": chave, "Content-Type": "application/json"})
-    except requests.RequestException:
-        raise HTTPException(502, "A Asaas nao respondeu. Tente novamente em instantes.")
-    if not resposta.ok:
-        try: detalhe = resposta.json().get("errors", [{}])[0].get("description", "")
-        except ValueError: detalhe = ""
-        raise HTTPException(502, f"A Asaas recusou a solicitacao{': ' + detalhe if detalhe else ''}")
-    return resposta.json()
-
-
-def _valor_pix(bruto: Any) -> Decimal:
-    try: valor = Decimal(str(bruto)).quantize(Decimal("0.01"))
-    except Exception: raise HTTPException(422, "Informe um valor valido.")
-    if valor < Decimal("5.00") or valor > Decimal("1000.00"):
-        raise HTTPException(422, "A recarga deve ser entre R$ 5,00 e R$ 1.000,00.")
-    return valor
-
-
-@app.get("/carteira")
-def carteira(u: dict = Depends(usuario_atual)):
-    exigir_motorista(u)
-    linhas = consultar("SELECT coalesce(sum(valor_brl), 0) AS saldo FROM carteira_lancamentos WHERE usuario_id = %s", (u["id"],))
-    lancamentos = consultar(
-        "SELECT tipo, valor_brl, descricao, criado_em FROM carteira_lancamentos "
-        "WHERE usuario_id = %s ORDER BY criado_em DESC LIMIT 12", (u["id"],))
-    return {"saldo_brl": linhas[0]["saldo"], "lancamentos": lancamentos,
-            "pix_disponivel": bool(os.environ.get("ASAAS_API_KEY", "").strip()),
-            "modo_demo": os.environ.get("WALLET_DEMO_MODE", "") == "1"}
-
-
-@app.post("/carteira/pix")
-def criar_pix(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
-    exigir_motorista(u)
-    valor = _valor_pix(corpo.get("valor"))
-    cpf = "".join(c for c in str(corpo.get("cpfCnpj", "")) if c.isdigit())
-    if len(cpf) not in (11, 14):
-        raise HTTPException(422, "Informe CPF ou CNPJ valido para gerar o Pix.")
-    base, chave = _asaas_configurado()
-    carteira = consultar("SELECT asaas_cliente_id FROM carteiras WHERE usuario_id = %s", (u["id"],))
-    cliente_id = carteira[0]["asaas_cliente_id"] if carteira else None
-    if not cliente_id:
-        cliente = _asaas("POST", f"{base}/customers", chave=chave, corpo={
-            "name": u["nome"], "email": u["email"], "cpfCnpj": cpf,
-            "externalReference": f"smartcharge-usuario-{u['id']}", "notificationDisabled": True})
-        cliente_id = cliente["id"]
-        with conectar() as con, con.cursor() as cur:
-            cur.execute("INSERT INTO carteiras (usuario_id, asaas_cliente_id) VALUES (%s,%s) "
-                        "ON CONFLICT (usuario_id) DO UPDATE SET asaas_cliente_id = EXCLUDED.asaas_cliente_id", (u["id"], cliente_id))
-            con.commit()
-    cobranca = _asaas("POST", f"{base}/payments", chave=chave, corpo={
-        "customer": cliente_id, "billingType": "PIX", "value": float(valor),
-        "dueDate": datetime.now(timezone.utc).date().isoformat(),
-        "description": "Recarga da carteira Smart Charge",
-        "externalReference": f"smartcharge-carteira-{u['id']}-{secrets.token_hex(8)}"})
-    qr = _asaas("GET", f"{base}/payments/{cobranca['id']}/pixQrCode", chave=chave)
-    with conectar() as con, con.cursor() as cur:
-        cur.execute("INSERT INTO carteira_pix (usuario_id, asaas_pagamento_id, valor_brl, status, payload_pix, expiracao_em) "
-                    "VALUES (%s,%s,%s,%s,%s,%s)", (u["id"], cobranca["id"], valor, cobranca.get("status", "PENDING"),
-                    qr.get("payload"), qr.get("expirationDate")))
-        con.commit()
-    return {"id": cobranca["id"], "valor_brl": valor, "status": cobranca.get("status", "PENDING"),
-            "copia_e_cola": qr.get("payload"), "imagem_base64": qr.get("encodedImage"), "expira_em": qr.get("expirationDate")}
-
-
-@app.get("/carteira/pix/{pagamento_id}")
-def consultar_pix(pagamento_id: str, u: dict = Depends(usuario_atual)):
-    exigir_motorista(u)
-    linhas = consultar("SELECT asaas_pagamento_id AS id, valor_brl, status, recebido_em FROM carteira_pix "
-                       "WHERE asaas_pagamento_id = %s AND usuario_id = %s", (pagamento_id, u["id"]))
-    if not linhas: raise HTTPException(404, "Cobranca Pix nao encontrada.")
-    return linhas[0]
-
-
-@app.post("/carteira/credito-teste")
-def credito_teste(u: dict = Depends(usuario_atual)):
-    exigir_motorista(u)
-    if os.environ.get("WALLET_DEMO_MODE", "") != "1":
-        raise HTTPException(404, "Credito de demonstracao indisponivel.")
-    referencia = f"demo-{u['id']}-{secrets.token_hex(8)}"
-    with conectar() as con, con.cursor() as cur:
-        cur.execute("INSERT INTO carteira_lancamentos (usuario_id, tipo, valor_brl, descricao, referencia) "
-                    "VALUES (%s,'credito_teste',100.00,'Credito de demonstracao',%s)", (u["id"], referencia))
-        con.commit()
-    return {"ok": True, "valor_brl": 100}
-
-
-@app.post("/webhooks/asaas", include_in_schema=False)
-async def webhook_asaas(request: Request):
-    esperado = os.environ.get("ASAAS_WEBHOOK_TOKEN", "").strip()
-    recebido = request.headers.get("asaas-access-token", "")
-    if not esperado or not hmac.compare_digest(recebido, esperado):
-        raise HTTPException(401, "webhook nao autorizado")
-    corpo = await request.json()
-    evento_id, evento, pagamento = str(corpo.get("id", "")), corpo.get("event"), corpo.get("payment") or {}
-    if not evento_id: raise HTTPException(422, "evento sem id")
-    with conectar() as con, con.cursor() as cur:
-        cur.execute("INSERT INTO carteira_eventos_asaas (evento_id) VALUES (%s) ON CONFLICT DO NOTHING RETURNING evento_id", (evento_id,))
-        if not cur.fetchone(): return {"ok": True, "duplicado": True}
-        if evento in ("PAYMENT_CONFIRMED", "PAYMENT_RECEIVED") and pagamento.get("id"):
-            cur.execute("SELECT usuario_id, valor_brl, recebido_em FROM carteira_pix WHERE asaas_pagamento_id = %s FOR UPDATE", (pagamento["id"],))
-            pix = cur.fetchone()
-            if pix:
-                cur.execute("UPDATE carteira_pix SET status=%s, recebido_em=coalesce(recebido_em, now()) WHERE asaas_pagamento_id=%s", (pagamento.get("status", evento), pagamento["id"]))
-                if not pix["recebido_em"]:
-                    cur.execute("INSERT INTO carteira_lancamentos (usuario_id,tipo,valor_brl,descricao,referencia) VALUES (%s,'recarga_pix',%s,'Recarga via Pix',%s) ON CONFLICT (referencia) DO NOTHING", (pix["usuario_id"], pix["valor_brl"], f"asaas:{pagamento['id']}"))
-        con.commit()
-    return {"ok": True}
+# ---------------------------------------------------------------- perfil ---
 
 
 # ----------------------------------------------------------- fidelidade ---
@@ -1710,7 +1582,7 @@ def saude():
         banco = True
     except Exception:
         banco = False
-    return {"ok": banco, "banco": banco,
+    return {"ok": banco, "banco": banco, "carteira": estado_configuracao(),
             # Qual commit esta REALMENTE no ar. O Render injeta isto sozinho.
             #
             # Existe porque faltou exatamente isto quando um build falhou: o

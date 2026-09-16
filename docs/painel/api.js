@@ -98,6 +98,7 @@ export const api = {
   carteira: () => pedir("/carteira"),
   criarPix: (valor, cpfCnpj) => pedir("/carteira/pix", {metodo:"POST", corpo:{valor, cpfCnpj}}),
   consultarPix: id => pedir(`/carteira/pix/${encodeURIComponent(id)}`),
+  verificarPix: id => pedir(`/carteira/pix/${encodeURIComponent(id)}/verificar`, {metodo:"POST"}),
   creditoTeste: () => pedir("/carteira/credito-teste", {metodo:"POST"}),
 
   minhaFidelidade: () => pedir("/fidelidade"),

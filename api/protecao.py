@@ -137,6 +137,15 @@ def limitar_ia(usuario_id: int) -> None:
             f"Você fez {quantas} perguntas na última hora. Espere {espera // 60 + 1} min.")
 
 
+def limitar_carteira(usuario_id: int, acao: str) -> None:
+    """Evita criar cobranças em laço e consultar o provedor a cada clique."""
+    quantas, janela = (10, 3600) if acao == "criar" else (6, 60)
+    _limpar_velhas()
+    ok, espera = _bater(f"carteira:{acao}:{usuario_id}", quantas, janela)
+    if not ok:
+        raise HTTPException(429, f"Aguarde {espera}s antes de tentar novamente.")
+
+
 def limitar_ia_publica(request: Request) -> None:
     """Teto duplo da assistente pública: por IP e no total do dia.
 
