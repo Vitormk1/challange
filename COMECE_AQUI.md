@@ -5,7 +5,7 @@ elétrico em ativo comercial para o lojista. Está no ar em
 <https://smartcharge.ia.br/painel/>.
 
 Este documento é o caminho do zero até o seu primeiro Pull Request. Leva uns
-20 minutos. Cada comando vem com o que ele faz, porque a ideia é você entender
+uns 20 minutos, a maior parte esperando instalação. Cada comando vem com o que ele faz, porque a ideia é você entender
 e não decorar.
 
 Depois que estiver rodando, o [CONTRIBUTING.md](CONTRIBUTING.md) é a
@@ -93,23 +93,58 @@ lê essa lista e instala tudo.
 
 ## Parte 5 — O arquivo `.env` (uma vez só)
 
-O projeto precisa de senhas: a do banco de dados e a chave da IA. Elas **não
-estão no repositório**, porque ele é público — quem tem o link vê tudo.
+O projeto lê as configurações daqui. Este arquivo **nunca vai para o
+repositório** — ele está no `.gitignore`, e o repositório é público.
 
-```bash
-copy .env.example .env        # Windows
-cp .env.example .env          # Mac ou Linux
+Crie um arquivo chamado `.env` na raiz do projeto. O Vitor vai te passar os
+dois valores marcados como `<peça ao Vitor>`, por mensagem privada:
+
+```
+DATABASE_URL=<peça ao Vitor>
+
+OPENROUTER_API_KEY=<peça ao Vitor>
+OPENROUTER_MODEL=mistralai/mistral-small-24b-instruct-2501
+
+ORIGENS_PERMITIDAS=https://vitormk1.github.io
+CARTO_KEY=cb1_27zl_1_12d6ebc987e8b8882e924f80
 ```
 
-Isso cria um `.env` com os campos vazios. **Peça os valores ao Vitor** por
-mensagem privada e cole cada um no seu arquivo.
+**Você vai trabalhar direto no banco que está no ar.** É uma decisão do grupo,
+e ela tem uma consequência que você precisa carregar: não existe rede de
+proteção. O que você apagar, apagou para todo mundo — inclusive para as
+contas que pessoas criaram no site.
 
-> Nunca commite o `.env`, nunca mande print dele no grupo. Se uma chave
-> vazar, ela precisa ser trocada em todos os serviços.
+Na prática, duas regras bastam:
+
+1. **Nunca rode `api/seed.py`.** Ele apaga dez tabelas e recria. O script se
+   recusa a rodar contra banco remoto sem você digitar o endereço inteiro à
+   mão; se ele te pedir isso, a resposta é `Ctrl+C`.
+2. **Mudou o `api/schema.sql`? Avise no grupo antes de mesclar.** O esquema é
+   um só para todos.
+
+Ler, criar registro pela tela, testar login — tudo isso é seguro e é o que
+você vai fazer o tempo todo.
+
+> Nunca commite o `.env`, nunca mande print dele no grupo. Se a chave da IA
+> vazar, ela precisa ser trocada e o gasto sai do bolso de alguém.
 
 ---
 
-## Parte 6 — Rodar
+## Parte 6 — Conferir que o esquema está em dia (quando mexer nele)
+
+```bash
+python api/db.py
+```
+
+**O que faz:** lê o `api/schema.sql` e cria o que faltar — tabelas, colunas,
+índices, visões. É seguro de repetir e **não apaga nada**: só acrescenta.
+
+Você só precisa rodar se alguém mexeu no `schema.sql`. Como todo mundo usa o
+mesmo banco, normalmente já vai estar tudo lá.
+
+---
+
+## Parte 7 — Rodar
 
 ```bash
 python -m uvicorn main:app --host 127.0.0.1 --port 8000 --app-dir api --reload
@@ -122,9 +157,25 @@ navegador para ver.
 Abra <http://127.0.0.1:8000/painel/>. Se a apresentação aparecer, você está
 com o projeto rodando. Para parar o servidor, `Ctrl + C` no terminal.
 
+As telas, para você se achar:
+
+| Endereço | O que é |
+|---|---|
+| `/painel/` | a apresentação do projeto, aberta |
+| `/painel/entrar.html` | login e cadastro |
+| `/painel/cliente.html` | área do motorista (Dashboard, Mapa, Carteira) |
+| `/painel/dashboard.html` | o painel do lojista |
+| `/painel/mapa.html` | mapa dos carregadores, aberto |
+| `/painel/anuncio.html` | o filme do projeto |
+
+Entre com um dos e-mails que o `seed.py` criou (`gerente.petecia@praca.local`,
+por exemplo) e a senha que ele imprimiu. Ou crie uma conta em
+`/painel/entrar.html` — contas criadas ali entram como **motorista** e vão
+para a área do cliente.
+
 ---
 
-## Parte 7 — Sua primeira tarefa
+## Parte 8 — Sua primeira tarefa
 
 Agora o ciclo que se repete para sempre. São seis passos.
 
@@ -237,8 +288,10 @@ E três coisas que **não** se faz:
 1. **`git push --force`** — é o único comando capaz de apagar o trabalho dos
    outros do histórico. Na dúvida, pergunte antes.
 2. **Commitar o `.env`** — tem senha dentro, e o repositório é público.
-3. **Rodar `api/seed.py`** apontando para o banco compartilhado — ele apaga
-   todas as tabelas e recria. O script pergunta antes; leia o que ele mostra.
+3. **Rodar `api/seed.py`** — ele apaga dez tabelas e recria. Como vocês
+   trabalham direto no banco que está no ar, isso apaga o trabalho de todo
+   mundo. O script se recusa a rodar contra banco remoto a não ser que você
+   digite o endereço inteiro; se chegou nessa pergunta, `Ctrl+C`.
 
 ---
 

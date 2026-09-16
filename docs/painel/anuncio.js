@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Smart Charge — o filme
+   Smart Charge — vídeo pitch
 
    Motion (static/motion/motion.js) servido daqui mesmo, não de CDN: a CSP
    declara `script-src 'self'`, e abrir isso para um terceiro custaria muito
@@ -45,24 +45,35 @@
 
   if (!animate) { mostrarFecho(); return; }
 
-  /* "Menos movimento" é preferência de sistema, e vale como padrão — mas
-     quem clicou num link chamado "o filme" pode querer ver o filme mesmo
-     assim. Respeitar a preferência é não tocar sozinho; não é recusar. O
-     botão devolve a escolha a quem ela pertence. */
+  /* "Menos movimento" é preferência de sistema, e vale como padrão — mas quem
+     clicou num link chamado "vídeo pitch" veio ver o vídeo. Respeitar a
+     preferência é não tocar sozinho; não é recusar.
+
+     Uma escolha só nesta tela. Antes ficavam dois botões lado a lado, o
+     "Conhecer o projeto" da cena de fecho e o convite para assistir — e isso
+     é oferecer saída a quem acabou de entrar. Quem chegou aqui já decidiu o
+     que queria; a porta para o site continua existindo no fim do vídeo, que
+     é onde ela faz sentido. */
   if (menosMovimento) {
     mostrarFecho();
+    const fecho = document.querySelector('[data-cena="7"]');
+    const paraOSite = fecho.querySelector(".fecho-botao");
+    paraOSite.hidden = true;
+
     const convite = document.createElement("button");
     convite.type = "button";
     convite.className = "assistir-assim";
-    convite.textContent = "Assistir mesmo assim";
+    convite.textContent = "Assistir ao vídeo";
     convite.addEventListener("click", () => {
       convite.remove();
+      paraOSite.hidden = false;      // volta a valer quando o vídeo terminar
       document.querySelectorAll(".cena, .cena *").forEach(el => { el.style.opacity = ""; });
-      document.querySelector('[data-cena="7"]').style.pointerEvents = "";
+      fecho.style.pointerEvents = "";
       controles.hidden = false;
       montarFilme();
     });
-    document.querySelector('[data-cena="7"]').append(convite);
+    fecho.append(convite);
+    convite.focus();
     return;
   }
 

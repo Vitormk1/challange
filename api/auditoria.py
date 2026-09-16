@@ -254,6 +254,11 @@ def main() -> None:
     checar("tela de entrada responde", e.status_code == 200, f"HTTP {e.status_code}")
     checar("tela de entrada oferece cadastro", "formCriar" in e.text,
            "só o formulário de login — quem não tem conta fica sem porta")
+    # A porta do lojista. Sem ela, quem tem loja não tem como chegar ao painel
+    # a não ser digitando o endereço, e o dono do produto é justamente ele.
+    checar("tela de entrada leva ao painel da loja",
+           "entrada-lojista" in e.text and "./dashboard.html" in e.text,
+           "botão de lojista ausente")
     for arquivo in ("cliente.html", "carteira.html"):
         c = anon.get(f"{API}/painel/{arquivo}", timeout=TEMPO)
         checar(f"{arquivo} responde", c.status_code == 200, f"HTTP {c.status_code}")

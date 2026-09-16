@@ -5,15 +5,14 @@
    O que muda entre elas é só qual rota da API é chamada — o que vem depois é
    idêntico, porque o servidor devolve a sessão já aberta nos dois casos.
 
-   Quem decide o destino é o papel, e não esta tela:
+   Esta tela é do MOTORISTA. Quem entra ou se cadastra aqui vai para a área do
+   cliente, e só o servidor decide isso — o cadastro aberto cria 'motorista'
+   com o papel fixo no código.
 
-     motorista  → área do cliente, onde ele vê recargas, mapa e carteira
-     o resto    → painel da loja
-
-   O lojista não passa pela área do cliente porque ela não tem nada para ele:
-   o interesse dele é o retorno da loja, que é o painel inteiro. E o motorista
-   não passa pelo painel porque não conseguiria — ele não tem vínculo com loja
-   nenhuma, e o painel recusaria com um erro que não explica nada.
+   O lojista tem outra porta, o botão no fim da página, que leva ao painel. O
+   painel pede a senha de novo, com a conta que nós entregamos a ele. São duas
+   contas de verdade, e a mesma pessoa pode ter as duas no mesmo aparelho: a
+   dela, de motorista, e a da loja.
    ========================================================================== */
 
 import { api, ErroApi } from "./api.js";
@@ -207,12 +206,17 @@ formCriar.onsubmit = async ev => {
   }
 };
 
-/* ------------------------------------------------------------- já logado */
+/* ------------------------------------------------------------ foco inicial */
 
-/* Quem já tem sessão não precisa ver esta tela. A checagem é silenciosa: 401
-   é o caso normal de quem chegou deslogado, e não merece mensagem nenhuma. */
-try {
-  seguir(await api.eu());
-} catch {
-  $("#entrarEmail").focus({ preventScroll: true });
-}
+/* Esta tela NÃO redireciona quem já tem sessão aberta.
+
+   A versão anterior fazia isso — chegou logado, foi mandado direto para
+   dentro. Parecia atencioso e atrapalhava: o lojista que já estava logado
+   como motorista nunca conseguia ver o botão "Entrar como lojista", porque a
+   página o expulsava antes de ele bater o olho. E as duas contas existem
+   justamente para conviver no mesmo aparelho.
+
+   Quem já entrou e voltou aqui de propósito quer escolher alguma coisa: trocar
+   de conta, ou passar para o lado do lojista. Mandá-lo embora tira a escolha
+   que é o motivo desta tela existir. */
+$("#entrarEmail").focus({ preventScroll: true });

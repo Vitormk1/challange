@@ -487,3 +487,70 @@
   .mapa-lista.is-animando, .mapa-ponto, .pino,
   .mapa-fab, .mapa-aviso, .leaflet-bottom.leaflet-right { transition: none; }
 }
+
+/* ==========================================================================
+   Escuro
+
+   O mapa é uma aba da área do cliente, e trocar de aba não pode trocar de
+   tema: quem estava no escuro via esta tela abrir branca na cara.
+
+   Quase tudo sai de graça, porque o mapa.css já pinta por token — trocar os
+   tokens vira a página inteira. O que precisa de mão são os quatro lugares
+   onde havia cor fixa, e eles estão comentados um a um abaixo. Os ladrilhos
+   quem troca é o mapa.js, que escolhe `dark_all` no lugar do `voyager`.
+   ========================================================================== */
+:root[data-theme="dark"] .pagina-mapa {
+  --fundo: #08080A;
+  --fundo-suave: #15151A;
+  --fundo-frio: #12121A;
+  --superficie: #16161B;
+  --texto: #F5F5F7;
+  --texto-2: #C2C2CC;
+  --texto-3: #9A9AA6;
+  --linha: rgba(255, 255, 255, 0.12);
+  --linha-forte: rgba(255, 255, 255, 0.22);
+
+  /* O vermelho da marca é fechado demais para o escuro: num fundo #08080A
+     ele vira uma mancha marrom. Sobe de tom, como no login.css. */
+  --vermelho: #FF4D42;
+  --vermelho-forte: #FF5A4F;
+  --vermelho-claro: rgba(255, 77, 66, 0.18);
+
+  /* `--preto` é fundo de pastilha com texto branco fixo por cima (o atalho de
+     pular, a marca de cada ponto na lista, a pílula da folha). Preto sobre
+     fundo preto some; cinza elevado mantém a pastilha legível e o branco
+     continua passando por cima. */
+  --preto: #2A2A33;
+  /* `--carvao` pinta o pino do carregador ocupado, que fica em cima dos
+     ladrilhos. Nos escuros ele desaparecia no mapa. */
+  --carvao: #7A7A88;
+}
+
+/* ---- os quatro lugares com cor fixa ---- */
+
+/* O balão do Leaflet vem branco de fábrica, e o texto dele já é nosso token
+   claro: sem isto, texto branco em balão branco. */
+:root[data-theme="dark"] .pagina-mapa .leaflet-popup-content-wrapper,
+:root[data-theme="dark"] .pagina-mapa .leaflet-popup-tip {
+  background: var(--superficie);
+  color: var(--texto);
+}
+
+/* A tira de atribuição tinha branco translúcido cravado. */
+:root[data-theme="dark"] .pagina-mapa .leaflet-control-attribution {
+  background: rgba(10, 10, 12, 0.78);
+  color: var(--texto-3);
+}
+
+/* Os botões de zoom são do Leaflet e vêm brancos com sinal escuro. */
+:root[data-theme="dark"] .pagina-mapa .leaflet-bar a,
+:root[data-theme="dark"] .pagina-mapa .leaflet-control-zoom a {
+  background: var(--superficie);
+  color: var(--texto);
+  border-bottom-color: var(--linha);
+}
+:root[data-theme="dark"] .pagina-mapa .leaflet-bar a:hover { background: var(--fundo-suave); }
+
+/* O selo de "ocupado" tinha vermelho escuro cravado no texto, que sumia
+   dentro do fundo translúcido do escuro. */
+:root[data-theme="dark"] .pagina-mapa .selo.is-ocupado { color: #FFB3AC; }
