@@ -43,15 +43,24 @@ def configuracao():
 
 def estado_configuracao():
     """Sonda operacional sem expor chave, token ou informações da conta."""
+    chave = bool(os.environ.get("ASAAS_API_KEY", "").strip())
+    webhook = bool(os.environ.get("ASAAS_WEBHOOK_TOKEN", "").strip())
+    pendencias = []
+    if not chave:
+        pendencias.append("ASAAS_API_KEY")
+    if not webhook:
+        pendencias.append("ASAAS_WEBHOOK_TOKEN")
     try:
         base, _ = configuracao()
-        webhook = bool(os.environ.get("ASAAS_WEBHOOK_TOKEN", "").strip())
-        return {"pix_configurado": webhook, "webhook_configurado": webhook,
-                "ambiente": "sandbox" if base == SANDBOX else "producao"}
     except HTTPException:
-        return {"pix_configurado": False,
-                "webhook_configurado": bool(os.environ.get("ASAAS_WEBHOOK_TOKEN", "").strip()),
-                "ambiente": "indisponivel"}
+        base = None
+        if chave:
+            pendencias.append("ASAAS_API_BASE")
+    return {"pix_configurado": base is not None and not pendencias,
+            "api_key_configurada": chave, "webhook_configurado": webhook,
+            "ambiente": "indisponivel" if base is None else
+                        "sandbox" if base == SANDBOX else "producao",
+            "pendencias": pendencias}
 
 
 def asaas(metodo, caminho, corpo=None):
@@ -214,17 +223,14 @@ def registrar_carteira(app, usuario_atual):
             cobrancas = [pix_publico(x) for x in cur.fetchall()]
             cur.execute("SELECT asaas_cliente_id,asaas_base FROM carteiras WHERE usuario_id=%s", (u["id"],))
             cadastro = cur.fetchone()
-        try:
-            base, _ = configuracao()
-            disponivel = bool(os.environ.get("ASAAS_WEBHOOK_TOKEN", "").strip())
-        except HTTPException:
-            base, disponivel = SANDBOX, False
+        config = estado_configuracao()
         return {"saldo_brl": str(saldo), "lancamentos": lancamentos,
                 "cashback_lojas": cashback,
-                "cobrancas": cobrancas, "pix_disponivel": disponivel,
+                "cobrancas": cobrancas, "pix_disponivel": config["pix_configurado"],
                 "documento_necessario": not bool(cadastro and cadastro["asaas_cliente_id"]),
-                "ambiente": "sandbox" if base == SANDBOX else "producao",
-                "modo_demo": base == SANDBOX and os.environ.get("WALLET_DEMO_MODE") == "1"}
+                "ambiente": config["ambiente"],
+                "modo_demo": config["pix_configurado"] and config["ambiente"] == "sandbox"
+                             and os.environ.get("WALLET_DEMO_MODE") == "1"}
 
     @router.post("/carteira/pix")
     def criar_pix(corpo: dict = Body(...), u=Depends(motorista)):

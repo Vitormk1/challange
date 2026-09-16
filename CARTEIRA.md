@@ -16,6 +16,14 @@ não é dinheiro sacável e não entra no saldo Pix.
   `1` permite um único crédito fictício por motorista.
 
 Webhook: `https://smartcharge.ia.br/webhooks/asaas`.
+
+O `.env` local não é enviado ao Render. No serviço que atende o domínio,
+abra Environment e configure as duas variáveis secretas acima, depois
+escolha Save and deploy. Apenas Save only não ativa os valores no processo
+que já está rodando. Os campos `sync: false` do Blueprint documentam os
+nomes, mas não preenchem segredos em serviços que já existem.
+A sonda `/saude` informa as pendências de configuração sem expor valores.
+
 Selecione `PAYMENT_CONFIRMED`, `PAYMENT_RECEIVED`, `PAYMENT_OVERDUE`,
 `PAYMENT_DELETED`, `PAYMENT_REFUNDED`, `PAYMENT_PARTIALLY_REFUNDED`,
 `PAYMENT_UPDATED` e `PAYMENT_RESTORED`.

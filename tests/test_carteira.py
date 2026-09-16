@@ -221,6 +221,24 @@ class CarteiraTests(unittest.TestCase):
         self.assertEqual(self.client.post("/carteira/credito-teste").status_code,404)
         os.environ["ASAAS_API_BASE"] = wallet.SANDBOX
         with self.assertRaises(HTTPException): wallet.configuracao()
+
+    def test_configuracao_ausente_nao_e_tratada_como_sandbox(self):
+        os.environ["ASAAS_API_KEY"] = ""
+        os.environ["ASAAS_WEBHOOK_TOKEN"] = ""
+        config = wallet.estado_configuracao()
+        self.assertFalse(config["pix_configurado"])
+        self.assertEqual(config["pendencias"],["ASAAS_API_KEY","ASAAS_WEBHOOK_TOKEN"])
+        resposta = self.client.get("/carteira").json()
+        self.assertFalse(resposta["pix_disponivel"])
+        self.assertEqual(resposta["ambiente"],"indisponivel")
+        self.assertFalse(resposta["modo_demo"])
+
+    def test_ativacao_depois_de_configurar_servidor(self):
+        os.environ["ASAAS_API_KEY"] = ""
+        self.assertFalse(self.client.get("/carteira").json()["pix_disponivel"])
+        os.environ["ASAAS_API_KEY"] = "$aact_hmlg_teste"
+        self.assertTrue(self.client.get("/carteira").json()["pix_disponivel"])
+        self.assertEqual(wallet.estado_configuracao()["pendencias"],[])
         os.environ["ASAAS_API_BASE"] = "https://api-malicioso.example/v3"
         with self.assertRaises(HTTPException): wallet.configuracao()
 
