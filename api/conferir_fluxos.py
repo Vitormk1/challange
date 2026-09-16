@@ -269,6 +269,24 @@ def main() -> int:
                 saldo3 = float(motorista.get(f"{API}/carteira", timeout=TEMPO).json()["saldo_brl"])
                 ok("saldo voltou ao que era", saldo3 == 50.0, f"R$ {saldo3}")
 
+        # ------------------------------------- vaga livre ate quando
+        # A pergunta que o carregador faz antes de liberar energia para quem
+        # chegou sem reserva. E o que impede o caso de alguem plugar meia hora
+        # antes da reserva de outra pessoa e comer o horario dela.
+        secao("disponibilidade da vaga")
+        if vaga:
+            r = requests.get(f"{API}/vagas/{vaga['id']}/disponibilidade", timeout=TEMPO)
+            ok("disponibilidade responde sem login", r.status_code == 200, f"HTTP {r.status_code}")
+            if r.status_code == 200:
+                d = r.json()
+                ok("diz se pode iniciar", isinstance(d.get("pode_iniciar"), bool),
+                   f"pode_iniciar={d.get('pode_iniciar')}")
+                ok("diz quantos minutos ha",
+                   "minutos_disponiveis" in d,
+                   f"{d.get('minutos_disponiveis')} min · {d.get('recado', '')[:40]}")
+        r = requests.get(f"{API}/vagas/99999999/disponibilidade", timeout=TEMPO)
+        ok("vaga inexistente devolve 404", r.status_code == 404, f"HTTP {r.status_code}")
+
         # ---------------------------------------------------- fidelidade
         secao("fidelidade")
         r = motorista.get(f"{API}/fidelidade", timeout=TEMPO)

@@ -265,7 +265,10 @@ CSP = "; ".join([
 # diferença de superfície entre as duas escolhas é essa.
 #
 # `connect-src` NÃO é afetado: tile raster chega por <img>, não por fetch.
-TILES = "https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org"
+TILES = ("https://server.arcgisonline.com "
+         # Os dois antigos ficam liberados so enquanto houver navegador
+         # com a tela velha em cache; podem sair depois da banca.
+         "https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org")
 CSP_MAPA = CSP.replace("img-src 'self' data:", f"img-src 'self' data: {TILES}")
 
 CABECALHOS = {
