@@ -563,10 +563,25 @@ def reenviar(request: Request, tarefas: BackgroundTasks, corpo: dict = Body(...)
         return resposta
 
     with conectar() as con, con.cursor() as cur:
-        cur.execute("SELECT id, nome FROM usuarios "
-                    " WHERE lower(email) = %s AND NOT email_verificado AND ativo FOR UPDATE", (email,))
+        # As três condições são conferidas separadas de propósito. Num WHERE
+        # só, "não achei" cobria conta inexistente, conta já confirmada e
+        # conta desativada — e como o reenvio responde 200 nos três casos,
+        # para não virar detector de quem tem cadastro, o efeito colateral era
+        # esconder também a falha de quem clicava e não recebia nada.
+        #
+        # A resposta continua sendo a mesma; o que muda é haver rastro no log
+        # do servidor, onde só quem administra enxerga.
+        cur.execute("SELECT id, nome, email_verificado, ativo FROM usuarios "
+                    " WHERE lower(email) = %s FOR UPDATE", (email,))
         u = cur.fetchone()
         if not u:
+            correio.log.info("reenvio: nenhuma conta com %s", email)
+            return resposta
+        if u["email_verificado"]:
+            correio.log.info("reenvio: %s já confirmou; nada a mandar", email)
+            return resposta
+        if not u["ativo"]:
+            correio.log.info("reenvio: conta de %s está desativada", email)
             return resposta
         link = _novo_link(cur, u["id"], request)
         con.commit()
