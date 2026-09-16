@@ -549,3 +549,33 @@ ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS fidelidade_creditos_reais_
   CHECK (fidelidade_creditos_reais_por_credito > 0);
 ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS fidelidade_creditos_minutos_por_credito numeric(10,2)
   CHECK (fidelidade_creditos_minutos_por_credito > 0);
+
+
+-- --------------------------------------------------------------------------
+-- Motor de fidelidade: a loja escolhe um modelo (migracao acima) e agora
+-- toda COMPRA identificada acumula de verdade, em vez de so mostrar a
+-- configuracao.
+--
+-- vendas nasceu para o que carrega um cupom nosso atras (comentario na
+-- CREATE TABLE acima) -- garante que todo real contado no painel tem uma
+-- venda de verdade por tras do cashback de carga. Isso deixa de fora a
+-- compra comum de balcao, sem carregar nada, que e exatamente o exemplo do
+-- proprio programa ("cliente gasta R$40 no cafe"). cliente_id e um segundo
+-- jeito, independente do cupom, de dizer quem comprou -- anulavel: venda
+-- sem cliente identificado continua existindo, so nao acumula fidelidade.
+-- --------------------------------------------------------------------------
+ALTER TABLE vendas ADD COLUMN IF NOT EXISTS cliente_id bigint
+  REFERENCES clientes(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS ix_vendas_cliente ON vendas (cliente_id) WHERE cliente_id IS NOT NULL;
+
+-- Saldo por cliente. Os tres campos existem sempre, mas so o do modelo ativo
+-- da loja e o que muda com as compras -- trocar de modelo nao apaga o que o
+-- cliente ja acumulou no anterior (mesma ideia das colunas de configuracao
+-- em estabelecimentos).
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS fidelidade_saldo_cashback_brl numeric(10,2)
+  NOT NULL DEFAULT 0 CHECK (fidelidade_saldo_cashback_brl >= 0);
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS fidelidade_creditos numeric(10,2)
+  NOT NULL DEFAULT 0 CHECK (fidelidade_creditos >= 0);
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS fidelidade_compras_mes integer
+  NOT NULL DEFAULT 0 CHECK (fidelidade_compras_mes >= 0);
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS fidelidade_mes_referencia date;
