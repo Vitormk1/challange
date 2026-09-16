@@ -146,6 +146,14 @@ def limitar_carteira(usuario_id: int, acao: str) -> None:
         raise HTTPException(429, f"Aguarde {espera}s antes de tentar novamente.")
 
 
+def limitar_senha_atual(usuario_id: int) -> None:
+    """Mesmo limite nas duas rotas; mudar IP ou sessão não renova a quota."""
+    _limpar_velhas()
+    ok, espera = _bater(f"senha-atual:{usuario_id}", 6, 300)
+    if not ok:
+        raise HTTPException(429, f"Tentativas demais. Aguarde {espera}s.")
+
+
 def limitar_ia_publica(request: Request) -> None:
     """Teto duplo da assistente pública: por IP e no total do dia.
 
@@ -201,7 +209,6 @@ def limitar_reenvio(request: Request, email: str) -> None:
 def zerar_login(request: Request, email: str) -> None:
     """Login certo limpa a contagem — senão quem erra duas vezes e acerta
     continua perto do bloqueio sem motivo."""
-    _tentativas.pop(f"login:ip:{ip_de(request)}", None)
     _tentativas.pop(f"login:email:{email.lower()}", None)
 
 
@@ -324,6 +331,9 @@ class CabecalhosDeSeguranca(BaseHTTPMiddleware):
         # por engano.
         if request.url.path.startswith("/painel/") or request.url.path.startswith("/vaga/"):
             resposta.headers.setdefault("Cache-Control", _cache_para(request))
+        else:
+            # Respostas da API podem conter identidade, saldo e histórico.
+            resposta.headers["Cache-Control"] = "no-store"
         protocolo = request.headers.get("x-forwarded-proto", request.url.scheme)
         if protocolo == "https":
             resposta.headers.setdefault("Strict-Transport-Security", HSTS)

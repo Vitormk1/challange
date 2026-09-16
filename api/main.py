@@ -29,6 +29,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
+from urllib.parse import urlsplit
 
 import psycopg
 import requests
@@ -45,6 +46,7 @@ import correio
 from db import conectar
 from protecao import (CabecalhosDeSeguranca, limitar_cadastro, limitar_ia, limitar_ia_publica, limitar_login,
                       limitar_reenvio,
+                      limitar_senha_atual,
                       zerar_login)
 
 PAINEL = Path(__file__).resolve().parent.parent / "docs"
@@ -348,7 +350,14 @@ def _url_publica(request: Request) -> str:
     apontando para o site de outra pessoa.
     """
     fixa = os.environ.get("URL_PUBLICA", "").strip().rstrip("/")
+    if not fixa and os.environ.get("RENDER") == "true":
+        fixa = "https://smartcharge.ia.br"
     if fixa:
+        destino = urlsplit(fixa)
+        if (destino.scheme not in {"http", "https"} or not destino.hostname
+                or destino.username or destino.password or destino.query or destino.fragment
+                or (os.environ.get("COOKIE_SEGURO") == "1" and destino.scheme != "https")):
+            raise HTTPException(503, "O endereço público precisa ser configurado corretamente.")
         return fixa
     proto = request.headers.get("x-forwarded-proto", request.url.scheme)
     host = request.headers.get("x-forwarded-host") or request.headers.get("host") or "127.0.0.1:8000"
@@ -388,10 +397,9 @@ def _mandar_verificacao(para: str, nome: str, link: str) -> None:
     """
     try:
         correio.enviar_verificacao(para, nome, link, HORAS_VERIFICACAO)
-        correio.log.info("verificação enviada para %s", para)
+        correio.log.info("verificação enviada")
     except Exception as erro:      # noqa: BLE001 — falha de rede, SMTP ou API
-        correio.log.error("não consegui enviar para %s: %s: %s",
-                          para, type(erro).__name__, erro)
+        correio.log.error("falha no envio de verificação: %s", type(erro).__name__)
 
 
 @app.post("/auth/cadastrar")
@@ -417,42 +425,32 @@ def cadastrar(request: Request, resp: Response, tarefas: BackgroundTasks,
     limitar_cadastro(request)
 
     exigir = verificacao_ativa()
-    token = novo_token()
     with conectar() as con, con.cursor() as cur:
+        # Hash mesmo para conta existente: a resposta e o caminho de custo
+        # não funcionam como verificador público de endereços cadastrados.
+        cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (email,))
         cur.execute("SELECT 1 FROM usuarios WHERE lower(email) = %s", (email,))
-        if cur.fetchone():
-            # Dizer "já existe" entrega que aquele e-mail tem conta aqui — o
-            # mesmo vazamento que o login evita respondendo igual para senha
-            # errada e e-mail inexistente. Num cadastro não há como esconder:
-            # seguir em frente criaria conta duplicada. Então assume-se o
-            # vazamento e devolve-se algo acionável.
-            raise HTTPException(409, "Já existe uma conta com esse e-mail. Tente entrar.")
-
-        cur.execute(
-            "INSERT INTO usuarios (nome, email, papel, senha_hash, email_verificado) "
-            "VALUES (%s, %s, 'motorista', %s, %s) RETURNING id",
-            (nome, email, criar_hash(senha), not exigir))
-        novo_id = cur.fetchone()["id"]
-        link = _novo_link(cur, novo_id, request) if exigir else None
-        if not exigir:
-            cur.execute("INSERT INTO sessoes_web (token, usuario_id, expira_em) VALUES (%s,%s,%s)",
-                        (token, novo_id, validade()))
+        existente = bool(cur.fetchone())
+        senha_hash = criar_hash(senha)
+        novo_id = None
+        link = None
+        if not existente:
+            cur.execute(
+                "INSERT INTO usuarios (nome, email, papel, senha_hash, email_verificado) "
+                "VALUES (%s, %s, 'motorista', %s, %s) ON CONFLICT DO NOTHING RETURNING id",
+                (nome, email, senha_hash, not exigir))
+            criado = cur.fetchone()
+            novo_id = criado["id"] if criado else None
+            link = _novo_link(cur, novo_id, request) if exigir and novo_id else None
         con.commit()
 
     if exigir:
-        # Sem sessão. A conta existe, mas não abre nada até o clique no link —
-        # senão a verificação seria um enfeite: bastaria ignorar o e-mail e
-        # continuar usando.
-        tarefas.add_task(_mandar_verificacao, email, nome, link)
+        if link:
+            tarefas.add_task(_mandar_verificacao, email, nome, link)
         return {"verificar": True, "email": email}
-
-    # Entra já logado: pedir login logo depois do cadastro é atrito sem ganho
-    # — a pessoa acabou de provar que sabe a senha.
-    resp.set_cookie(COOKIE, token, httponly=True,
-                    samesite=os.environ.get("COOKIE_SAMESITE", "lax").lower(),
-                    max_age=60 * 60 * 24 * 14,
-                    secure=os.environ.get("COOKIE_SEGURO", "") == "1")
-    return eu(usuario_atual(token))
+    # Sem provedor de e-mail, os dois casos levam ao login. Abrir sessão só
+    # para conta nova tornaria a existência distinguível pelo cookie.
+    return {"cadastrado": True}
 
 
 # ==========================================================================
@@ -473,17 +471,23 @@ def verificar(resp: Response, corpo: dict = Body(...)):
 
     sessao = novo_token()
     with conectar() as con, con.cursor() as cur:
-        # DELETE ... RETURNING num comando só: consome o token e diz se ele
-        # existia, sem janela entre conferir e apagar. Dois cliques no mesmo
-        # link — o que acontece toda hora, porque a pessoa clica e volta —
-        # deixam o segundo sem linha para apagar.
+        # Serializa todos os links e a troca de senha na mesma conta.
+        cur.execute("SELECT usuario_id FROM verificacoes_email WHERE token = %s", (token,))
+        dono = cur.fetchone()
+        usuario = None
+        if dono:
+            cur.execute("SELECT ativo, email_verificado FROM usuarios WHERE id = %s FOR UPDATE",
+                        (dono["usuario_id"],))
+            usuario = cur.fetchone()
         cur.execute(
             "DELETE FROM verificacoes_email WHERE token = %s "
             "RETURNING usuario_id, expira_em", (token,))
         linha = cur.fetchone()
         vencido = bool(linha) and linha["expira_em"] < datetime.now(timezone.utc)
 
-        if linha and not vencido:
+        ativavel = bool(linha and usuario and usuario["ativo"] and not usuario["email_verificado"])
+        if ativavel and not vencido:
+            cur.execute("DELETE FROM verificacoes_email WHERE usuario_id = %s", (linha["usuario_id"],))
             cur.execute("UPDATE usuarios SET email_verificado = true, ultimo_acesso = now() "
                         " WHERE id = %s", (linha["usuario_id"],))
             cur.execute("INSERT INTO sessoes_web (token, usuario_id, expira_em) VALUES (%s,%s,%s)",
@@ -495,7 +499,7 @@ def verificar(resp: Response, corpo: dict = Body(...)):
         # ninguém jamais limparia.
         con.commit()
 
-    if not linha:
+    if not linha or not ativavel:
         # Link errado, já usado, ou de conta apagada. Não vale distinguir: a
         # ação é a mesma, pedir outro.
         raise HTTPException(404, "Este link não vale mais. Peça um novo.")
@@ -526,7 +530,7 @@ def reenviar(request: Request, tarefas: BackgroundTasks, corpo: dict = Body(...)
 
     with conectar() as con, con.cursor() as cur:
         cur.execute("SELECT id, nome FROM usuarios "
-                    " WHERE lower(email) = %s AND NOT email_verificado", (email,))
+                    " WHERE lower(email) = %s AND NOT email_verificado AND ativo FOR UPDATE", (email,))
         u = cur.fetchone()
         if not u:
             return resposta
@@ -618,6 +622,15 @@ def dados(estabelecimento_id: int, u: dict = Depends(usuario_atual)):
         saida = cur.fetchone()["payload"]
     if not pode(u["papel"], "ver_financeiro"):
         saida["estabelecimentos"] = sem_financeiro(saida["estabelecimentos"])
+        privados = {
+            "sessoes": {"cashback_brl", "previsao_custo_brl", "custo_energia_brl", "valor_cobrado_brl"},
+            "vendas": {"valor_brl"},
+            "cupons": {"desconto_brl"},
+            "clientes": {"fidelidade_saldo_cashback_brl", "fidelidade_creditos"},
+        }
+        for colecao, campos in privados.items():
+            saida[colecao] = [{k: v for k, v in linha.items() if k not in campos}
+                             for linha in saida[colecao]]
     return saida
 
 
@@ -665,6 +678,42 @@ def _confere_dono(tabela: str, registro_id: int, lojas: list[int]) -> None:
     linhas = consultar(comando.as_string(), (registro_id,))
     if not linhas or linhas[0]["loja"] not in lojas:
         raise HTTPException(404, "registro não encontrado")
+
+
+def _validar_venda(cur, campos: dict, loja_id: int) -> None:
+    """Referências precisam pertencer à loja e à mesma recarga/cliente."""
+    consultas = {
+        "cliente_id": "SELECT id, estabelecimento_id AS loja FROM clientes WHERE id = %s FOR SHARE",
+        "sessao_id": "SELECT s.id, s.cliente_id, c.estabelecimento_id AS loja FROM sessoes s "
+                     "JOIN carregadores c ON c.id = s.carregador_id WHERE s.id = %s FOR SHARE OF s,c",
+        "cupom_id": "SELECT q.id, q.sessao_id, s.cliente_id, c.estabelecimento_id AS loja FROM cupons q "
+                    "JOIN sessoes s ON s.id = q.sessao_id JOIN carregadores c ON c.id = s.carregador_id "
+                    "WHERE q.id = %s FOR SHARE OF q,s,c",
+    }
+    achados = {}
+    for campo, comando in consultas.items():
+        valor = campos.get(campo)
+        if valor is None:
+            continue
+        if (isinstance(valor, bool) or not isinstance(valor, (str, int))
+                or not str(valor).isascii() or not str(valor).isdigit() or len(str(valor)) > 19):
+            raise HTTPException(400, f"{campo} inválido")
+        valor = int(valor)
+        if not 0 < valor <= 9223372036854775807:
+            raise HTTPException(400, f"{campo} inválido")
+        cur.execute(comando, (valor,))
+        registro = cur.fetchone()
+        if not registro or registro["loja"] != loja_id:
+            raise HTTPException(400, f"{campo} não pertence a este estabelecimento")
+        campos[campo] = valor
+        achados[campo] = registro
+    cupom, sessao = achados.get("cupom_id"), achados.get("sessao_id")
+    if cupom and sessao and cupom["sessao_id"] != sessao["id"]:
+        raise HTTPException(400, "O cupom e a sessão precisam corresponder à mesma recarga.")
+    cliente_id = campos.get("cliente_id")
+    for vinculo in (cupom, sessao):
+        if cliente_id is not None and vinculo and vinculo["cliente_id"] != cliente_id:
+            raise HTTPException(400, "O cliente não corresponde à recarga informada.")
 
 
 # Quantas linhas de histórico dependem deste cadastro. É o que decide entre
@@ -757,6 +806,8 @@ def criar(tabela: str, corpo: dict = Body(...), u: dict = Depends(usuario_atual)
         valores=sql.SQL(", ").join(sql.Placeholder() * len(campos)),
     )
     with conectar() as con, con.cursor() as cur:
+        if tabela == "vendas":
+            _validar_venda(cur, campos, campos["estabelecimento_id"])
         cur.execute(comando, list(campos.values()))
         linha = limpar(cur.fetchone())
         if tabela == "vendas":
@@ -791,6 +842,12 @@ def alterar(tabela: str, registro_id: int, corpo: dict = Body(...),
             sql.SQL("{} = {}").format(sql.Identifier(k), sql.Placeholder()) for k in campos),
     )
     with conectar() as con, con.cursor() as cur:
+        if tabela == "vendas":
+            cur.execute("SELECT * FROM vendas WHERE id = %s FOR UPDATE", (registro_id,))
+            anterior = cur.fetchone()
+            if not anterior or anterior["estabelecimento_id"] not in lojas_do_usuario(u):
+                raise HTTPException(404, "registro não encontrado")
+            _validar_venda(cur, {**anterior, **campos}, anterior["estabelecimento_id"])
         cur.execute(comando, [*campos.values(), registro_id])
         return limpar(cur.fetchone())
 
@@ -1068,6 +1125,7 @@ def trocar_nome(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
     nome = str(corpo.get("nome", "")).strip()
     if not 2 <= len(nome) <= 80:
         raise HTTPException(400, "O nome precisa ter entre 2 e 80 caracteres.")
+    limitar_senha_atual(u["id"])
     atual = consultar("SELECT senha_hash FROM usuarios WHERE id = %s", (u["id"],))[0]
     if not conferir_senha(str(corpo.get("senha_atual", "")), atual["senha_hash"]):
         raise HTTPException(403, "Senha atual incorreta.")
@@ -1085,13 +1143,16 @@ def trocar_senha_propria(corpo: dict = Body(...), u: dict = Depends(usuario_atua
     nova = str(corpo.get("nova", ""))
     if len(nova) < 8:
         raise HTTPException(400, "A senha nova precisa de pelo menos 8 caracteres.")
-    atual = consultar("SELECT senha_hash FROM usuarios WHERE id = %s", (u["id"],))[0]
-    if not conferir_senha(str(corpo.get("senha_atual", "")), atual["senha_hash"]):
-        raise HTTPException(403, "Senha atual incorreta.")
-    if conferir_senha(nova, atual["senha_hash"]):
-        raise HTTPException(400, "A senha nova é igual à atual.")
+    limitar_senha_atual(u["id"])
     with conectar() as con, con.cursor() as cur:
+        cur.execute("SELECT senha_hash FROM usuarios WHERE id = %s FOR UPDATE", (u["id"],))
+        atual = cur.fetchone()
+        if not conferir_senha(str(corpo.get("senha_atual", "")), atual["senha_hash"]):
+            raise HTTPException(403, "Senha atual incorreta.")
+        if conferir_senha(nova, atual["senha_hash"]):
+            raise HTTPException(400, "A senha nova é igual à atual.")
         cur.execute("UPDATE usuarios SET senha_hash = %s WHERE id = %s", (criar_hash(nova), u["id"]))
+        cur.execute("DELETE FROM verificacoes_email WHERE usuario_id = %s", (u["id"],))
         # trocar senha derruba as outras sessões, e mantém esta: é o
         # comportamento que a pessoa espera quando troca por desconfiança
         cur.execute("DELETE FROM sessoes_web WHERE usuario_id = %s AND token IS DISTINCT FROM %s",
@@ -1143,6 +1204,8 @@ SELECT json_build_object(
                     COALESCE(sum(cu.desconto_brl) FILTER (WHERE cu.usado_em IS NOT NULL), 0)
                       AS com_cupom
                FROM vendas v LEFT JOIN cupons cu ON cu.id = v.cupom_id
+                 AND EXISTS (SELECT 1 FROM sessoes sx JOIN carregadores cx ON cx.id = sx.carregador_id
+                              WHERE sx.id = cu.sessao_id AND cx.estabelecimento_id = v.estabelecimento_id)
               WHERE v.estabelecimento_id = %(e)s) t),
   'cupons', (SELECT to_json(t) FROM (
              SELECT count(*) AS emitidos, count(cu.usado_em) AS usados
@@ -1195,11 +1258,20 @@ def contexto_da_loja(estabelecimento_id: int, papel: str) -> dict:
                      "cupons_emitidos": bruto["cupons"]["emitidos"],
                      "cupons_usados": bruto["cupons"]["usados"]},
         "horarios_de_pico": bruto["horarios_de_pico"],
-        "clientes_mais_frequentes": bruto["clientes_mais_frequentes"],
+        # A análise precisa da frequência; não do apelido/veículo do titular.
+        "clientes_mais_frequentes": [{"visitas": c["visitas"]}
+                                    for c in bruto["clientes_mais_frequentes"]],
         "precisao_da_previsao": bruto["precisao_da_previsao"],
     }
 
     if papel == "operador":
+        for campo in ("custo_energia_brl", "recarga_cobrada_brl", "cashback_brl"):
+            ctx["operacao"].pop(campo, None)
+        ctx["loja"].pop("tarifa_energia_brl_kwh", None)
+        ctx["loja"].pop("demanda_contratada_kw", None)
+        for carregador in ctx["carregadores"]:
+            for campo in ("preco_kwh_brl", "cashback_pct", "taxa_ociosidade_min"):
+                carregador.pop(campo, None)
         # Daqui para baixo é dinheiro, e não é da conta dele. A chave abaixo
         # existe porque só omitir os números não basta: sem ela o modelo pega
         # o teto configurado no carregador e monta uma justificativa
@@ -1367,7 +1439,7 @@ def perguntar(corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
     historico = corpo.get("historico") or []
     mensagens = [{"role": "system", "content": INSTRUCOES},
                  {"role": "system",
-                  "content": f"QUEM PERGUNTA: {u['nome']}, papel {u['papel']}.\n"
+                  "content": f"PAPEL DE QUEM PERGUNTA: {u['papel']}.\n"
                              f"CONTEXTO (JSON):\n{json.dumps(ctx, ensure_ascii=False)}"}]
     for m in historico[-6:]:
         if m.get("papel") in ("user", "assistant") and m.get("texto"):
@@ -1595,12 +1667,38 @@ def config_do_mapa():
 @app.get("/saude")
 def saude():
     """Sonda do Render, e conferência rápida do que subiu configurado."""
+    armazenamento = {"ok": False, "tabelas_ausentes": [], "populado": False}
     try:
         consultar("SELECT 1 AS ok")
         banco = True
+        tabelas = consultar("SELECT table_name FROM information_schema.tables "
+                            "WHERE table_schema='public' AND table_type='BASE TABLE'")
+        nomes = {row["table_name"] for row in tabelas}
+        esperadas = {"usuarios", "clientes", "sessoes", "vendas", "carteiras",
+                     "carteira_pix", "carteira_lancamentos", "carteira_eventos_asaas"}
+        faltantes = sorted(esperadas - nomes)
+        if not faltantes:
+            resumo = consultar(
+                "SELECT "
+                "(SELECT count(*) FROM usuarios) AS usuarios, "
+                "(SELECT count(*) FROM clientes) AS clientes, "
+                "(SELECT count(*) FROM vendas) AS vendas, "
+                "(SELECT count(*) FROM carteiras) AS carteiras, "
+                "(SELECT count(*) FROM carteira_pix) AS pix, "
+                "(SELECT count(*) FROM carteira_lancamentos) AS lancamentos"
+            )[0]
+            armazenamento = {
+                "ok": True,
+                "tabelas_ausentes": [],
+                # Só informa se há registros; não expõe quantidades ou linhas.
+                "populado": any(int(resumo[campo] or 0) > 0 for campo in resumo),
+            }
+        else:
+            armazenamento["tabelas_ausentes"] = faltantes
     except Exception:
         banco = False
-    return {"ok": banco, "banco": banco, "carteira": estado_configuracao(),
+    return {"ok": banco, "banco": banco, "armazenamento": armazenamento,
+            "carteira": estado_configuracao(),
             # Qual commit esta REALMENTE no ar. O Render injeta isto sozinho.
             #
             # Existe porque faltou exatamente isto quando um build falhou: o

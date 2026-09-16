@@ -30,9 +30,11 @@ def sortear(tamanho: int = 14) -> str:
 def trocar(email: str, senha: str) -> bool:
     with conectar() as con, con.cursor() as cur:
         cur.execute("UPDATE usuarios SET senha_hash = %s WHERE lower(email) = lower(%s) "
-                    "RETURNING nome, papel", (criar_hash(senha), email))
+                    "RETURNING id, nome, papel", (criar_hash(senha), email))
         linha = cur.fetchone()
         if linha:
+            cur.execute("DELETE FROM verificacoes_email WHERE usuario_id = %s", (linha["id"],))
+            cur.execute("DELETE FROM sessoes_web WHERE usuario_id = %s", (linha["id"],))
             con.commit()
             print(f"  {email:<34} {linha['nome']} ({linha['papel']})")
         return bool(linha)
@@ -62,8 +64,7 @@ def main() -> None:
         raise SystemExit("As duas não bateram.")
     if not trocar(email, senha):
         raise SystemExit(f"Não existe usuário ativo com o e-mail {email}.")
-    print("Trocada. As sessões abertas continuam valendo até expirar;")
-    print("para derrubar todas: DELETE FROM sessoes_web WHERE usuario_id = ...")
+    print("Trocada. Sessões e links temporários anteriores foram invalidados.")
 
 
 if __name__ == "__main__":
