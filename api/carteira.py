@@ -36,7 +36,19 @@ LANCAMENTO = {"pix": "recarga_pix", "boleto": "recarga_boleto", "cartao": "recar
 COMO_ENTROU = {"pix": "via Pix", "boleto": "via boleto", "cartao": "via cartao"}
 EVENTOS = {"PAYMENT_CONFIRMED", "PAYMENT_RECEIVED", "PAYMENT_OVERDUE",
            "PAYMENT_DELETED", "PAYMENT_REFUNDED", "PAYMENT_PARTIALLY_REFUNDED",
-           "PAYMENT_UPDATED", "PAYMENT_RESTORED"}
+           "PAYMENT_UPDATED", "PAYMENT_RESTORED",
+           # Contestacao existe so no cartao: Pix e boleto nao voltam atras.
+           # Sem estes tres eventos o webhook respondia "ignorado" e a pessoa
+           # ficava com o saldo enquanto o dinheiro era retirado da conta --
+           # um jeito silencioso de sacar dinheiro da empresa.
+           "PAYMENT_CHARGEBACK_REQUESTED", "PAYMENT_CHARGEBACK_DISPUTE",
+           "PAYMENT_AWAITING_CHARGEBACK_REVERSAL"}
+
+# Status em que a Asaas ja retirou o valor do nosso saldo. O tratamento e o
+# mesmo de um estorno: a maquinaria de devolucao ja existia, so nao era
+# alcancada por estes status porque antes nao havia cartao.
+CONTESTADOS = {"CHARGEBACK_REQUESTED", "CHARGEBACK_DISPUTE",
+               "AWAITING_CHARGEBACK_REVERSAL"}
 
 
 def configuracao():
@@ -210,7 +222,7 @@ def aplicar_pagamento(cur, pix, pagamento):
     refunds = pagamento.get("refunds") or []
     devolvido = sum((dinheiro(r.get("value")) for r in refunds
                     if r.get("status") == "DONE"), Decimal("0"))
-    if status == "REFUNDED":
+    if status == "REFUNDED" or status in CONTESTADOS:
         devolvido = pix["valor_brl"]
     if devolvido < 0 or devolvido > pix["valor_brl"]:
         raise HTTPException(409, "O estorno precisa ser conferido antes de atualizar o saldo.")
@@ -229,12 +241,17 @@ def aplicar_pagamento(cur, pix, pagamento):
                 "WHERE usuario_id=%s AND tipo='estorno' AND referencia LIKE %s",
                 (pix["usuario_id"], f"asaas-estorno:{pix['asaas_pagamento_id']}:%"))
     anterior = cur.fetchone()["total"]
+    # A palavra importa no extrato: "contestacao" diz a quem le que houve uma
+    # disputa no cartao, e nao uma devolucao que a propria pessoa pediu.
+    motivo = ("Contestacao no cartao" if status in CONTESTADOS
+              else f"Valor devolvido pela Asaas ({COMO_ENTROU[pix.get('forma') or 'pix']})")
     if devolvido > anterior:
         cur.execute("INSERT INTO carteira_lancamentos "
                     "(usuario_id,tipo,valor_brl,descricao,referencia) "
-                    "VALUES (%s,'estorno',%s,'Pix devolvido pela Asaas',%s) "
+                    "VALUES (%s,'estorno',%s,%s,%s) "
                     "ON CONFLICT (referencia) DO NOTHING", (pix["usuario_id"],
-                    -(devolvido - anterior), f"asaas-estorno:{pix['asaas_pagamento_id']}:{devolvido}"))
+                    -(devolvido - anterior), motivo,
+                    f"asaas-estorno:{pix['asaas_pagamento_id']}:{devolvido}"))
     cur.execute("UPDATE carteira_pix SET status=%s, verificado_em=now() WHERE id=%s RETURNING *",
                 (status, pix["id"]))
     return cur.fetchone()
