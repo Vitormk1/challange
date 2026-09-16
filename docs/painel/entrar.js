@@ -143,6 +143,11 @@ function explicar(erro){
   if (erro instanceof ErroApi && erro.semRede)
     return "O servidor não respondeu. Ele hiberna quando fica sem uso — "
          + "espere uns instantes e tente de novo.";
+  // 502/503/504 no plano gratuito é quase sempre o serviço acordando, e não
+  // defeito. A mensagem crua ("erro 502") não diz isso a ninguém.
+  if (erro instanceof ErroApi && erro.status >= 500)
+    return "O servidor está acordando — o plano gratuito hiberna quando fica "
+         + "sem uso. Espere um minuto e tente de novo.";
   return erro?.message || "Não deu certo. Tente de novo.";
 }
 
@@ -238,6 +243,25 @@ formCriar.onsubmit = async ev => {
     seguir(r);
   } catch (erro){
     ocupado(formCriar, false);
+
+    // 5xx aqui quase nunca quer dizer que o cadastro falhou.
+    //
+    // O plano gratuito hiberna, e a primeira requisição depois disso espera o
+    // serviço subir. O proxy desiste antes e devolve 502 ao navegador — mas o
+    // servidor termina o trabalho: cria a conta e manda o e-mail. Aconteceu
+    // exatamente assim no primeiro teste real, com a tela dizendo "erro 502"
+    // enquanto o e-mail já estava na caixa de entrada.
+    //
+    // Dizer "deu erro" ali é pior que inútil: manda a pessoa tentar de novo,
+    // e a segunda tentativa responde "já existe uma conta com esse e-mail" —
+    // que parece contradição e faz parecer que alguém roubou o endereço dela.
+    if (erro instanceof ErroApi && erro.status >= 500){
+      pedirConfirmacao(email);
+      dizer("O servidor demorou a responder — ele hiberna quando fica sem "
+          + "uso. Sua conta provavelmente foi criada: confira o e-mail. Se "
+          + "não chegar nada em alguns minutos, use o botão acima.", "erro");
+      return;
+    }
     dizer(explicar(erro), "erro");
     // 409 é "esse e-mail já tem conta". O caminho útil é a outra aba, com o
     // e-mail já preenchido, e não repetir o cadastro.
