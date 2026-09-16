@@ -126,8 +126,8 @@ jobs:
           # baixa o eslint só para esta checagem. A configuração está em
           # eslint.config.mjs, e dá para rodar igual na sua máquina:
           #
-          #     npx eslint docs/painel
-          npx --yes eslint@9 docs/painel
+          #     npx eslint docs
+          npx --yes eslint@9 docs
 
       - name: Acentos não podem estar corrompidos
         run: |

@@ -12,6 +12,12 @@
    integração de verdade, o que muda é a origem de `PONTOS` — o resto da
    página não sabe de onde eles vieram.
    ========================================================================== */
+
+/* Segura a cortina de carregamento ate esta tela ter o que mostrar.
+   A chamada e sincrona de proposito: modulos sao avaliados antes do `load`,
+   entao inscrever-se aqui garante que a cortina saiba esperar. Inscrever
+   dentro de um `then` seria tarde. Ver docs/painel/carregando.js. */
+const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
 (() => {
   "use strict";
 
@@ -592,5 +598,5 @@
                       + `Ele hiberna quando fica sem uso — recarregue em um minuto.</li>`;
       console.error("mapa:", erro);
     }
-  })();
+  })().finally(() => soltarCortina && soltarCortina());
 })();

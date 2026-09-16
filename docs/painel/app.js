@@ -16,9 +16,15 @@
       a tela de login diz isso, e é só o que ela faz.
    ========================================================================== */
 
-import "./static/js/aiEntity.js?v=20260916q";
-import { createTourModule } from "./static/js/tour.js?v=20260916q";
-import { api, BASE, ErroApi } from "./api.js?v=20260916q";
+/* Segura a cortina de carregamento ate esta tela ter o que mostrar.
+   A chamada e sincrona de proposito: modulos sao avaliados antes do `load`,
+   entao inscrever-se aqui garante que a cortina saiba esperar. Inscrever
+   dentro de um `then` seria tarde. Ver docs/painel/carregando.js. */
+const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
+
+import "./static/js/aiEntity.js?v=20260916r";
+import { createTourModule } from "./static/js/tour.js?v=20260916r";
+import { api, BASE, ErroApi } from "./api.js?v=20260916r";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -2980,4 +2986,6 @@ async function iniciar(){
   }
 }
 
-iniciar();
+/* `finally`, e nao `then`: a cortina tem que sair tambem quando iniciar()
+   falha -- e justamente ai que a pessoa precisa ver a mensagem de erro. */
+iniciar().finally(() => soltarCortina && soltarCortina());

@@ -4,26 +4,39 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Smart Charge — Painel</title>
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916q">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916q">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916q">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916r">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916r">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916r">
 <meta name="description" content="Painel do lojista: retorno, carregadores, sessões, clientes e vendas atribuídas.">
-<link rel="stylesheet" href="./style.css?v=20260916q">
+<link rel="stylesheet" href="./style.css?v=20260916r">
 <!-- marca.css vem depois do style.css: ele só troca os tokens de cor, e
      precisa vencer os valores originais da referência -->
-<link rel="stylesheet" href="./marca.css?v=20260916q">
-<link rel="stylesheet" href="./static/css/tour.css?v=20260916q">
-<link rel="stylesheet" href="./painel.css?v=20260916q">
-<link rel="stylesheet" href="./login.css?v=20260916q">
+<link rel="stylesheet" href="./marca.css?v=20260916r">
+<link rel="stylesheet" href="./static/css/tour.css?v=20260916r">
+<link rel="stylesheet" href="./painel.css?v=20260916r">
+<link rel="stylesheet" href="./login.css?v=20260916r">
+<link rel="stylesheet" href="./carregando.css?v=20260916r">
+<script src="./carregando.js?v=20260916r"></script>
+<noscript><style>#carregando{display:none}</style></noscript>
 </head>
 <body class="primary-loading sem-sessao">
+<!-- Cortina de carregamento. Cobre a tela desde a primeira pintura e sai
+     quando a pagina esta pronta; ver docs/carregando.js. -->
+<div id="carregando" role="status" aria-live="polite">
+  <div class="carregando-miolo">
+    <span class="carregando-giro" aria-hidden="true"></span>
+    <p class="carregando-marca">Smart Charge</p>
+    <p class="carregando-nota">Carregando…</p>
+  </div>
+</div>
+
 
 <!-- ===================== tela de carregamento ===================== -->
 <div class="dashboard-loading-screen" id="dashboardLoadingScreen" aria-hidden="true">
   <div class="dashboard-loading-panel" role="status" aria-live="polite" aria-label="Carregando painel">
     <div class="dashboard-loading-brand">
       <div class="dashboard-loading-mark" aria-hidden="true">
-        <img src="./img/logo.png?v=20260916q" alt="" width="50" height="50" decoding="async">
+        <img src="./img/logo.png?v=20260916r" alt="" width="50" height="50" decoding="async">
       </div>
       <div class="dashboard-loading-copy">
         <p class="eyebrow">Visão do lojista</p>
@@ -47,7 +60,7 @@
     <!-- marca: o anel enche conforme a pessoa preenche o formulário -->
     <div class="login-marca">
       <span class="login-selo" aria-hidden="true">
-        <img src="./img/logo.png?v=20260916q" alt="" width="60" height="60" decoding="async">
+        <img src="./img/logo.png?v=20260916r" alt="" width="60" height="60" decoding="async">
       </span>
       <h1>Smart Charge</h1>
     </div>
@@ -96,7 +109,7 @@
   <aside class="sidebar">
     <button class="brand brand-button" id="brandReloadButton" type="button" aria-label="Recarregar painel">
       <div class="brand-mark" aria-hidden="true">
-        <img src="./img/logo.png?v=20260916q" alt="" width="26" height="26" decoding="async">
+        <img src="./img/logo.png?v=20260916r" alt="" width="26" height="26" decoding="async">
       </div>
       <h1>Smart Charge</h1>
     </button>
@@ -530,6 +543,6 @@
 
 <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
 
-<script type="module" src="./app.js?v=20260916q"></script>
+<script type="module" src="./app.js?v=20260916r"></script>
 </body>
 </html>

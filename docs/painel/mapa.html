@@ -7,15 +7,28 @@
 <meta name="description" content="Mapa dos pontos de recarga Smart Charge. Aberto, sem cadastro e sem login.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#0D0D0F">
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916q">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916q">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916q">
-<link rel="stylesheet" href="./static/leaflet/leaflet.css?v=20260916q">
-<link rel="stylesheet" href="./site.css?v=20260916q">
-<link rel="stylesheet" href="./mapa.css?v=20260916q">
-<link rel="stylesheet" href="./cliente.css?v=20260916q">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916r">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916r">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916r">
+<link rel="stylesheet" href="./static/leaflet/leaflet.css?v=20260916r">
+<link rel="stylesheet" href="./site.css?v=20260916r">
+<link rel="stylesheet" href="./mapa.css?v=20260916r">
+<link rel="stylesheet" href="./cliente.css?v=20260916r">
+<link rel="stylesheet" href="./carregando.css?v=20260916r">
+<script src="./carregando.js?v=20260916r"></script>
+<noscript><style>#carregando{display:none}</style></noscript>
 </head>
 <body class="pagina-mapa">
+<!-- Cortina de carregamento. Cobre a tela desde a primeira pintura e sai
+     quando a pagina esta pronta; ver docs/carregando.js. -->
+<div id="carregando" role="status" aria-live="polite">
+  <div class="carregando-miolo">
+    <span class="carregando-giro" aria-hidden="true"></span>
+    <p class="carregando-marca">Smart Charge</p>
+    <p class="carregando-nota">Carregando…</p>
+  </div>
+</div>
+
 
 <a class="pular" href="#lista">Pular para a lista de carregadores</a>
 
@@ -166,8 +179,8 @@
 </nav>
 
 <script src="./config.js"></script>
-<script src="./static/leaflet/leaflet.js?v=20260916q"></script>
-<script src="./mapa.js?v=20260916q"></script>
-<script type="module" src="./cliente.js?v=20260916q"></script>
+<script src="./static/leaflet/leaflet.js?v=20260916r"></script>
+<script src="./mapa.js?v=20260916r"></script>
+<script type="module" src="./cliente.js?v=20260916r"></script>
 </body>
 </html>
