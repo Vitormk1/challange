@@ -276,7 +276,7 @@ formCriar.onsubmit = async ev => {
     if (erro instanceof ErroApi && erro.status === 409){
       $("#entrarEmail").value = email;
       trocarAba(false);
-      dizer("Já existe uma conta com esse e-mail. Entre por aqui.", "erro");
+      dizer("Este e-mail já está cadastrado. Entre por aqui.", "erro");
       $("#entrarSenha").focus({ preventScroll: true });
     }
   }

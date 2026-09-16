@@ -425,32 +425,66 @@ def cadastrar(request: Request, resp: Response, tarefas: BackgroundTasks,
     limitar_cadastro(request)
 
     exigir = verificacao_ativa()
+    token = novo_token()
     with conectar() as con, con.cursor() as cur:
-        # Hash mesmo para conta existente: a resposta e o caminho de custo
-        # não funcionam como verificador público de endereços cadastrados.
+        # A trava por e-mail é do colega e fica: segura dois cadastros
+        # simultâneos do mesmo endereço antes que os dois passem pela checagem.
         cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (email,))
         cur.execute("SELECT 1 FROM usuarios WHERE lower(email) = %s", (email,))
         existente = bool(cur.fetchone())
+
+        if existente:
+            # E-mail repetido é recusado, com todas as letras.
+            #
+            # A versão anterior seguia em silêncio: não criava conta, não
+            # mandava e-mail, e ainda assim respondia 200 com "confira sua
+            # caixa". A intenção era não revelar quais endereços têm cadastro
+            # — o mesmo cuidado que o login toma ao responder igual para senha
+            # errada e e-mail inexistente, e é um cuidado legítimo.
+            #
+            # Aqui o preço ficou alto demais. A pessoa espera uma mensagem que
+            # nunca vem, sem nada na tela que explique, e a única saída é
+            # adivinhar que já tinha conta. Foi o que aconteceu no primeiro
+            # teste real, e o relato foi "cliquei e não enviou nada".
+            #
+            # O sigilo também não se sustentava sozinho: quem quiser descobrir
+            # se um endereço tem conta aqui tem caminhos mais diretos. Trocar
+            # uma tela honesta por um segredo parcial é prejuízo dos dois
+            # lados.
+            correio.log.info("cadastro recusado: %s já tem conta", email)
+            raise HTTPException(409, "Este e-mail já está cadastrado. Tente entrar.")
+
         senha_hash = criar_hash(senha)
-        novo_id = None
-        link = None
-        if not existente:
-            cur.execute(
-                "INSERT INTO usuarios (nome, email, papel, senha_hash, email_verificado) "
-                "VALUES (%s, %s, 'motorista', %s, %s) ON CONFLICT DO NOTHING RETURNING id",
-                (nome, email, senha_hash, not exigir))
-            criado = cur.fetchone()
-            novo_id = criado["id"] if criado else None
-            link = _novo_link(cur, novo_id, request) if exigir and novo_id else None
+        cur.execute(
+            "INSERT INTO usuarios (nome, email, papel, senha_hash, email_verificado) "
+            "VALUES (%s, %s, 'motorista', %s, %s) ON CONFLICT DO NOTHING RETURNING id",
+            (nome, email, senha_hash, not exigir))
+        criado = cur.fetchone()
+        if not criado:
+            # Passou pela trava e ainda colidiu: dois cadastros no mesmo
+            # instante. Para quem está na tela o caso é o mesmo.
+            raise HTTPException(409, "Este e-mail já está cadastrado. Tente entrar.")
+        novo_id = criado["id"]
+        link = _novo_link(cur, novo_id, request) if exigir else None
+
+        if not exigir:
+            # Sem provedor de e-mail configurado, o cadastro entra logado, como
+            # sempre foi. A versão anterior devolvia {"cadastrado": True} sem
+            # sessão, e a tela não sabia o que fazer com isso — só não aparecia
+            # porque em produção a verificação está ligada.
+            cur.execute("INSERT INTO sessoes_web (token, usuario_id, expira_em) VALUES (%s,%s,%s)",
+                        (token, novo_id, validade()))
         con.commit()
 
     if exigir:
-        if link:
-            tarefas.add_task(_mandar_verificacao, email, nome, link)
+        tarefas.add_task(_mandar_verificacao, email, nome, link)
         return {"verificar": True, "email": email}
-    # Sem provedor de e-mail, os dois casos levam ao login. Abrir sessão só
-    # para conta nova tornaria a existência distinguível pelo cookie.
-    return {"cadastrado": True}
+
+    resp.set_cookie(COOKIE, token, httponly=True,
+                    samesite=os.environ.get("COOKIE_SAMESITE", "lax").lower(),
+                    max_age=60 * 60 * 24 * 14,
+                    secure=os.environ.get("COOKIE_SEGURO", "") == "1")
+    return eu(usuario_atual(token))
 
 
 # ==========================================================================
