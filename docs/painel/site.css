@@ -48,7 +48,9 @@
   --largura: 1240px;
   --respiro: 26px;
 
-  --fonte: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+  /* Tipografia oficial usada por todas as telas do SmartCharge. O fallback
+     mantém a leitura consistente quando a fonte não estiver instalada. */
+  --fonte: "Sora", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
            "Helvetica Neue", Arial, "Noto Sans", sans-serif;
 }
 

@@ -43,7 +43,7 @@
   min-height: 100dvh;
   background: var(--cl-fundo);
   color: var(--cl-texto);
-  font: 400 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 400 16px/1.5 var(--fonte-smartcharge, "Sora", system-ui, sans-serif);
   -webkit-font-smoothing: antialiased;
 }
 

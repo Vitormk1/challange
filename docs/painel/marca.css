@@ -22,6 +22,8 @@
    exato da marca, é trocar --marca-vermelho e --marca-vermelho-forte aqui.
    ========================================================================== */
 :root {
+  --fonte-smartcharge: "Sora", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
   --marca-vermelho: #E1251B;        /* identidade, linhas, acentos */
   --marca-vermelho-forte: #B4160F;  /* fundo de botão: carrega texto branco */
   --marca-vermelho-claro: #FDEBEA;  /* fundo suave */
@@ -147,6 +149,15 @@
   --ai-orb-shadow-white: rgba(255, 255, 255, 0.54);
   --ai-orb-shadow-cyan: rgba(255, 90, 78, 0.32);
 }
+
+/* O painel usa uma folha de referência extensa; estes pontos de entrada
+   garantem que a identidade tipográfica seja a mesma nas páginas do painel,
+   login e relatórios sem interferir nas fontes monoespaçadas de números. */
+html, body,
+button, input, textarea, select {
+  font-family: var(--fonte-smartcharge);
+}
+.brand h1, .report-page { font-family: var(--fonte-smartcharge); }
 
 /* ==========================================================================
    Escuro: preto de verdade, com o vermelho clareado para aguentar o fundo

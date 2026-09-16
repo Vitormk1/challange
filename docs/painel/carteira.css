@@ -20,14 +20,14 @@
 .campo-moeda input { font-size: 28px; font-weight: 650; min-width: 0; outline: none; }
 .campo-moeda:focus-within { border-color: var(--cl-primaria); box-shadow: 0 0 0 3px var(--cl-primaria-fraca); }
 .valores-rapidos, .extrato-filtros { display: flex; gap: 8px; flex-wrap: wrap; }
-.valores-rapidos button, .extrato-filtros button { border: 1px solid var(--cl-linha); border-radius: 9px; background: var(--cl-fundo); color: var(--cl-suave); padding: 10px 12px; cursor: pointer; font: 600 .79rem system-ui; }
+.valores-rapidos button, .extrato-filtros button { border: 1px solid var(--cl-linha); border-radius: 9px; background: var(--cl-fundo); color: var(--cl-suave); padding: 10px 12px; cursor: pointer; font: 600 .79rem var(--fonte-smartcharge, "Sora", system-ui, sans-serif); }
 .valores-rapidos button[aria-pressed="true"], .extrato-filtros button[aria-pressed="true"] { color: var(--cl-primaria); background: var(--cl-primaria-fraca); border-color: color-mix(in srgb, var(--cl-primaria) 35%, transparent); }
 .form-carteira [data-documento] { display: grid; gap: 8px; margin-top: 4px; }
 .form-carteira .botao-cliente { width: 100%; justify-content: center; min-height: 46px; margin-top: 8px; border-radius: 12px; }
 .carteira-seguranca { font-size: .72rem; line-height: 1.5; text-align: center; color: var(--cl-suave); margin: 0; }
 .mensagem-carteira:not(:empty) { margin-top: 14px; padding: 10px 12px; border-radius: 9px; background: var(--cl-fundo); }
 .mensagem-carteira.erro { background: var(--cl-primaria-fraca); }
-.botao-texto { color: var(--cl-primaria); background: transparent; border: 0; padding: 8px 0; font: 650 .76rem system-ui; cursor: pointer; white-space: nowrap; }
+.botao-texto { color: var(--cl-primaria); background: transparent; border: 0; padding: 8px 0; font: 650 .76rem var(--fonte-smartcharge, "Sora", system-ui, sans-serif); cursor: pointer; white-space: nowrap; }
 .pix-cobranca { margin-top: 18px; padding: 18px; border: 1px solid var(--cl-linha); border-radius: 14px; background: var(--cl-fundo); scroll-margin-top: 20px; }
 .pix-topo { width: 100%; }
 .pix-cobranca .pix-valor { font-size: 1.9rem; letter-spacing: -.04em; }

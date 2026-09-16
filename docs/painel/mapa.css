@@ -554,3 +554,11 @@
 /* O selo de "ocupado" tinha vermelho escuro cravado no texto, que sumia
    dentro do fundo translúcido do escuro. */
 :root[data-theme="dark"] .pagina-mapa .selo.is-ocupado { color: #FFB3AC; }
+
+/* Os nomes são a informação principal do mapa. Mantê-los brancos no escuro
+   evita que o contraste se perca contra a folha e contra os popups. */
+:root[data-theme="dark"] .pagina-mapa .mapa-ponto b,
+:root[data-theme="dark"] .pagina-mapa .popup b,
+:root[data-theme="dark"] .pagina-mapa .popup-linhas span b {
+  color: #FFFFFF;
+}

@@ -42,7 +42,7 @@
    altura do body e não sofre com a barra do navegador do celular subindo e
    descendo. Só o fundo do documento precisa combinar, senão aparece uma
    faixa branca quando a rolagem estica além do fim. */
-.pagina-entrar { margin: 0; background: #F4F4F6; }
+.pagina-entrar { margin: 0; background: #F4F4F6; font-family: var(--fonte-smartcharge, "Sora", system-ui, sans-serif); }
 :root[data-theme="dark"] .pagina-entrar { background: #08080a; }
 
 .entrada { padding-top: max(28px, env(safe-area-inset-top)); }
