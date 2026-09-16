@@ -1600,6 +1600,16 @@ def saude():
             # cadastro continuaria funcionando e ninguém notaria que o
             # e-mail deixou de ser conferido.
             "verificacao_email": correio.configurado(),
+            # De qual endereco os e-mails saem. Nao e segredo -- vai no
+            # cabecalho From de toda mensagem -- e responde de fora uma
+            # pergunta que so o painel do Render respondia.
+            #
+            # Importa porque errar aqui falha em silencio: com o remetente de
+            # teste do provedor (onboarding@resend.dev e parecidos), a entrega
+            # so acontece para o dono da conta. Todo mundo que se cadastrasse
+            # criaria a conta, nao receberia nada, e ficaria trancado sem
+            # conseguir entrar -- e nada no servidor acusaria isso.
+            "remetente": correio.remetente()[1] if correio.configurado() else "",
             "ia": bool(os.environ.get("OPENROUTER_API_KEY")),
             "origens": os.environ.get("ORIGENS_PERMITIDAS", ""),
             "cookie": {"samesite": os.environ.get("COOKIE_SAMESITE", "lax"),
