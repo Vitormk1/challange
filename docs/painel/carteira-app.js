@@ -90,7 +90,17 @@ function validade() {
 }
 function mostrarPix(p, foco = true) {
   ativa = p; el("[data-pix]").hidden = false; el("[data-pix-valor]").textContent = brl(p.valor_brl); el("[data-copia]").value = p.copia_e_cola || "";
-  if (p.imagem_base64) el("[data-qr]").src = `data:image/png;base64,${p.imagem_base64}`;
+  if (p.imagem_base64) {
+    /* A Asaas normalmente envia somente o Base64, mas algumas respostas e
+       integrações podem devolver o valor já como Data URL. Prefixar sempre
+       criava `data:image/png;base64,data:image/...`, que aparece na tela mas
+       não pode ser lido por um app de banco. Aceitamos os dois formatos e
+       removemos quebras de linha introduzidas no transporte. */
+    const imagem = String(p.imagem_base64).trim();
+    el("[data-qr]").src = imagem.startsWith("data:image/")
+      ? imagem
+      : `data:image/png;base64,${imagem.replace(/\s+/g, "")}`;
+  }
   const confirmado = pago(p); el("[data-pix]").classList.toggle("pix-confirmado", confirmado);
   if (confirmado) mensagem("Saldo atualizado. Seu pagamento já aparece no extrato.");
   el("[data-verificar]").textContent = confirmado ? "Conferir status na Asaas" : "Já paguei · conferir pagamento";
