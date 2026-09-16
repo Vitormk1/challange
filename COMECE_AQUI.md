@@ -5,7 +5,7 @@ elétrico em ativo comercial para o lojista. Está no ar em
 <https://smartcharge.ia.br/painel/>.
 
 Este documento é o caminho do zero até o seu primeiro Pull Request. Leva uns
-20 minutos. Cada comando vem com o que ele faz, porque a ideia é você entender
+uns 30 minutos, a maior parte esperando instalação. Cada comando vem com o que ele faz, porque a ideia é você entender
 e não decorar.
 
 Depois que estiver rodando, o [CONTRIBUTING.md](CONTRIBUTING.md) é a
@@ -91,25 +91,88 @@ lê essa lista e instala tudo.
 
 ---
 
-## Parte 5 — O arquivo `.env` (uma vez só)
+## Parte 5 — Seu banco de dados (uma vez só)
 
-O projeto precisa de senhas: a do banco de dados e a chave da IA. Elas **não
-estão no repositório**, porque ele é público — quem tem o link vê tudo.
+**Cada um roda o próprio banco, na própria máquina.** Não usamos o banco que
+está no ar para desenvolver, e isso não é frescura: o `api/seed.py` apaga dez
+tabelas e recria do zero. É um comando normal de desenvolvimento, e é o que
+você vai querer rodar quando quiser dados limpos — só que apontado para o
+banco de produção ele apaga as lojas, os trinta dias de operação e as contas
+de todo mundo. Com um banco só seu, você quebra à vontade.
+
+Instale o [Docker Desktop](https://www.docker.com/products/docker-desktop/) e
+suba o banco:
 
 ```bash
-copy .env.example .env        # Windows
-cp .env.example .env          # Mac ou Linux
+docker compose -f docker-compose.dev.yml up -d
 ```
 
-Isso cria um `.env` com os campos vazios. **Peça os valores ao Vitor** por
-mensagem privada e cole cada um no seu arquivo.
-
-> Nunca commite o `.env`, nunca mande print dele no grupo. Se uma chave
-> vazar, ela precisa ser trocada em todos os serviços.
+**O que faz:** liga um PostgreSQL na sua máquina, na porta 5433. A porta é
+5433 e não 5432 para não brigar com um Postgres que você já tenha instalado.
+O `-d` deixa rodando no fundo. Para desligar e apagar tudo:
+`docker compose -f docker-compose.dev.yml down -v`.
 
 ---
 
-## Parte 6 — Rodar
+## Parte 6 — O arquivo `.env` (uma vez só)
+
+O projeto lê as configurações daqui. Este arquivo **nunca vai para o
+repositório** — ele está no `.gitignore`, e o repositório é público.
+
+Crie um arquivo chamado `.env` na raiz do projeto com exatamente isto:
+
+```
+DATABASE_URL=postgresql://smart:smart@localhost:5433/smartcharge
+
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL=mistralai/mistral-small-24b-instruct-2501
+
+SENHA_MAIN=
+SENHA_DEMO=
+SENHA_GERENTE=
+SENHA_OPERADOR=
+
+CARTO_KEY=cb1_27zl_1_12d6ebc987e8b8882e924f80
+```
+
+Três coisas sobre esses valores:
+
+- **`DATABASE_URL`** aponta para o banco que você acabou de subir. Esse
+  usuário e senha (`smart`/`smart`) são descartáveis e valem só na sua
+  máquina — por isso podem estar escritos aqui sem problema.
+- **As `SENHA_*` ficam vazias de propósito.** O `seed.py` sorteia uma senha
+  para cada usuário e **imprime na tela** quando roda. Anote na hora: o banco
+  guarda só o hash, e não tem como consultar depois.
+- **`OPENROUTER_API_KEY` vazia também está certo.** O projeto inteiro roda sem
+  ela; só o assistente de IA não responde. Se você for mexer especificamente
+  na IA, crie a sua própria chave em [openrouter.ai](https://openrouter.ai) —
+  assim o gasto fica no seu nome.
+
+> Nunca commite o `.env`, nunca mande print dele no grupo.
+
+---
+
+## Parte 7 — Criar as tabelas e os dados de exemplo (uma vez só)
+
+```bash
+python api/db.py
+python api/seed.py
+```
+
+**`db.py`** lê o `api/schema.sql` e cria tabelas, índices e visões. Rode
+sempre que alguém mexer no `schema.sql` — ele é seguro de repetir, não apaga
+nada.
+
+**`seed.py`** preenche o banco com três lojas e trinta dias de operação
+inventada, para você ter o que ver na tela. **Ele apaga tudo antes de
+preencher**, e pergunta antes de fazer isso. Leia o que ele mostra: se
+aparecer qualquer endereço que não seja `localhost:5433`, responda não.
+
+Anote as senhas que ele imprimir.
+
+---
+
+## Parte 8 — Rodar
 
 ```bash
 python -m uvicorn main:app --host 127.0.0.1 --port 8000 --app-dir api --reload
@@ -122,9 +185,25 @@ navegador para ver.
 Abra <http://127.0.0.1:8000/painel/>. Se a apresentação aparecer, você está
 com o projeto rodando. Para parar o servidor, `Ctrl + C` no terminal.
 
+As telas, para você se achar:
+
+| Endereço | O que é |
+|---|---|
+| `/painel/` | a apresentação do projeto, aberta |
+| `/painel/entrar.html` | login e cadastro |
+| `/painel/cliente.html` | área do motorista (Dashboard, Mapa, Carteira) |
+| `/painel/dashboard.html` | o painel do lojista |
+| `/painel/mapa.html` | mapa dos carregadores, aberto |
+| `/painel/anuncio.html` | o filme do projeto |
+
+Entre com um dos e-mails que o `seed.py` criou (`gerente.petecia@praca.local`,
+por exemplo) e a senha que ele imprimiu. Ou crie uma conta em
+`/painel/entrar.html` — contas criadas ali entram como **motorista** e vão
+para a área do cliente.
+
 ---
 
-## Parte 7 — Sua primeira tarefa
+## Parte 9 — Sua primeira tarefa
 
 Agora o ciclo que se repete para sempre. São seis passos.
 
@@ -237,8 +316,11 @@ E três coisas que **não** se faz:
 1. **`git push --force`** — é o único comando capaz de apagar o trabalho dos
    outros do histórico. Na dúvida, pergunte antes.
 2. **Commitar o `.env`** — tem senha dentro, e o repositório é público.
-3. **Rodar `api/seed.py`** apontando para o banco compartilhado — ele apaga
-   todas as tabelas e recria. O script pergunta antes; leia o que ele mostra.
+3. **Rodar `api/seed.py` sem olhar para onde ele aponta** — ele apaga todas
+   as tabelas e recria. No seu banco local isso é normal e até útil. Apontado
+   para o banco que está no ar, apaga o trabalho de todo mundo. O script
+   pergunta antes e mostra o endereço: se não for `localhost:5433`, responda
+   não.
 
 ---
 
