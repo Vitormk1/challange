@@ -131,6 +131,30 @@ const chip = (texto, tom) => `<span class="machine-monitor-badge is-${tom}">${es
 const nomeCarregador = id => esc(state.dados.carregadores.find(c => c.id === id)?.nome || "—");
 const nomeUsuario = id => esc(state.dados.usuarios_da_loja.find(u => u.id === id)?.nome || "—");
 
+/* O que o cliente já acumulou no modelo que a loja tiver ativo agora. Trocar
+   de modelo não some com o que ele tinha no anterior — só deixa de aparecer
+   aqui até a loja voltar para aquele modelo. */
+function fidelidadeResumoCliente(cliente){
+  const e = loja();
+  if (!e.fidelidade_tipo) return `<span class="table-cell-muted">sem programa</span>`;
+  if (e.fidelidade_tipo === "cashback"){
+    const saldo = Number(cliente.fidelidade_saldo_cashback_brl || 0);
+    return saldo > 0 ? `${brl(saldo)} disponível` : `<span class="table-cell-muted">—</span>`;
+  }
+  if (e.fidelidade_tipo === "tiers"){
+    const n = Number(cliente.fidelidade_compras_mes || 0);
+    const limiar = Number(e.fidelidade_tiers_a_partir_da_compra || 0);
+    const pct = limiar > 0 && n >= limiar ? e.fidelidade_tiers_desconto_top_pct : e.fidelidade_tiers_desconto_inicial_pct;
+    return n > 0 ? `${n} compra(s) no mês · ${num(pct || 0, 1)}% de desconto` : `<span class="table-cell-muted">—</span>`;
+  }
+  if (e.fidelidade_tipo === "creditos"){
+    const creditos = Number(cliente.fidelidade_creditos || 0);
+    const min = creditos * Number(e.fidelidade_creditos_minutos_por_credito || 0);
+    return creditos > 0 ? `${num(creditos, 0)} crédito(s) · ${num(min, 0)} min` : `<span class="table-cell-muted">—</span>`;
+  }
+  return `<span class="table-cell-muted">—</span>`;
+}
+
 /* colunas visíveis e campos editáveis de cada tabela */
 const TABELAS = {
   carregadores: {
@@ -200,6 +224,7 @@ const TABELAS = {
       {r:"Visitas", k:"visitas", v:l => num(l.visitas)},
       {r:"Última visita", k:"ultima_visita", v:l => dataHora(l.ultima_visita)},
       {r:"Consentimento", k:"consentimento_lgpd", v:l => l.consentimento_lgpd ? chip("dado","ok") : chip("pendente","warning")},
+      {r:"Fidelidade", k:"fidelidade_saldo_cashback_brl", v:l => fidelidadeResumoCliente(l)},
     ],
     campos: [
       {k:"apelido", r:"Como chamar", t:"text",
@@ -215,6 +240,8 @@ const TABELAS = {
     linhas: () => daLoja(state.dados.vendas),
     colunas: [
       {r:"Momento", k:"momento", v:l => dataHora(l.momento)},
+      {r:"Cliente", k:"cliente_id", v:l => { const c = daLoja(state.dados.clientes).find(x => x.id === l.cliente_id);
+                           return c ? esc(c.apelido || `Cliente #${c.id}`) : `<span class="table-cell-muted">não identificado</span>`; }},
       {r:"Valor", k:"valor_brl", v:l => brl(l.valor_brl)},
       {r:"Cupom", k:"cupom_id", v:l => { const c = state.dados.cupons.find(x => x.id === l.cupom_id);
                            return c ? `<code>${esc(c.codigo)}</code>` : `<span class="table-cell-muted">sem cupom</span>`; }},
@@ -224,6 +251,9 @@ const TABELAS = {
     ],
     campos: [
       {k:"valor_brl", r:"Valor da venda (R$)", t:"number", passo:"0.01", obrigatorio:true},
+      {k:"cliente_id", r:"Cliente", t:"select",
+       opcoes:() => [["", "não identificado"], ...daLoja(state.dados.clientes).map(c => [c.id, c.apelido || `Cliente #${c.id}`])],
+       ajuda:"Compra de um cliente identificado conta para o programa de fidelidade da loja."},
       {k:"cupom_id", r:"Cupom apresentado", t:"select",
        opcoes:() => [["", "sem cupom"], ...state.dados.cupons.slice(0,200).map(c => [c.id, c.codigo])],
        ajuda:"É o cupom digitado no caixa que liga esta venda a uma recarga."},

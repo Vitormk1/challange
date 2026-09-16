@@ -518,6 +518,48 @@ CREATE INDEX IF NOT EXISTS ix_clientes_usuario
 COMMENT ON COLUMN clientes.usuario_id IS
   'Conta do motorista dono desta ficha. NULL = carregou sem se identificar.';
 
+-- --------------------------------------------------------------------------
+-- Carteira do motorista. Saldo nunca e alterado por uma confirmacao vinda do
+-- navegador: cada centavo nasce em um lancamento, e uma cobranca Pix so vira
+-- credito quando o webhook autenticado da Asaas a marca como recebida.
+-- --------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS carteiras (
+  usuario_id        bigint PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+  asaas_cliente_id  text UNIQUE,
+  criado_em         timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS carteira_lancamentos (
+  id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  usuario_id        bigint NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  tipo              text NOT NULL CHECK (tipo IN ('recarga_pix','credito_teste','pagamento_recarga','estorno')),
+  valor_brl         numeric(10,2) NOT NULL CHECK (valor_brl <> 0),
+  descricao         text NOT NULL,
+  referencia        text UNIQUE,
+  criado_em         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_carteira_lancamentos_usuario
+  ON carteira_lancamentos (usuario_id, criado_em DESC);
+
+CREATE TABLE IF NOT EXISTS carteira_pix (
+  id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  usuario_id        bigint NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  asaas_pagamento_id text NOT NULL UNIQUE,
+  valor_brl         numeric(10,2) NOT NULL CHECK (valor_brl > 0),
+  status            text NOT NULL DEFAULT 'PENDING',
+  payload_pix       text,
+  expiracao_em      timestamptz,
+  recebido_em       timestamptz,
+  criado_em         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_carteira_pix_usuario ON carteira_pix (usuario_id, criado_em DESC);
+
+-- Entrega de webhook e "pelo menos uma vez". Guardar o id do evento faz o
+-- segundo envio inofensivo, em vez de duplicar saldo.
+CREATE TABLE IF NOT EXISTS carteira_eventos_asaas (
+  evento_id         text PRIMARY KEY,
+  recebido_em       timestamptz NOT NULL DEFAULT now()
+);
 
 -- --------------------------------------------------------------------------
 -- Programa de fidelidade da loja: um dos tres modelos, nunca mais de um ao
@@ -583,3 +625,30 @@ CREATE INDEX IF NOT EXISTS ix_verificacoes_usuario ON verificacoes_email (usuari
 -- Para a limpeza dos vencidos nao varrer a tabela inteira.
 CREATE INDEX IF NOT EXISTS ix_verificacoes_expira  ON verificacoes_email (expira_em);
 
+-- Motor de fidelidade: a loja escolhe um modelo (migracao acima) e agora
+-- toda COMPRA identificada acumula de verdade, em vez de so mostrar a
+-- configuracao.
+--
+-- vendas nasceu para o que carrega um cupom nosso atras (comentario na
+-- CREATE TABLE acima) -- garante que todo real contado no painel tem uma
+-- venda de verdade por tras do cashback de carga. Isso deixa de fora a
+-- compra comum de balcao, sem carregar nada, que e exatamente o exemplo do
+-- proprio programa ("cliente gasta R$40 no cafe"). cliente_id e um segundo
+-- jeito, independente do cupom, de dizer quem comprou -- anulavel: venda
+-- sem cliente identificado continua existindo, so nao acumula fidelidade.
+-- --------------------------------------------------------------------------
+ALTER TABLE vendas ADD COLUMN IF NOT EXISTS cliente_id bigint
+  REFERENCES clientes(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS ix_vendas_cliente ON vendas (cliente_id) WHERE cliente_id IS NOT NULL;
+
+-- Saldo por cliente. Os tres campos existem sempre, mas so o do modelo ativo
+-- da loja e o que muda com as compras -- trocar de modelo nao apaga o que o
+-- cliente ja acumulou no anterior (mesma ideia das colunas de configuracao
+-- em estabelecimentos).
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS fidelidade_saldo_cashback_brl numeric(10,2)
+  NOT NULL DEFAULT 0 CHECK (fidelidade_saldo_cashback_brl >= 0);
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS fidelidade_creditos numeric(10,2)
+  NOT NULL DEFAULT 0 CHECK (fidelidade_creditos >= 0);
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS fidelidade_compras_mes integer
+  NOT NULL DEFAULT 0 CHECK (fidelidade_compras_mes >= 0);
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS fidelidade_mes_referencia date;

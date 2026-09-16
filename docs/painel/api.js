@@ -95,6 +95,11 @@ export const api = {
   sair:    () => pedir("/auth/logout", {metodo:"POST"}),
   eu:      () => pedir("/auth/eu"),
 
+  carteira: () => pedir("/carteira"),
+  criarPix: (valor, cpfCnpj) => pedir("/carteira/pix", {metodo:"POST", corpo:{valor, cpfCnpj}}),
+  consultarPix: id => pedir(`/carteira/pix/${encodeURIComponent(id)}`),
+  creditoTeste: () => pedir("/carteira/credito-teste", {metodo:"POST"}),
+
   dados:   id => pedir(`/dados?estabelecimento_id=${id}`),
 
   criar:   (tabela, corpo) => pedir(`/registros/${tabela}`, {metodo:"POST", corpo}),
