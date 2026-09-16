@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart Charge</title>
+<meta name="description" content="Suas configurações no Smart Charge: foto, nome, senha e tema.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F4F4F6">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916y">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916y">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916y">
+<link rel="stylesheet" href="./cliente.css?v=20260916y">
+<link rel="stylesheet" href="./carregando.css?v=20260916y">
+<script src="./carregando.js?v=20260916y"></script>
+<noscript><style>#carregando{display:none}</style></noscript>
+</head>
+<body class="pagina-cliente">
+
+<!-- Cortina de carregamento. Cobre a tela desde a primeira pintura e sai
+     quando a pagina esta pronta; ver docs/painel/carregando.js. -->
+<div id="carregando" role="status" aria-live="polite">
+  <div class="carregando-miolo">
+    <span class="carregando-selo" aria-hidden="true"></span>
+    <p class="carregando-marca">Smart Charge</p>
+    <p class="carregando-nota">Carregando…</p>
+  </div>
+</div>
+
+<main class="tela-cliente">
+
+  <header class="cliente-topo">
+    <div class="cliente-saudacao">
+      <p>Configurações</p>
+      <h1 id="saudacao">Sua conta</h1>
+    </div>
+    <button class="cliente-sair" type="button" data-sair>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M15 17l5-5-5-5M20 12H9M12 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"></path>
+      </svg>
+      <span>Sair</span>
+    </button>
+  </header>
+
+  <p class="nota-cliente" data-estado-conexao role="status" hidden></p>
+
+  <!-- ============================ foto ============================ -->
+  <section class="bloco-cliente" aria-labelledby="tituloFoto">
+    <h2 id="tituloFoto">Sua foto</h2>
+    <div class="cartao-cliente">
+      <div class="ajustes-foto">
+        <span class="avatar avatar-grande" data-avatar aria-hidden="true"></span>
+        <div class="ajustes-foto-acoes">
+          <p class="ajuda-carteira">A imagem é recortada em 256×256 aqui no seu
+          aparelho antes de subir — nada além disso sai do celular.</p>
+          <!-- O input fica escondido e o botao aciona: o seletor de arquivo
+               nativo nao aceita estilo, e um botao de verdade fica coerente
+               com o resto da tela. -->
+          <label class="sr-only" for="arquivoFoto">Escolher imagem</label>
+          <input id="arquivoFoto" type="file" accept="image/png,image/jpeg,image/webp" data-arquivo hidden>
+          <div class="ajustes-botoes">
+            <button class="botao-cliente" type="button" data-escolher>Escolher imagem</button>
+            <button class="botao-secundario" type="button" data-remover-foto hidden>Remover</button>
+          </div>
+        </div>
+      </div>
+      <p class="mensagem-carteira" data-msg-foto role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <!-- ============================ tema ============================ -->
+  <section class="bloco-cliente" aria-labelledby="tituloTema">
+    <h2 id="tituloTema">Aparência</h2>
+    <div class="cartao-cliente">
+      <fieldset class="formas-pagamento ajustes-tema">
+        <legend>Tema</legend>
+        <label><input type="radio" name="tema" value="light">
+          <span><b>Claro</b><small>Sempre claro</small></span></label>
+        <label><input type="radio" name="tema" value="dark">
+          <span><b>Escuro</b><small>Sempre escuro</small></span></label>
+        <label><input type="radio" name="tema" value="system">
+          <span><b>Automático</b><small>Segue o aparelho</small></span></label>
+      </fieldset>
+      <p class="ajuda-carteira">A escolha vale neste aparelho na hora, e fica
+      guardada na sua conta para valer nos outros também.</p>
+    </div>
+  </section>
+
+  <!-- ============================ nome ============================ -->
+  <section class="bloco-cliente" aria-labelledby="tituloNome">
+    <h2 id="tituloNome">Seu nome</h2>
+    <div class="cartao-cliente">
+      <form class="form-carteira" data-form-nome>
+        <label for="campoNome">Como você quer ser chamado</label>
+        <input id="campoNome" data-nome maxlength="80" autocomplete="name" required>
+        <label for="senhaNome">Sua senha atual</label>
+        <input id="senhaNome" data-senha-nome type="password" autocomplete="current-password" required>
+        <p class="ajuda-carteira">Trocar o nome pede a senha porque é ele que
+        aparece ao lado do que você faz — sem isso, quem pegasse seu aparelho
+        destravado poderia se passar por outra pessoa.</p>
+        <button class="botao-cliente" type="submit" data-enviar-nome>Salvar nome</button>
+      </form>
+      <p class="mensagem-carteira" data-msg-nome role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <!-- ============================ senha =========================== -->
+  <section class="bloco-cliente" aria-labelledby="tituloSenha">
+    <h2 id="tituloSenha">Sua senha</h2>
+    <div class="cartao-cliente">
+      <form class="form-carteira" data-form-senha>
+        <label for="senhaAtual">Senha atual</label>
+        <input id="senhaAtual" data-senha-atual type="password" autocomplete="current-password" required>
+        <label for="senhaNova">Senha nova</label>
+        <input id="senhaNova" data-senha-nova type="password" autocomplete="new-password"
+               minlength="8" required aria-describedby="dicaSenha">
+        <p class="ajuda-carteira" id="dicaSenha">Pelo menos 8 caracteres. Ao
+        trocar, suas outras sessões são encerradas e só esta continua aberta.</p>
+        <button class="botao-cliente" type="submit" data-enviar-senha>Trocar senha</button>
+      </form>
+      <p class="mensagem-carteira" data-msg-senha role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <!-- ============================ conta =========================== -->
+  <section class="bloco-cliente" aria-labelledby="tituloConta">
+    <h2 id="tituloConta">Sua conta</h2>
+    <div class="cartao-cliente">
+      <ul class="extrato-carteira ajustes-conta">
+        <li><span>E-mail</span><b data-email>—</b></li>
+        <li><span>Tipo de conta</span><b data-papel>—</b></li>
+        <li><span>Cliente desde</span><b data-desde>—</b></li>
+        <li><span>Sessões abertas</span><b data-sessoes>—</b></li>
+      </ul>
+      <p class="ajuda-carteira">O e-mail não muda por aqui: ele é o que
+      identifica sua conta e o que recebe a confirmação.</p>
+    </div>
+  </section>
+
+  <p class="nota-cliente">
+    Projeto acadêmico — Challenge FIAP · GoodWe.
+  </p>
+
+</main>
+
+<!-- ===================== barra de abas ===================== -->
+<nav class="barra-app" aria-label="Seções da sua conta" hidden>
+  <a class="barra-app-item" href="./cliente.html">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3.2" y="3.2" width="7.4" height="8.6" rx="1.8"></rect>
+      <rect x="13.4" y="3.2" width="7.4" height="5.4" rx="1.8"></rect>
+      <rect x="13.4" y="12.2" width="7.4" height="8.6" rx="1.8"></rect>
+      <rect x="3.2" y="15.4" width="7.4" height="5.4" rx="1.8"></rect>
+    </svg>
+    <span>Dashboard</span>
+  </a>
+  <a class="barra-app-item" href="./mapa.html">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20 10c0 5.5-8 12-8 12s-8-6.5-8-12a8 8 0 1 1 16 0Z"></path>
+      <circle cx="12" cy="10" r="2.8"></circle>
+    </svg>
+    <span>Mapa</span>
+  </a>
+  <a class="barra-app-item" href="./carteira.html">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3.5 7.4A2.4 2.4 0 0 1 5.9 5h11.7a2 2 0 0 1 2 2v1.4"></path>
+      <path d="M3.5 7.4v9.2A2.4 2.4 0 0 0 5.9 19h12.7a1.9 1.9 0 0 0 1.9-1.9v-2.2"></path>
+      <path d="M20.5 10.6h-4a2 2 0 0 0 0 4h4a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5Z"></path>
+    </svg>
+    <span>Carteira</span>
+  </a>
+  <!-- A aba de ajustes mostra a foto da pessoa no lugar de um icone. Quando
+       nao ha foto, o cliente.js desenha a inicial do nome. -->
+  <a class="barra-app-item" href="./ajustes.html">
+    <span class="avatar" data-avatar aria-hidden="true"></span>
+    <span>Ajustes</span>
+  </a>
+</nav>
+
+<noscript>
+  <p class="nota-cliente">Esta tela precisa de JavaScript para falar com o
+  servidor. Ative-o e recarregue a página.</p>
+</noscript>
+
+<script type="module" src="./cliente.js?v=20260916y"></script>
+<script type="module" src="./ajustes.js?v=20260916y"></script>
+</body>
+</html>

@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Smart Charge — recarga elétrica como ativo comercial</title>
+<title>Smart Charge</title>
 <meta name="description" content="O Smart Charge liga o carregador elétrico ao caixa da loja: o motorista paga a recarga por kWh e recebe cashback para gastar ali dentro. O painel mede quanto disso volta em venda.">
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916s">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916s">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916s">
-<link rel="stylesheet" href="./orbe.css?v=20260916s">
-<link rel="stylesheet" href="./site.css?v=20260916s">
-<link rel="stylesheet" href="./carregando.css?v=20260916s">
-<script src="./carregando.js?v=20260916s"></script>
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916y">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916y">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916y">
+<link rel="stylesheet" href="./orbe.css?v=20260916y">
+<link rel="stylesheet" href="./site.css?v=20260916y">
+<link rel="stylesheet" href="./carregando.css?v=20260916y">
+<script src="./carregando.js?v=20260916y"></script>
 <noscript><style>#carregando{display:none}</style></noscript>
 </head>
 <body>
@@ -19,7 +19,7 @@
      quando a pagina esta pronta; ver docs/carregando.js. -->
 <div id="carregando" role="status" aria-live="polite">
   <div class="carregando-miolo">
-    <span class="carregando-giro" aria-hidden="true"></span>
+    <span class="carregando-selo" aria-hidden="true"></span>
     <p class="carregando-marca">Smart Charge</p>
     <p class="carregando-nota">Carregando…</p>
   </div>
@@ -48,6 +48,7 @@
 
       <ul class="menu" id="menu">
         <li><a href="#plataforma">Plataforma</a></li>
+        <li><a href="#motorista">Motorista</a></li>
         <li><a href="#segmentos">Segmentos</a></li>
         <li><a href="#retorno">Retorno</a></li>
         <li><a href="./mapa.html">Mapa</a></li>
@@ -154,6 +155,68 @@
   </div>
 </section>
 
+
+<!-- ===================== area do motorista ===================== -->
+<section class="secao" id="motorista">
+  <div class="envelope">
+    <div class="cabeca-secao centro">
+      <h2>Do outro lado do carregador, <span class="realce">a pessoa que dirige</span></h2>
+      <p>
+        O lojista tem o painel. Quem recarrega tem o aplicativo — onde encontra
+        o ponto, reserva a vaga, paga e vê o cashback virar crédito naquela
+        loja. É o mesmo ciclo, visto de quem está com o carro.
+      </p>
+    </div>
+
+    <ul class="telas-app">
+      <li>
+        <div class="moldura-celular">
+          <img src="./img/app/cliente.jpg?v=20260916y" loading="lazy" decoding="async"
+               width="756" height="1494"
+               alt="Tela inicial do aplicativo: cashback acumulado numa loja parceira e uma reserva confirmada, com a opção de cancelar.">
+        </div>
+        <h3>Dashboard</h3>
+        <p>O cashback de cada loja e as reservas em aberto. Cancelar com
+        antecedência devolve o valor à carteira.</p>
+      </li>
+      <li>
+        <div class="moldura-celular">
+          <img src="./img/app/mapa.jpg?v=20260916y" loading="lazy" decoding="async"
+               width="756" height="1494"
+               alt="Mapa de São Paulo com doze pontos de recarga marcados, e um aviso de que as localizações são simuladas.">
+        </div>
+        <h3>Mapa</h3>
+        <p>Onde tem carregador, quanto custa o kWh e quanto volta de cashback.
+        Aberto a qualquer um, sem conta.</p>
+      </li>
+      <li>
+        <div class="moldura-celular">
+          <img src="./img/app/carteira.jpg?v=20260916y" loading="lazy" decoding="async"
+               width="756" height="1494"
+               alt="Carteira do aplicativo: saldo de R$ 153,70 e o extrato com recargas, reserva e estorno.">
+        </div>
+        <h3>Carteira</h3>
+        <p>Saldo e extrato, com recarga por Pix, cartão ou boleto. Cada
+        movimento aparece com data, motivo e valor.</p>
+      </li>
+      <li>
+        <div class="moldura-celular">
+          <img src="./img/app/ajustes.jpg?v=20260916y" loading="lazy" decoding="async"
+               width="756" height="1494"
+               alt="Ajustes da conta: foto de perfil, escolha de tema claro, escuro ou automático, e troca de nome.">
+        </div>
+        <h3>Ajustes</h3>
+        <p>Foto, nome, senha e tema. A foto vira o ícone da própria aba, e o
+        tema acompanha a conta em qualquer aparelho.</p>
+      </li>
+    </ul>
+
+    <p class="legenda-carrossel">
+      Telas reais do aplicativo, com uma conta de demonstração. Os pontos de
+      recarga e os valores são fictícios.
+    </p>
+  </div>
+</section>
 <!-- ===================== segmentos ===================== -->
 <section class="secao" id="segmentos">
   <div class="envelope">
@@ -394,7 +457,7 @@
 
 <!-- type="module": o aiEntity.js exporta a classe, e como script comum o
      navegador quebra no `export` e nunca registra <bms-ai-entity> -->
-<script type="module" src="./static/js/aiEntity.js?v=20260916s"></script>
-<script src="./site.js?v=20260916s"></script>
+<script type="module" src="./static/js/aiEntity.js?v=20260916y"></script>
+<script src="./site.js?v=20260916y"></script>
 </body>
 </html>

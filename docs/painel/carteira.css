@@ -69,64 +69,6 @@
 .pagina-cliente button:focus-visible, .pagina-cliente summary:focus-visible { outline: 2px solid var(--cl-primaria); outline-offset: 3px; }
 @media (max-width: 680px) { .carteira-grade { grid-template-columns: 1fr; gap: 0; } .carteira-saldo { padding: 22px; } .saldo-marca { font-size: .55rem; } }
 
-/* ---------- escolha da forma de pagamento ----------
-   Três cartões lado a lado, com o prazo escrito embaixo de cada um. O prazo
-   é a informação que decide: quem precisa do saldo agora não pode descobrir
-   depois de gerar o boleto que ele leva dois dias. */
-.formas-pagamento {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin: 0 0 16px;
-  padding: 0;
-  border: 0;
-}
-.formas-pagamento legend {
-  padding: 0 0 8px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--cl-suave, #5b5b66);
-}
-.formas-pagamento label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 11px 10px;
-  border: 1px solid var(--cl-linha, #e2e2e7);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: border-color .16s ease, background-color .16s ease;
-}
-.formas-pagamento label:has(input:checked) {
-  border-color: var(--cl-primaria, #b4160f);
-  background: var(--cl-primaria-fraca, rgba(180, 22, 15, 0.09));
-}
-/* O reset aqui nao e zelo: `.form-carteira input` veste TODO input do
-   formulario de campo de texto -- width:100%, borda, padding. Aplicado a um
-   radio, ele empurrava o rotulo para fora do cartao e cortava "Cartao" no
-   meio. Desfazer e mais barato que reescrever a regra de cima, que os campos
-   de valor e CPF continuam precisando. */
-.formas-pagamento input {
-  width: auto;
-  flex: 0 0 auto;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  accent-color: var(--cl-primaria, #b4160f);
-}
-.formas-pagamento label > span { flex: 1 1 auto; min-width: 0; }
-.formas-pagamento b { display: block; font-size: 0.9rem; line-height: 1.2; }
-.formas-pagamento small { display: block; margin-top: 2px; font-size: 0.74rem; color: var(--cl-suave, #5b5b66); }
-
-/* Num celular estreito três colunas espremem "1 a 3 dias úteis" em quatro
-   linhas. Empilhar é mais legível que encolher a fonte. */
-@media (max-width: 460px) {
-  .formas-pagamento { grid-template-columns: 1fr; }
-}
-
 [data-boleto] textarea {
   width: 100%;
   min-height: 72px;

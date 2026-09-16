@@ -124,25 +124,28 @@ const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
     });
     L.control.zoom({ position: "bottomright" }).addTo(mapa);
 
-    /* A chave vem do servidor (config.js), não daqui: assim ela fica fora do
-       repositório, que é público e varrido por robô. Continua visível para
-       quem abrir o código-fonte — chave de basemap é de cliente por natureza
-       — e por isso merece restrição de domínio no painel da CARTO.
-       Sem chave, cai no endpoint anônimo, que funciona e é limitado. */
-    const chave = (window.CARTO_KEY || "").trim();
-    // `voyager` é o mapa claro da CARTO; `dark_all` é o escuro. Os dois
-    // existem com e sem chave — conferido antes de escolher, porque
-    // `dark_matter`, que é o nome que se esperaria pelo par com voyager,
-    // devolve 404 no caminho com chave.
-    const estilo = ESCURO ? "dark_all" : "voyager";
-    const tiles = chave
-      ? `https://{s}.basemaps.cartocdn.com/rastertiles/${estilo}/{z}/{x}/{y}{r}.png?key=${chave}`
-      : `https://{s}.basemaps.cartocdn.com/${ESCURO ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`;
+    /* Tiles do OpenStreetMap, sem chave.
+
+       A CARTO nao serve mais basemap sem chave: qualquer tile dela volta 200,
+       porem com "API KEY REQUIRED" escrito por cima do mapa inteiro. E a chave
+       que /painel/config.js entrega esta sendo recusada, entao o mapa publicado
+       estava marcado d'agua para todo mundo, nos dois temas.
+
+       (Registro de um erro meu, para poupar quem vier depois: cheguei a
+       concluir que sem chave funcionava, comparando o TAMANHO dos tiles. Nao
+       funciona -- eu estava comparando um tile @2x com um @1x. So olhando a
+       imagem deu para ver a marca d'agua. Tamanho de resposta nao distingue
+       mapa de aviso; abrir a imagem distingue.)
+
+       O OSM padrao e gratuito, sem chave e sem marca d'agua. Em troca vem so
+       no tema claro e sem @2x -- por isso o `{r}` saiu daqui, e o tema escuro
+       e feito por filtro CSS sobre os tiles (ver mapa.css). */
+    const tiles = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
     L.tileLayer(tiles, {
-      maxZoom: chave ? 20 : 19,
-      subdomains: "abcd",
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      maxZoom: 19,
+      subdomains: "abc",
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(mapa);
 
     montarMarcadores();

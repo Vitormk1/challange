@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Smart Charge — sua conta</title>
+<title>Smart Charge</title>
 <meta name="description" content="Suas recargas e o cashback acumulado nas lojas parceiras do Smart Charge.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#F4F4F6">
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916s">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916s">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916s">
-<link rel="stylesheet" href="./cliente.css?v=20260916s">
-<link rel="stylesheet" href="./carregando.css?v=20260916s">
-<script src="./carregando.js?v=20260916s"></script>
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916y">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916y">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916y">
+<link rel="stylesheet" href="./cliente.css?v=20260916y">
+<link rel="stylesheet" href="./carregando.css?v=20260916y">
+<script src="./carregando.js?v=20260916y"></script>
 <noscript><style>#carregando{display:none}</style></noscript>
 </head>
 <body class="pagina-cliente">
@@ -20,7 +20,7 @@
      quando a pagina esta pronta; ver docs/carregando.js. -->
 <div id="carregando" role="status" aria-live="polite">
   <div class="carregando-miolo">
-    <span class="carregando-giro" aria-hidden="true"></span>
+    <span class="carregando-selo" aria-hidden="true"></span>
     <p class="carregando-marca">Smart Charge</p>
     <p class="carregando-nota">Carregando…</p>
   </div>
@@ -152,6 +152,12 @@
     </svg>
     <span>Carteira</span>
   </a>
+  <!-- A aba de ajustes mostra a foto da pessoa no lugar de um icone. Quando
+       nao ha foto, o cliente.js desenha a inicial do nome. -->
+  <a class="barra-app-item" href="./ajustes.html">
+    <span class="avatar" data-avatar aria-hidden="true"></span>
+    <span>Ajustes</span>
+  </a>
 </nav>
 
 <noscript>
@@ -159,6 +165,6 @@
   servidor. Ative-o e recarregue a página.</p>
 </noscript>
 
-<script type="module" src="./cliente.js?v=20260916s"></script>
+<script type="module" src="./cliente.js?v=20260916y"></script>
 </body>
 </html>

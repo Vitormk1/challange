@@ -45,6 +45,41 @@ def entrar(papel: str) -> requests.Session | None:
     return s if r.ok else None
 
 
+def limpar_sonda(email: str) -> None:
+    """Apaga a conta descartavel que o teste de cadastro cria.
+
+    O teste PRECISA cadastrar de verdade -- e a unica forma de conferir que o
+    papel e fixo no servidor e que uma conta pendente nao recebe sessao. Mas a
+    conta ficava para tras, uma por rodada, e o banco foi juntando sondas.
+
+    So funciona quando ha DATABASE_URL no ambiente: rodando de fora, contra o
+    site publicado e sem acesso ao banco, o teste continua valendo e o aviso
+    diz o que ficou para limpar na mao.
+    """
+    if not os.environ.get("DATABASE_URL"):
+        print(f"  ..   sem DATABASE_URL: apague {email} na mao")
+        return
+    try:
+        import psycopg
+    except ImportError:
+        print(f"  ..   sem psycopg: apague {email} na mao")
+        return
+    try:
+        with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as con, con.cursor() as cur:
+            cur.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
+            achado = cur.fetchone()
+            if not achado:
+                return
+            uid = achado[0]
+            for tabela in ("carteira_lancamentos", "carteira_pix", "reservas",
+                           "verificacoes_email", "sessoes_web", "carteiras"):
+                cur.execute(f"DELETE FROM {tabela} WHERE usuario_id = %s", (uid,))
+            cur.execute("UPDATE clientes SET usuario_id = NULL WHERE usuario_id = %s", (uid,))
+            cur.execute("DELETE FROM usuarios WHERE id = %s", (uid,))
+    except psycopg.Error as erro:
+        print(f"  ..   nao consegui apagar {email}: {str(erro)[:60]}")
+
+
 def main() -> None:
     anon = requests.Session()
 
@@ -336,15 +371,21 @@ def main() -> None:
             checar("motorista nasce sem loja",
                    not corpo_novo.get("estabelecimentos"),
                    "conta nova já veio vinculada a uma loja")
-        # A conta fica. Apagá-la exigiria credencial de administrador aqui, e
-        # a auditoria roda contra produção — melhor um registro a mais, com
-        # domínio .invalid e senha aleatória que ninguém conhece, do que dar
-        # poder de exclusão a um script de verificação.
     else:
         # 429 é resposta legítima: o limite por IP existe justamente para isto.
         checar("cadastro aberto responde",
                nova.status_code == 429,
                f"HTTP {nova.status_code}")
+
+    # A conta era deixada para trás de propósito: apagá-la pela API exigiria
+    # poder de exclusão num script de verificação, o que é pior que um
+    # registro a mais. Só que a auditoria roda toda hora, e o banco foi
+    # juntando sondas — quatro delas até alguém reparar.
+    #
+    # `limpar_sonda` resolve sem dar esse poder ao script: ela apaga pelo
+    # banco, direto, e só quando quem rodou já tem DATABASE_URL no ambiente.
+    # Rodando de fora, contra o site publicado, nada muda além do aviso.
+    limpar_sonda(sonda)
 
     # ---- a assistente do site ----
     # Ela é pública E gasta dinheiro na OpenRouter, combinação que merece

@@ -764,3 +764,19 @@
 .reserva-aberta .mapa-fab,
 .reserva-aberta .mapa-pilula { visibility: hidden; }
 
+
+/* ==========================================================================
+   Tema escuro do mapa
+
+   O OpenStreetMap padrao so existe no tema claro. Em vez de trocar de provedor
+   por causa disso -- e voltar a depender de chave --, os tiles sao invertidos
+   por filtro. `hue-rotate(180deg)` desfaz a inversao de matiz que o `invert`
+   causa, senao a agua fica laranja e a vegetacao roxa.
+
+   O filtro vale so para o painel dos tiles: os marcadores e os controles ficam
+   de fora, porque estao em outros panes do Leaflet. Invertidos, o marcador
+   vermelho viraria ciano.
+   ========================================================================== */
+[data-theme="dark"] .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.92) saturate(0.85);
+}
