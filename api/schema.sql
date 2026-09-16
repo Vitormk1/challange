@@ -25,8 +25,13 @@ CREATE TABLE IF NOT EXISTS usuarios (
   id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   nome          text        NOT NULL,
   email         text        NOT NULL UNIQUE,
+  -- 'motorista' e o unico papel que se cria sozinho, pelo cadastro aberto do
+  -- site. Ele NAO tem vinculo em usuarios_estabelecimentos, e e isso que o
+  -- mantem longe do dado de loja: exigir_loja() recusa qualquer loja que nao
+  -- esteja na lista dele, e a lista dele e vazia. A protecao nao depende de
+  -- lembrarem de checar o papel em cada rota.
   papel         text        NOT NULL DEFAULT 'operador'
-                            CHECK (papel IN ('main','gerente','operador')),
+                            CHECK (papel IN ('main','gerente','operador','motorista')),
   senha_hash    text        NOT NULL,
   -- tema, barra lateral, grupos fechados, ultima secao, painel ativo e
   -- ajustes de cada tabela. E o que faz o usuario abrir em outro computador
@@ -433,3 +438,19 @@ ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS ativo boolean NOT NULL DEF
 -- na tabela. E o caminho no lugar de excluir.
 COMMENT ON COLUMN carregadores.ativo IS
   'false = fora de operacao. Preferir isto a excluir: excluir e recusado quando ha historico.';
+
+
+-- --------------------------------------------------------------------------
+-- O papel 'motorista' chegou depois. Num banco que ja existe, a restricao
+-- antiga continua valendo e recusaria o primeiro cadastro; esta migracao a
+-- substitui. E idempotente: rodar de novo nao quebra.
+-- --------------------------------------------------------------------------
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.constraint_column_usage
+              WHERE table_name = 'usuarios' AND constraint_name = 'usuarios_papel_check') THEN
+    ALTER TABLE usuarios DROP CONSTRAINT usuarios_papel_check;
+  END IF;
+  ALTER TABLE usuarios ADD CONSTRAINT usuarios_papel_check
+    CHECK (papel IN ('main','gerente','operador','motorista'));
+END $$;

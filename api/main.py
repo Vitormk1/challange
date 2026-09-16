@@ -41,7 +41,7 @@ from psycopg import sql
 from auth import (conferir_senha, criar_hash, novo_token, permissoes, pode,
                   secoes_bloqueadas, validade)
 from db import conectar
-from protecao import (CabecalhosDeSeguranca, limitar_ia, limitar_ia_publica, limitar_login,
+from protecao import (CabecalhosDeSeguranca, limitar_cadastro, limitar_ia, limitar_ia_publica, limitar_login,
                       zerar_login)
 
 PAINEL = Path(__file__).resolve().parent.parent / "docs"
@@ -293,6 +293,72 @@ def login(request: Request, resp: Response, corpo: dict = Body(...)):
     # a requisição seguinte voltava 401. Mesma origem elimina o problema em
     # vez de contorná-lo.
     zerar_login(request, email)
+    resp.set_cookie(COOKIE, token, httponly=True,
+                    samesite=os.environ.get("COOKIE_SAMESITE", "lax").lower(),
+                    max_age=60 * 60 * 24 * 14,
+                    secure=os.environ.get("COOKIE_SEGURO", "") == "1")
+    return eu(usuario_atual(token))
+
+
+# ==========================================================================
+# Cadastro aberto — só cria motorista
+#
+# É a única rota que cria conta sem ninguém autorizar. Por isso o papel é
+# fixo aqui no código e NUNCA lido do corpo da requisição: se viesse de fora,
+# bastaria mandar {"papel": "main"} para virar administrador.
+#
+# E o motorista não recebe vínculo em usuarios_estabelecimentos. É isso, mais
+# do que a tabela de permissões, que o mantém longe do dado de loja —
+# exigir_loja() confere a lista de lojas do usuário, e a dele é vazia. Duas
+# travas independentes: a permissão pode ser mexida por engano, a lista vazia
+# não protege por gentileza, protege por construção.
+# ==========================================================================
+MINIMO_SENHA = 8
+
+
+@app.post("/auth/cadastrar")
+def cadastrar(request: Request, resp: Response, corpo: dict = Body(...)):
+    nome = str(corpo.get("nome", "")).strip()[:120]
+    email = str(corpo.get("email", "")).strip().lower()[:200]
+    senha = str(corpo.get("senha", ""))
+
+    if len(nome) < 2:
+        raise HTTPException(400, "Escreva seu nome.")
+    # Validação que não tenta ser RFC 5322: o que importa é recusar o que
+    # claramente não é endereço. Quem digitar errado descobre ao tentar
+    # entrar, e isso é problema dele, não risco nosso.
+    if "@" not in email or "." not in email.split("@")[-1] or len(email) < 6:
+        raise HTTPException(400, "Esse e-mail não parece válido.")
+    if len(senha) < MINIMO_SENHA:
+        raise HTTPException(400, f"A senha precisa de pelo menos {MINIMO_SENHA} caracteres.")
+
+    # Só agora. O limite existe para conter quem cria contas em série, não para
+    # punir quem digitou o e-mail errado — e até esta linha nada foi escrito no
+    # banco, que é o recurso que se quer proteger.
+    limitar_cadastro(request)
+
+    token = novo_token()
+    with conectar() as con, con.cursor() as cur:
+        cur.execute("SELECT 1 FROM usuarios WHERE lower(email) = %s", (email,))
+        if cur.fetchone():
+            # Dizer "já existe" entrega que aquele e-mail tem conta aqui — o
+            # mesmo vazamento que o login evita respondendo igual para senha
+            # errada e e-mail inexistente. Num cadastro não há como esconder:
+            # seguir em frente criaria conta duplicada. Então assume-se o
+            # vazamento e devolve-se algo acionável.
+            raise HTTPException(409, "Já existe uma conta com esse e-mail. Tente entrar.")
+
+        cur.execute(
+            "INSERT INTO usuarios (nome, email, papel, senha_hash) "
+            "VALUES (%s, %s, 'motorista', %s) RETURNING id",
+            (nome, email, criar_hash(senha)))
+        novo_id = cur.fetchone()["id"]
+        cur.execute("INSERT INTO sessoes_web (token, usuario_id, expira_em) VALUES (%s,%s,%s)",
+                    (token, novo_id, validade()))
+        con.commit()
+
+    # Entra já logado: pedir login logo depois do cadastro é atrito sem ganho
+    # — a pessoa acabou de provar que sabe a senha.
     resp.set_cookie(COOKIE, token, httponly=True,
                     samesite=os.environ.get("COOKIE_SAMESITE", "lax").lower(),
                     max_age=60 * 60 * 24 * 14,

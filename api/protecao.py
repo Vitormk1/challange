@@ -52,6 +52,22 @@ LIMITE_IA = (30, 3600)       # 30 perguntas por hora, por usuário
 #
 # Números pensados para uma banca e alguns curiosos, não para tráfego de
 # produto: 10 por hora dá para tirar dúvida, não para conversar a tarde toda.
+# Cadastro é escrita no banco por quem ainda não tem conta — a superfície mais
+# aberta da API. O teto é por IP e folgado o bastante para uma turma inteira se
+# cadastrar da mesma rede, e apertado o bastante para não virar script.
+#
+# Dois detalhes que a primeira versão errou, e que a própria bateria de testes
+# expôs ao se bloquear:
+#
+#   o número — 8 por IP não cobre o caso real. Numa sala de aula, ou numa
+#     apresentação, todo mundo sai pelo mesmo NAT; o nono a se cadastrar
+#     tomaria 429 sem ter feito nada. 20 continua inviável para script e
+#     sobrevive a uma turma.
+#   o momento — a contagem fica DEPOIS da validação (ver main.py). Senão
+#     quem erra o formato do e-mail oito vezes queima a cota sem nunca ter
+#     chegado ao banco, e o limite passa a punir engano em vez de abuso.
+LIMITE_CADASTRO_IP = (20, 3600)
+
 LIMITE_IA_PUBLICA_IP = (10, 3600)
 LIMITE_IA_PUBLICA_TOTAL = (300, 86400)
 
@@ -133,6 +149,16 @@ def limitar_ia_publica(request: Request) -> None:
         raise HTTPException(429,
             "A assistente do site atingiu o limite de uso de hoje. "
             "Ela volta amanhã; o painel continua no ar.")
+
+
+def limitar_cadastro(request: Request) -> None:
+    _limpar_velhas()
+    quantas, janela = LIMITE_CADASTRO_IP
+    ok, espera = _bater(f"cadastro:ip:{ip_de(request)}", quantas, janela)
+    if not ok:
+        raise HTTPException(429,
+            f"Já foram {quantas} cadastros desta rede nesta hora. "
+            f"Tente de novo em {espera // 60 + 1} min.")
 
 
 def zerar_login(request: Request, email: str) -> None:

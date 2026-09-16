@@ -77,11 +77,30 @@ PERMISSOES = {
         "editar_painel_compartilhado": False,
         "gerir_usuarios": False,
     },
+    # O motorista é quem se cadastra sozinho pelo site. Ele não trabalha em
+    # loja nenhuma: é o dono do carro, e a área dele é o mapa e a carteira.
+    #
+    # Tudo False, e nenhum vínculo em usuarios_estabelecimentos. A segunda
+    # parte é a que realmente protege — mesmo que alguém adicione uma
+    # permissão aqui por engano, exigir_loja() continua recusando, porque a
+    # lista de lojas dele é vazia. Duas travas independentes, de propósito.
+    "motorista": {
+        "trocar_estabelecimento": False,
+        "editar_dados": False,
+        "ver_financeiro": False,
+        "editar_painel_compartilhado": False,
+        "gerir_usuarios": False,
+    },
 }
 
 # Seções que cada papel enxerga. O operador não recebe "financeiro" — nem a
 # seção, nem os números que a alimentam.
-SECOES_BLOQUEADAS = {"operador": {"financeiro"}}
+SECOES_BLOQUEADAS = {
+    "operador": {"financeiro"},
+    # o motorista não tem seção de painel nenhuma: a área dele é outra
+    "motorista": {"financeiro", "estabelecimentos", "paineis", "clientes",
+                  "vendas", "cupons", "carregadores", "sessoes", "leituras"},
+}
 
 
 def permissoes(papel: str) -> dict:
