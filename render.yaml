@@ -19,7 +19,24 @@ services:
     # servido por este processo, mudança de tela vive em docs/. Um commit que
     # só mexia no painel era ignorado em silêncio: o GitHub tinha a versão
     # nova, o serviço continuava com a antiga, e nada acusava.
-    buildCommand: pip install -r requirements.txt
+    # O `python api/db.py` aplica o schema.sql antes de o código novo subir.
+    #
+    # Sem ele, mudança de esquema só chegava aqui se alguém lembrasse de rodar
+    # à mão — e o sintoma de esquecer é cruel: o deploy passa verde, o serviço
+    # sobe, e a falha aparece só quando alguém usa a tela nova, como um erro
+    # genérico que não diz nada sobre esquema. Foi exatamente o que aconteceu
+    # com o papel 'motorista': cadastro devolvendo 409 para e-mail novo.
+    #
+    # Roda no build, não no start: o start acontece a cada saída da
+    # hibernação do plano gratuito, e são ~30 comandos DDL contra um banco a
+    # 400 ms de distância — somaria uns 12 s a cada despertar.
+    #
+    # É seguro repetir: o schema.sql é idempotente de ponta a ponta (CREATE
+    # ... IF NOT EXISTS, blocos DO que conferem antes de alterar). E se o
+    # banco estiver fora do ar, o db.py sai com código 1 e o build falha —
+    # que é o certo. Melhor não publicar do que publicar código pedindo uma
+    # coluna que não existe.
+    buildCommand: pip install -r requirements.txt && python api/db.py
     # `--app-dir api` põe api/ no sys.path, que é o que faz `from db import`
     # funcionar. O caminho do painel é calculado a partir de __file__, então
     # não depende de onde o processo foi iniciado.

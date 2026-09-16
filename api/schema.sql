@@ -25,8 +25,13 @@ CREATE TABLE IF NOT EXISTS usuarios (
   id            bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   nome          text        NOT NULL,
   email         text        NOT NULL UNIQUE,
+  -- 'motorista' e o unico papel que se cria sozinho, pelo cadastro aberto do
+  -- site. Ele NAO tem vinculo em usuarios_estabelecimentos, e e isso que o
+  -- mantem longe do dado de loja: exigir_loja() recusa qualquer loja que nao
+  -- esteja na lista dele, e a lista dele e vazia. A protecao nao depende de
+  -- lembrarem de checar o papel em cada rota.
   papel         text        NOT NULL DEFAULT 'operador'
-                            CHECK (papel IN ('main','gerente','operador')),
+                            CHECK (papel IN ('main','gerente','operador','motorista')),
   senha_hash    text        NOT NULL,
   -- tema, barra lateral, grupos fechados, ultima secao, painel ativo e
   -- ajustes de cada tabela. E o que faz o usuario abrir em outro computador
@@ -122,6 +127,14 @@ CREATE TABLE IF NOT EXISTS clientes (
   ultima_visita       timestamptz,
   visitas             integer     NOT NULL DEFAULT 0,
   consentimento_lgpd  boolean     NOT NULL DEFAULT false,
+  -- A ficha vira de alguem quando um motorista com conta reconhece a recarga
+  -- como dele. Fica NULL enquanto a pessoa carrega sem se identificar, que
+  -- continua sendo o caso comum: quem chega no ponto nao precisa ter conta.
+  --
+  -- SET NULL ao excluir o usuario, e nao CASCADE: o historico de visitas e da
+  -- LOJA, nao do motorista. Apagar a conta desliga o nome do registro; nao
+  -- apaga a venda que aconteceu nem o cashback que a loja ja pagou.
+  usuario_id          bigint      REFERENCES usuarios(id) ON DELETE SET NULL,
   UNIQUE (estabelecimento_id, identificador_hash)
 );
 
@@ -433,3 +446,63 @@ ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS ativo boolean NOT NULL DEF
 -- na tabela. E o caminho no lugar de excluir.
 COMMENT ON COLUMN carregadores.ativo IS
   'false = fora de operacao. Preferir isto a excluir: excluir e recusado quando ha historico.';
+
+
+-- --------------------------------------------------------------------------
+-- O papel 'motorista' chegou depois. Num banco que ja existe, a restricao
+-- antiga continua valendo e recusaria o primeiro cadastro; esta migracao a
+-- substitui. E idempotente: rodar de novo nao quebra.
+-- --------------------------------------------------------------------------
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.constraint_column_usage
+              WHERE table_name = 'usuarios' AND constraint_name = 'usuarios_papel_check') THEN
+    ALTER TABLE usuarios DROP CONSTRAINT usuarios_papel_check;
+  END IF;
+  ALTER TABLE usuarios ADD CONSTRAINT usuarios_papel_check
+    CHECK (papel IN ('main','gerente','operador','motorista'));
+END $$;
+
+
+-- --------------------------------------------------------------------------
+-- Liga a ficha de cliente a uma conta de motorista.
+--
+-- Sem esta coluna o motorista entrava e nao havia como dizer quais recargas
+-- eram dele: sessoes aponta para clientes, e clientes e uma ficha por LOJA,
+-- identificada por hash, sem nenhuma ligacao com usuarios.
+--
+-- Que a ficha seja por loja nao e defeito, e o desenho certo: o cashback so
+-- vale onde foi gerado, entao quem carrega em tres lugares tem tres fichas e
+-- tres saldos. Esta coluna amarra as tres a mesma conta.
+--
+-- Aditiva e idempotente: nao reescreve linha nenhuma e pode rodar de novo.
+-- --------------------------------------------------------------------------
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS usuario_id bigint;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints
+                  WHERE table_name = 'clientes'
+                    AND constraint_name = 'clientes_usuario_id_fkey') THEN
+    ALTER TABLE clientes ADD CONSTRAINT clientes_usuario_id_fkey
+      FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
+-- Os dois indices ficam aqui, e nao la em cima junto dos outros: num banco
+-- que ja existe o CREATE TABLE nao faz nada, a coluna so aparece no ALTER
+-- acima, e um indice escrito antes dele falha com "column does not exist".
+--
+-- Uma ficha por motorista em cada loja. O UNIQUE e parcial porque usuario_id
+-- e NULL na maioria das linhas -- as fichas anonimas -- e esses NULLs nao
+-- podem contar como repeticao.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_clientes_usuario_loja
+  ON clientes (estabelecimento_id, usuario_id) WHERE usuario_id IS NOT NULL;
+
+-- A consulta da tela do motorista atravessa as lojas: "todas as minhas
+-- fichas". Sem este indice ela varreria a tabela inteira.
+CREATE INDEX IF NOT EXISTS ix_clientes_usuario
+  ON clientes (usuario_id) WHERE usuario_id IS NOT NULL;
+
+COMMENT ON COLUMN clientes.usuario_id IS
+  'Conta do motorista dono desta ficha. NULL = carregou sem se identificar.';

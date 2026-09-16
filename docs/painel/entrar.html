@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart Charge — entrar</title>
+<meta name="description" content="Entre na sua conta Smart Charge ou crie uma para acompanhar suas recargas e o cashback das lojas.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F4F4F6">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916a">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916a">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916a">
+<link rel="stylesheet" href="./login.css?v=20260916a">
+<link rel="stylesheet" href="./entrar.css?v=20260916a">
+</head>
+<body class="pagina-entrar">
+
+<!-- Reaproveita a .login-gate do painel: ela já traz o próprio conjunto de
+     tokens, claro e escuro, e não depende de mais nenhuma folha. Aqui ela
+     não é sobreposição de nada — é a página inteira. -->
+<div class="login-gate entrada">
+  <main class="login-caixa">
+
+    <a class="entrada-voltar" href="./">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M19 12H5M11 18l-6-6 6-6"></path>
+      </svg>
+      <span>Voltar</span>
+    </a>
+
+    <div class="login-marca">
+      <span class="login-selo" aria-hidden="true">
+        <img src="./img/logo.png?v=20260916a" alt="" width="60" height="60" decoding="async">
+      </span>
+      <h1>Smart Charge</h1>
+    </div>
+
+    <div class="entrada-abas" role="tablist" aria-label="Entrar ou criar conta">
+      <button class="entrada-aba is-ativa" id="abaEntrar" type="button" role="tab"
+              aria-selected="true" aria-controls="formEntrar">Entrar</button>
+      <button class="entrada-aba" id="abaCriar" type="button" role="tab"
+              aria-selected="false" aria-controls="formCriar">Criar conta</button>
+      <span class="entrada-abas-trilho" aria-hidden="true"></span>
+    </div>
+
+    <!-- ===================== entrar ===================== -->
+    <form id="formEntrar" class="login-form" role="tabpanel" aria-labelledby="abaEntrar"
+          autocomplete="on" novalidate>
+      <div class="login-campo">
+        <label class="sr-only" for="entrarEmail">E-mail</label>
+        <input id="entrarEmail" name="email" type="email" inputmode="email"
+               placeholder="E-mail" autocomplete="username" required>
+      </div>
+      <div class="login-campo login-senha">
+        <label class="sr-only" for="entrarSenha">Senha</label>
+        <input id="entrarSenha" name="senha" type="password" placeholder="Senha"
+               autocomplete="current-password" required>
+        <button class="login-olho" type="button" data-olho="entrarSenha"
+                aria-label="Mostrar senha" aria-pressed="false">
+          <svg class="olho-ver" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="olho-esconder" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 6.2A9.6 9.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-3.3 3.9M6.6 8.1A16 16 0 0 0 2.5 12S6 18 12 18a9.4 9.4 0 0 0 3.3-.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+        </button>
+      </div>
+      <button class="login-entrar" type="submit">
+        <span class="login-entrar-texto">Entrar</span>
+        <span class="login-entrar-girando" aria-hidden="true"></span>
+      </button>
+    </form>
+
+    <!-- ===================== criar conta ===================== -->
+    <form id="formCriar" class="login-form" role="tabpanel" aria-labelledby="abaCriar"
+          autocomplete="on" novalidate hidden>
+      <div class="login-campo">
+        <label class="sr-only" for="criarNome">Nome</label>
+        <input id="criarNome" name="nome" type="text" placeholder="Seu nome"
+               autocomplete="name" required>
+      </div>
+      <div class="login-campo">
+        <label class="sr-only" for="criarEmail">E-mail</label>
+        <input id="criarEmail" name="email" type="email" inputmode="email"
+               placeholder="E-mail" autocomplete="username" required>
+      </div>
+      <div class="login-campo login-senha">
+        <label class="sr-only" for="criarSenha">Senha</label>
+        <input id="criarSenha" name="senha" type="password" placeholder="Senha"
+               autocomplete="new-password" minlength="8" required>
+        <button class="login-olho" type="button" data-olho="criarSenha"
+                aria-label="Mostrar senha" aria-pressed="false">
+          <svg class="olho-ver" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg class="olho-esconder" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 6.2A9.6 9.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-3.3 3.9M6.6 8.1A16 16 0 0 0 2.5 12S6 18 12 18a9.4 9.4 0 0 0 3.3-.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+        </button>
+      </div>
+      <p class="entrada-dica" id="dicaSenha">Pelo menos 8 caracteres.</p>
+      <button class="login-entrar" type="submit">
+        <span class="login-entrar-texto">Criar conta</span>
+        <span class="login-entrar-girando" aria-hidden="true"></span>
+      </button>
+    </form>
+
+    <p class="login-status" id="status" role="status" aria-live="polite"></p>
+
+    <p class="entrada-nota" id="notaLojista">
+      É dono de uma loja com carregador? Use o e-mail que o Smart Charge criou
+      para você — a conta já vem ligada ao painel.
+    </p>
+
+    <div class="login-tema" role="radiogroup" aria-label="Tema da interface">
+      <button class="login-tema-op" type="button" role="radio" aria-checked="false" data-theme-choice="light" title="Claro" aria-label="Tema claro">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><g stroke-linecap="round"><path d="M12 2.4v2.4M12 19.2v2.4M4.2 12H1.8M22.2 12h-2.4M6.5 6.5 4.8 4.8M19.2 19.2l-1.7-1.7M17.5 6.5l1.7-1.7M4.8 19.2l1.7-1.7"/></g></svg>
+      </button>
+      <button class="login-tema-op" type="button" role="radio" aria-checked="false" data-theme-choice="dark" title="Escuro" aria-label="Tema escuro">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.4A8.6 8.6 0 0 1 9.6 4a8.7 8.7 0 1 0 10.4 10.4Z"/></svg>
+      </button>
+      <button class="login-tema-op" type="button" role="radio" aria-checked="false" data-theme-choice="system" title="Seguir o sistema" aria-label="Seguir o tema do sistema">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.6" y="4.2" width="18.8" height="13" rx="2.2"/><path d="M8.4 20.4h7.2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+  </main>
+</div>
+
+<noscript>
+  <p class="entrada-sem-script">Esta tela precisa de JavaScript para conversar
+  com o servidor. Ative-o e recarregue a página.</p>
+</noscript>
+
+<script type="module" src="./entrar.js?v=20260916a"></script>
+</body>
+</html>
