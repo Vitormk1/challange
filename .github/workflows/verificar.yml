@@ -8,8 +8,8 @@
 #   segredo   — a mais importante. Chave que entra no histórico do Git
 #               continua lá depois de removida, e este repositório é público
 #
-# Não roda teste de integração nem a auditoria: as duas precisam de banco e
-# de chave de API, e nenhuma das duas coisas pode viver num CI público.
+# A carteira tem testes transacionais com Asaas simulada, sem credenciais.
+# A auditoria real continua fora do CI porque precisa de um banco configurado.
 
 name: Verificar
 
@@ -33,6 +33,11 @@ jobs:
       - name: Python compila
         run: |
           python -m compileall -q api/ && echo "ok: todo .py compila"
+
+      - name: Testes da carteira sem banco ou pagamentos reais
+        run: |
+          pip install -r requirements-dev.txt
+          python -m unittest discover -s tests -v
 
       - uses: actions/setup-node@v4
         with:

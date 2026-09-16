@@ -10,7 +10,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916c">
 <link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916c">
 <link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916c">
-<link rel="stylesheet" href="./cliente.css?v=20260916c">
+<link rel="stylesheet" href="./cliente.css?v=20260916-wallet2">
+<link rel="stylesheet" href="./carteira.css?v=20260916-wallet2">
 </head>
 <body class="pagina-cliente">
 
@@ -31,48 +32,71 @@
 
   <p class="nota-cliente" data-estado-conexao role="status" hidden></p>
 
-  <section class="cartao-saldo" aria-labelledby="rotuloSaldo">
-    <p id="rotuloSaldo">Saldo para recargas</p><strong data-saldo>R$ 0,00</strong>
-    <small>Use este saldo para pagar suas recargas Smart Charge. O Pix sÃ³ entra depois da confirmaÃ§Ã£o segura da Asaas.</small>
+  <div class="carteira-aviso" data-sandbox hidden role="status">Ambiente de teste · os Pix de sandbox não movimentam dinheiro real.</div>
+  <section class="cartao-saldo carteira-saldo" aria-labelledby="rotuloSaldo">
+    <div class="saldo-topo"><p id="rotuloSaldo">Seu saldo na carteira</p><span class="saldo-marca" aria-hidden="true">SMART CHARGE ↗</span></div>
+    <strong data-saldo aria-live="polite">—</strong>
+    <small>Saldo adicionado por Pix. O crédito fica disponível após a confirmação do pagamento.</small>
+    <div class="saldo-rodape"><span data-atualizacao>Carregando sua carteira…</span><button type="button" data-atualizar>↻ Atualizar</button></div>
   </section>
-  <section class="bloco-cliente" aria-labelledby="tituloAdicionar">
-    <h2 id="tituloAdicionar">Adicionar saldo</h2><div class="cartao-cliente">
-      <form class="form-carteira" data-form-pix>
-        <label>Valor da recarga <span class="campo-moeda"><span>R$</span><input data-valor inputmode="decimal" autocomplete="off" placeholder="0,00" required></span></label>
-        <label>CPF ou CNPJ do pagador <input data-cpf inputmode="numeric" autocomplete="off" placeholder="Somente na primeira recarga" required></label>
-        <p class="ajuda-carteira">O documento Ã© enviado diretamente Ã  Asaas para identificar o pagador; nÃ£o fica salvo neste projeto.</p>
-        <button class="botao-cliente" type="submit" data-enviar-pix>Gerar Pix</button><p class="mensagem-carteira" data-mensagem aria-live="polite"></p>
-      </form>
-      <section class="pix-cobranca" data-pix hidden aria-live="polite"><h3>Escaneie para adicionar saldo</h3><img data-qr alt="QR Code Pix para adicionar saldo"><p data-pix-valor></p><textarea data-copia readonly aria-label="Pix copia e cola"></textarea><button class="botao-secundario" type="button" data-copiar>Copiar cÃ³digo Pix</button><p class="mensagem-carteira" data-pix-status>Esperando o pagamento.</p></section>
-      <button class="botao-secundario" type="button" data-credito-teste hidden>Adicionar R$ 100 para demonstraÃ§Ã£o</button>
-    </div>
-  </section>
-  <section class="bloco-cliente" aria-labelledby="tituloExtrato"><h2 id="tituloExtrato">Extrato</h2><div class="cartao-cliente"><ul class="extrato-carteira" data-extrato><li>Seu extrato aparecerÃ¡ aqui.</li></ul></div></section>
 
-  <!-- A aba existe e diz a verdade: ainda não está pronta. Escondê-la até
-       ficar seria pior — a barra mudaria de forma no meio do caminho, e quem
-       já conhece o aplicativo procuraria uma aba que sumiu. -->
-  <section class="bloco-cliente" aria-labelledby="tituloBreve" hidden>
-    <h2 id="tituloBreve" class="sr-only">Em desenvolvimento</h2>
-    <div class="cartao-cliente">
-      <div class="vazio-cliente">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M3.5 7.4A2.4 2.4 0 0 1 5.9 5h11.7a2 2 0 0 1 2 2v1.4"></path>
-          <path d="M3.5 7.4v9.2A2.4 2.4 0 0 0 5.9 19h12.7a1.9 1.9 0 0 0 1.9-1.9v-2.2"></path>
-          <path d="M20.5 10.6h-4a2 2 0 0 0 0 4h4a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5Z"></path>
-        </svg>
-        <p><strong>A carteira ainda está em desenvolvimento.</strong></p>
-        <p>A ideia é reunir num lugar só o pagamento da recarga e o cashback
-        de cada loja, para você não precisar do cartão no caixa.</p>
-        <a class="botao-cliente" href="./cliente.html">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M19 12H5M11 18l-6-6 6-6"></path>
-          </svg>
-          <span>Voltar ao dashboard</span>
-        </a>
+  <div class="carteira-grade">
+    <section class="bloco-cliente" aria-labelledby="tituloAdicionar">
+      <div class="carteira-titulo"><h2 id="tituloAdicionar">Adicionar saldo</h2><span class="pix-selo">PIX</span></div>
+      <div class="cartao-cliente">
+        <div class="carteira-indisponivel" data-pix-indisponivel hidden>
+          <strong>Pix temporariamente indisponível</strong><p>Seu saldo e extrato continuam disponíveis. Tente atualizar a carteira em instantes.</p>
+        </div>
+        <form class="form-carteira" data-form-pix hidden>
+          <label for="valorPix">Quanto você quer adicionar?</label>
+          <span class="campo-moeda"><span>R$</span><input id="valorPix" data-valor inputmode="decimal" autocomplete="off" placeholder="0,00" required aria-describedby="limitesPix" maxlength="12"></span>
+          <div class="valores-rapidos" role="group" aria-label="Valores sugeridos">
+            <button type="button" data-valor-rapido="25" aria-pressed="false">R$ 25</button>
+            <button type="button" data-valor-rapido="50" aria-pressed="false">R$ 50</button>
+            <button type="button" data-valor-rapido="100" aria-pressed="false">R$ 100</button>
+            <button type="button" data-valor-rapido="200" aria-pressed="false">R$ 200</button>
+          </div>
+          <p id="limitesPix" class="ajuda-carteira">De R$ 5,00 a R$ 1.000,00. Você escolhe outro valor no campo acima.</p>
+          <div data-documento hidden>
+            <label for="documentoPix">CPF ou CNPJ do pagador</label>
+            <input id="documentoPix" data-cpf inputmode="numeric" autocomplete="off" placeholder="Informe na primeira adição de saldo" maxlength="18">
+            <p class="ajuda-carteira">Enviado à Asaas para identificar o pagador. O documento não é salvo no Smart Charge.</p>
+          </div>
+          <button class="botao-cliente" type="submit" data-enviar-pix>Gerar Pix</button>
+          <p class="carteira-seguranca">Pagamento processado pela Asaas. A confirmação acontece no servidor.</p>
+        </form>
+        <p class="mensagem-carteira" data-mensagem role="status" aria-live="polite"></p>
+        <section class="pix-cobranca" data-pix hidden aria-labelledby="tituloPix">
+          <div class="pix-topo"><span class="pix-selo">PIX</span><button class="botao-texto" type="button" data-fechar-pix aria-label="Fechar código Pix">Fechar ×</button></div>
+          <h3 id="tituloPix" data-pix-titulo>Pague pelo app do seu banco</h3>
+          <strong class="pix-valor" data-pix-valor></strong>
+          <img data-qr alt="QR Code Pix para adicionar saldo" hidden width="220" height="220">
+          <p class="ajuda-carteira" data-pix-validade></p>
+          <textarea data-copia readonly aria-label="Pix copia e cola" hidden></textarea>
+          <button class="botao-cliente" type="button" data-copiar>Copiar código Pix</button>
+          <p class="mensagem-carteira" data-pix-status aria-live="polite">Esperando o pagamento.</p>
+          <button class="botao-secundario" type="button" data-verificar>Já paguei · conferir pagamento</button>
+        </section>
+        <button class="botao-secundario" type="button" data-credito-teste hidden>Adicionar crédito fictício de teste</button>
       </div>
-    </div>
-  </section>
+      <details class="carteira-como"><summary>Como funciona o Pix?</summary><ol><li>Escolha um valor e gere o código.</li><li>No app do banco, escaneie o QR Code ou use Pix copia e cola.</li><li>Volte aqui. O saldo entra após a confirmação. Se demorar, toque em “Já paguei”.</li></ol><p>O pagamento das recargas pela carteira ainda depende da integração com os carregadores. Cashback é crédito da loja e não se mistura com este saldo.</p></details>
+    </section>
+
+    <section class="bloco-cliente" aria-labelledby="tituloExtrato">
+      <div class="carteira-titulo"><h2 id="tituloExtrato">Movimentações</h2><button class="botao-texto" type="button" data-exportar>Baixar CSV ↓</button></div>
+      <div class="cartao-cliente">
+        <div class="extrato-filtros" role="group" aria-label="Filtrar movimentações">
+          <button type="button" data-filtro="todos" aria-pressed="true">Tudo</button>
+          <button type="button" data-filtro="entradas" aria-pressed="false">Entradas</button>
+          <button type="button" data-filtro="saidas" aria-pressed="false">Saídas</button>
+        </div>
+        <p class="ajuda-carteira" data-extrato-contagem>Últimos 50 movimentos</p>
+        <ul class="extrato-carteira" data-extrato><li class="extrato-vazio"><span>Carregando movimentações…</span></li></ul>
+      </div>
+      <details class="carteira-historico" data-historico-pix hidden><summary>Histórico de Pix <span>últimas 12 cobranças</span></summary><ul data-cobrancas class="cobrancas-lista"></ul></details>
+      <section class="carteira-cashback" aria-labelledby="tituloCashback"><h3 id="tituloCashback">Créditos nas lojas</h3><p class="ajuda-carteira">Seu cashback vale na loja onde foi emitido e fica separado do saldo Pix.</p><ul data-cashback class="cobrancas-lista"><li>Carregando créditos…</li></ul></section>
+    </section>
+  </div>
 
   <p class="nota-cliente">
     Projeto acadêmico — Challenge FIAP · GoodWe.
@@ -114,6 +138,6 @@
 </noscript>
 
 <script type="module" src="./cliente.js?v=20260916c"></script>
-<script type="module" src="./carteira.js?v=20260916c"></script>
+<script type="module" src="./carteira-app.js?v=20260916-wallet2"></script>
 </body>
 </html>

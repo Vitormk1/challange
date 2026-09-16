@@ -561,6 +561,13 @@ CREATE TABLE IF NOT EXISTS carteira_eventos_asaas (
   recebido_em       timestamptz NOT NULL DEFAULT now()
 );
 
+-- Retomada de Pix e identificação do ambiente. Sem guardar CPF/CNPJ.
+ALTER TABLE carteiras ADD COLUMN IF NOT EXISTS asaas_base text;
+ALTER TABLE carteiras ADD COLUMN IF NOT EXISTS pix_referencia text;
+ALTER TABLE carteira_pix ADD COLUMN IF NOT EXISTS asaas_base text;
+ALTER TABLE carteira_pix ADD COLUMN IF NOT EXISTS imagem_base64 text;
+ALTER TABLE carteira_pix ADD COLUMN IF NOT EXISTS verificado_em timestamptz;
+
 -- --------------------------------------------------------------------------
 -- Programa de fidelidade da loja: um dos tres modelos, nunca mais de um ao
 -- mesmo tempo. Colunas tipadas e anulaveis em vez de tabela ou jsonb novos --

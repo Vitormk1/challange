@@ -115,6 +115,9 @@ que decidiram essa arquitetura estão em [HOSPEDAGEM.md](HOSPEDAGEM.md).
 
 ## Arquitetura de dados
 
+A carteira Pix, os eventos do webhook e as variáveis da Asaas estão documentados
+em [CARTEIRA.md](CARTEIRA.md).
+
 O mapa completo de como a informação se move entre o painel e o Postgres — tabelas, quem escreve em
 cada uma, regras de exclusão, e os fluxos de ponta a ponta — está em
 [ARQUITETURA_DE_DADOS.md](ARQUITETURA_DE_DADOS.md). Vale ler antes de mexer no banco ou de criar

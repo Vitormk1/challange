@@ -1,0 +1,382 @@
+"""Carteira Pix: dinheiro confirmado no servidor, lançamentos idempotentes.
+
+As chamadas externas são serializadas por carteira/pagamento no PostgreSQL.
+Não há débito por recarga enquanto não existir integração com o equipamento.
+"""
+from __future__ import annotations
+
+import hmac
+import os
+import re
+import secrets
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
+
+import requests
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
+
+from db import conectar
+from protecao import limitar_carteira
+
+SANDBOX = "https://api-sandbox.asaas.com/v3"
+PRODUCAO = "https://api.asaas.com/v3"
+BRASIL = timezone(timedelta(hours=-3))
+PAGOS = {"CONFIRMED", "RECEIVED"}
+EVENTOS = {"PAYMENT_CONFIRMED", "PAYMENT_RECEIVED", "PAYMENT_OVERDUE",
+           "PAYMENT_DELETED", "PAYMENT_REFUNDED", "PAYMENT_PARTIALLY_REFUNDED",
+           "PAYMENT_UPDATED", "PAYMENT_RESTORED"}
+
+
+def configuracao():
+    chave = os.environ.get("ASAAS_API_KEY", "").strip()
+    if not chave:
+        raise HTTPException(503, "O Pix está temporariamente indisponível.")
+    base = os.environ.get("ASAAS_API_BASE", "").strip().rstrip("/")
+    base = base or (PRODUCAO if chave.startswith("$aact_prod_") else SANDBOX)
+    if base not in {SANDBOX, PRODUCAO}:
+        raise HTTPException(503, "O ambiente de pagamentos precisa ser revisado.")
+    if ((chave.startswith("$aact_prod_") and base != PRODUCAO)
+            or (chave.startswith("$aact_hmlg_") and base != SANDBOX)):
+        raise HTTPException(503, "A chave de pagamentos não corresponde ao ambiente configurado.")
+    return base, chave
+
+
+def estado_configuracao():
+    """Sonda operacional sem expor chave, token ou informações da conta."""
+    try:
+        base, _ = configuracao()
+        webhook = bool(os.environ.get("ASAAS_WEBHOOK_TOKEN", "").strip())
+        return {"pix_configurado": webhook, "webhook_configurado": webhook,
+                "ambiente": "sandbox" if base == SANDBOX else "producao"}
+    except HTTPException:
+        return {"pix_configurado": False,
+                "webhook_configurado": bool(os.environ.get("ASAAS_WEBHOOK_TOKEN", "").strip()),
+                "ambiente": "indisponivel"}
+
+
+def asaas(metodo, caminho, corpo=None):
+    base, chave = configuracao()
+    try:
+        r = requests.request(metodo, base + caminho, json=corpo, timeout=20,
+            headers={"access_token": chave, "Content-Type": "application/json",
+                     "User-Agent": "SmartCharge/2.0"}, allow_redirects=False)
+    except requests.RequestException:
+        raise HTTPException(502, "Não conseguimos falar com a Asaas. Tente novamente em instantes.")
+    if not r.ok:
+        # Respostas externas podem conter documento ou detalhes da conta.
+        mensagem = ("A Asaas não autorizou a integração. Revise a chave e o ambiente no servidor."
+                    if r.status_code in (401, 403) else
+                    "A Asaas não concluiu a solicitação. Confira os dados e tente novamente.")
+        raise HTTPException(502, mensagem)
+    try:
+        dados = r.json()
+        if not isinstance(dados, dict):
+            raise ValueError()
+        return dados
+    except ValueError:
+        raise HTTPException(502, "O serviço de pagamentos retornou uma resposta inválida.")
+
+
+def dinheiro(bruto):
+    try:
+        valor = Decimal(str(bruto))
+        if not valor.is_finite() or valor != valor.quantize(Decimal("0.01")):
+            raise InvalidOperation()
+        return valor.quantize(Decimal("0.01"))
+    except (InvalidOperation, ValueError, TypeError):
+        raise HTTPException(422, "Informe um valor válido com até duas casas decimais.")
+
+
+def valor_pix(bruto):
+    valor = dinheiro(bruto)
+    if not Decimal("5") <= valor <= Decimal("1000"):
+        raise HTTPException(422, "Escolha um valor entre R$ 5,00 e R$ 1.000,00.")
+    return valor
+
+
+def documento_valido(bruto):
+    doc = re.sub(r"\D", "", str(bruto or ""))
+    if len(doc) not in (11, 14) or len(set(doc)) == 1:
+        raise HTTPException(422, "Informe um CPF ou CNPJ válido.")
+    pesos = ([list(range(10, 1, -1)), list(range(11, 1, -1))] if len(doc) == 11
+             else [[5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2],
+                   [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]])
+    inicio = len(doc) - 2
+    for i, peso in enumerate(pesos):
+        resto = sum(int(n) * p for n, p in zip(doc[:inicio + i], peso)) % 11
+        if int(doc[inicio + i]) != (0 if resto < 2 else 11 - resto):
+            raise HTTPException(422, "Informe um CPF ou CNPJ válido.")
+    return doc
+
+
+def serializar(linha):
+    return {k: (v.isoformat() if isinstance(v, datetime)
+                else str(v) if isinstance(v, Decimal) else v)
+            for k, v in linha.items()}
+
+
+def pix_publico(linha):
+    d = serializar(linha)
+    return {"id": d["asaas_pagamento_id"], "valor_brl": d["valor_brl"],
+            "status": d["status"], "recebido_em": d.get("recebido_em"),
+            "copia_e_cola": d.get("payload_pix"),
+            "imagem_base64": d.get("imagem_base64"),
+            "expira_em": d.get("expiracao_em"),
+            "criado_em": d.get("criado_em")}
+
+
+def gravar_qr(cur, pix):
+    if pix["status"] not in {"PENDING", "OVERDUE"}:
+        return pix
+    qr = asaas("GET", f"/payments/{pix['asaas_pagamento_id']}/pixQrCode")
+    if not qr.get("payload") or not qr.get("expirationDate"):
+        raise HTTPException(502, "O Pix ainda não está disponível. Tente recuperar o código em instantes.")
+    try:
+        expiracao = datetime.fromisoformat(qr["expirationDate"])
+        if expiracao.tzinfo is None:
+            expiracao = expiracao.replace(tzinfo=BRASIL)
+    except (TypeError, ValueError):
+        raise HTTPException(502, "A validade do Pix não foi informada corretamente pela Asaas.")
+    cur.execute("UPDATE carteira_pix SET payload_pix=%s, imagem_base64=%s, expiracao_em=%s "
+                "WHERE id=%s RETURNING *", (qr["payload"], qr.get("encodedImage"),
+                                           expiracao, pix["id"]))
+    return cur.fetchone()
+
+
+def aplicar_pagamento(cur, pix, pagamento):
+    """Aplica um retrato consultado na Asaas, com a linha do Pix bloqueada."""
+    if (pagamento.get("id") != pix["asaas_pagamento_id"]
+            or pagamento.get("billingType") != "PIX"
+            or dinheiro(pagamento.get("value")) != pix["valor_brl"]):
+        raise HTTPException(409, "A cobrança precisa ser conferida antes de atualizar o saldo.")
+    status = "DELETED" if pagamento.get("deleted") else pagamento.get("status", pix["status"])
+    refunds = pagamento.get("refunds") or []
+    devolvido = sum((dinheiro(r.get("value")) for r in refunds
+                    if r.get("status") == "DONE"), Decimal("0"))
+    if status == "REFUNDED":
+        devolvido = pix["valor_brl"]
+    if devolvido < 0 or devolvido > pix["valor_brl"]:
+        raise HTTPException(409, "O estorno precisa ser conferido antes de atualizar o saldo.")
+    # Um estorno pode chegar antes da notificação de recebimento: o retrato
+    # atual comprova tanto o crédito original quanto a devolução.
+    if status in PAGOS or devolvido:
+        cur.execute("INSERT INTO carteira_lancamentos "
+                    "(usuario_id,tipo,valor_brl,descricao,referencia) "
+                    "VALUES (%s,'recarga_pix',%s,'Saldo adicionado via Pix',%s) "
+                    "ON CONFLICT (referencia) DO NOTHING", (pix["usuario_id"],
+                    pix["valor_brl"], f"asaas:{pix['asaas_pagamento_id']}"))
+        cur.execute("UPDATE carteira_pix SET recebido_em=coalesce(recebido_em,now()) WHERE id=%s", (pix["id"],))
+    cur.execute("SELECT coalesce(-sum(valor_brl),0) AS total FROM carteira_lancamentos "
+                "WHERE usuario_id=%s AND tipo='estorno' AND referencia LIKE %s",
+                (pix["usuario_id"], f"asaas-estorno:{pix['asaas_pagamento_id']}:%"))
+    anterior = cur.fetchone()["total"]
+    if devolvido > anterior:
+        cur.execute("INSERT INTO carteira_lancamentos "
+                    "(usuario_id,tipo,valor_brl,descricao,referencia) "
+                    "VALUES (%s,'estorno',%s,'Pix devolvido pela Asaas',%s) "
+                    "ON CONFLICT (referencia) DO NOTHING", (pix["usuario_id"],
+                    -(devolvido - anterior), f"asaas-estorno:{pix['asaas_pagamento_id']}:{devolvido}"))
+    cur.execute("UPDATE carteira_pix SET status=%s, verificado_em=now() WHERE id=%s RETURNING *",
+                (status, pix["id"]))
+    return cur.fetchone()
+
+
+def registrar_carteira(app, usuario_atual):
+    router = APIRouter()
+
+    def motorista(u=Depends(usuario_atual)):
+        if u["papel"] != "motorista":
+            raise HTTPException(403, "A carteira é exclusiva para contas de motorista.")
+        return u
+
+    @router.get("/carteira")
+    def carteira(u=Depends(motorista)):
+        with conectar() as con, con.cursor() as cur:
+            cur.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+            # Um único retrato para saldo e extrato não discordarem entre si.
+            cur.execute("SELECT coalesce(sum(valor_brl),0) AS saldo FROM carteira_lancamentos WHERE usuario_id=%s", (u["id"],))
+            saldo = cur.fetchone()["saldo"]
+            cur.execute("SELECT id,tipo,valor_brl,descricao,criado_em FROM carteira_lancamentos "
+                        "WHERE usuario_id=%s ORDER BY criado_em DESC,id DESC LIMIT 50", (u["id"],))
+            lancamentos = [serializar(x) for x in cur.fetchall()]
+            cur.execute("SELECT e.id AS estabelecimento_id,e.nome AS loja, "
+                        "sum(cp.desconto_brl) AS saldo_brl,count(*) AS cupons "
+                        "FROM cupons cp JOIN sessoes s ON s.id=cp.sessao_id "
+                        "JOIN clientes cl ON cl.id=s.cliente_id "
+                        "JOIN carregadores c ON c.id=s.carregador_id "
+                        "JOIN estabelecimentos e ON e.id=c.estabelecimento_id "
+                        "WHERE cl.usuario_id=%s AND cp.usado_em IS NULL "
+                        "AND (cp.expira_em IS NULL OR cp.expira_em>now()) AND cp.desconto_brl>0 "
+                        "GROUP BY e.id,e.nome ORDER BY e.nome", (u["id"],))
+            cashback = [serializar(x) for x in cur.fetchall()]
+            cur.execute("SELECT * FROM carteira_pix WHERE usuario_id=%s "
+                        "ORDER BY criado_em DESC,id DESC LIMIT 12", (u["id"],))
+            cobrancas = [pix_publico(x) for x in cur.fetchall()]
+            cur.execute("SELECT asaas_cliente_id,asaas_base FROM carteiras WHERE usuario_id=%s", (u["id"],))
+            cadastro = cur.fetchone()
+        try:
+            base, _ = configuracao()
+            disponivel = bool(os.environ.get("ASAAS_WEBHOOK_TOKEN", "").strip())
+        except HTTPException:
+            base, disponivel = SANDBOX, False
+        return {"saldo_brl": str(saldo), "lancamentos": lancamentos,
+                "cashback_lojas": cashback,
+                "cobrancas": cobrancas, "pix_disponivel": disponivel,
+                "documento_necessario": not bool(cadastro and cadastro["asaas_cliente_id"]),
+                "ambiente": "sandbox" if base == SANDBOX else "producao",
+                "modo_demo": base == SANDBOX and os.environ.get("WALLET_DEMO_MODE") == "1"}
+
+    @router.post("/carteira/pix")
+    def criar_pix(corpo: dict = Body(...), u=Depends(motorista)):
+        valor = valor_pix(corpo.get("valor"))
+        limitar_carteira(u["id"], "criar")
+        base, _ = configuracao()
+        if not os.environ.get("ASAAS_WEBHOOK_TOKEN", "").strip():
+            raise HTTPException(503, "O Pix está aguardando a configuração de confirmação de pagamentos.")
+        with conectar() as con, con.cursor() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(%s,%s)", (73421, u["id"]))
+            cur.execute("SELECT * FROM carteira_pix WHERE usuario_id=%s AND valor_brl=%s AND status='PENDING' "
+                        "AND (expiracao_em>now() OR expiracao_em IS NULL) "
+                        "ORDER BY id DESC LIMIT 1", (u["id"], valor))
+            pendente = cur.fetchone()
+            if pendente:
+                if dinheiro(pendente["valor_brl"]) != valor:
+                    raise HTTPException(409, "Você já tem um Pix pendente. Recupere o código ou aguarde sua validade terminar.")
+                return pix_publico(gravar_qr(cur, pendente) if not pendente["payload_pix"] else pendente)
+            cur.execute("SELECT asaas_cliente_id,asaas_base FROM carteiras WHERE usuario_id=%s", (u["id"],))
+            cadastro = cur.fetchone()
+            if cadastro and cadastro["asaas_base"] and cadastro["asaas_base"] != base:
+                raise HTTPException(409, "Seu cadastro de pagamentos pertence a outro ambiente. Solicite a revisão da integração.")
+            cliente_id = cadastro["asaas_cliente_id"] if cadastro else None
+            if not cliente_id:
+                cpf = documento_valido(corpo.get("cpfCnpj"))
+                # Recupera um cliente criado antes de uma falha de gravação.
+                encontrados = asaas("GET", f"/customers?externalReference=smartcharge-usuario-{u['id']}")
+                clientes = encontrados.get("data") or []
+                cliente = clientes[0] if clientes else asaas("POST", "/customers", {
+                    "name": u["nome"], "email": u["email"], "cpfCnpj": cpf,
+                    "externalReference": f"smartcharge-usuario-{u['id']}", "notificationDisabled": True})
+                cliente_id = cliente["id"]
+                cur.execute("INSERT INTO carteiras (usuario_id,asaas_cliente_id,asaas_base) VALUES (%s,%s,%s) "
+                            "ON CONFLICT (usuario_id) DO UPDATE SET asaas_cliente_id=EXCLUDED.asaas_cliente_id, "
+                            "asaas_base=EXCLUDED.asaas_base", (u["id"], cliente_id, base))
+            # Persistir o cadastro antes de criar a cobrança facilita retomadas.
+            con.commit()
+        with conectar() as con, con.cursor() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(%s,%s)", (73421, u["id"]))
+            cur.execute("SELECT * FROM carteira_pix WHERE usuario_id=%s AND valor_brl=%s AND status='PENDING' "
+                        "AND (expiracao_em>now() OR expiracao_em IS NULL) ORDER BY id DESC LIMIT 1", (u["id"], valor))
+            pendente = cur.fetchone()
+            if pendente:
+                if dinheiro(pendente["valor_brl"]) != valor:
+                    raise HTTPException(409, "Você já tem um Pix pendente. Recupere o código existente.")
+                return pix_publico(gravar_qr(cur, pendente) if not pendente["payload_pix"] else pendente)
+            # A mesma referência é reutilizada após falha de rede/gravação.
+            cur.execute("SELECT pix_referencia FROM carteiras WHERE usuario_id=%s", (u["id"],))
+            ref = cur.fetchone()["pix_referencia"] or f"smartcharge-carteira-{u['id']}-{secrets.token_hex(16)}"
+            cur.execute("UPDATE carteiras SET pix_referencia=%s WHERE usuario_id=%s", (ref, u["id"]))
+            con.commit()
+        with conectar() as con, con.cursor() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(%s,%s)", (73421, u["id"]))
+            cur.execute("SELECT pix_referencia FROM carteiras WHERE usuario_id=%s", (u["id"],))
+            atual = cur.fetchone()["pix_referencia"]
+            if atual != ref:
+                raise HTTPException(409, "Sua cobrança foi atualizada. Recarregue a carteira.")
+            existentes = asaas("GET", f"/payments?externalReference={ref}").get("data") or []
+            cobranca = existentes[0] if existentes else asaas("POST", "/payments", {
+                "customer": cliente_id, "billingType": "PIX", "value": float(valor),
+                "dueDate": datetime.now(BRASIL).date().isoformat(),
+                "description": "Adicionar saldo na carteira Smart Charge", "externalReference": ref})
+            if dinheiro(cobranca.get("value")) != valor:
+                raise HTTPException(409, "Há uma cobrança anterior em recuperação. Tente novamente com o valor original.")
+            cur.execute("INSERT INTO carteira_pix (usuario_id,asaas_pagamento_id,valor_brl,status,asaas_base) "
+                        "VALUES (%s,%s,%s,%s,%s) ON CONFLICT (asaas_pagamento_id) DO UPDATE "
+                        "SET asaas_pagamento_id=EXCLUDED.asaas_pagamento_id RETURNING *",
+                        (u["id"], cobranca["id"], valor, "PENDING", base))
+            pix = cur.fetchone()
+            cur.execute("UPDATE carteiras SET pix_referencia=NULL WHERE usuario_id=%s", (u["id"],))
+            # Salvar ANTES do QR: uma falha no QR não perde uma cobrança real.
+            con.commit()
+        with conectar() as con, con.cursor() as cur:
+            cur.execute("SELECT * FROM carteira_pix WHERE id=%s FOR UPDATE", (pix["id"],))
+            atual = cur.fetchone()
+            if cobranca.get("status") in PAGOS or cobranca.get("refunds"):
+                atual = aplicar_pagamento(cur, atual, asaas("GET", f"/payments/{atual['asaas_pagamento_id']}"))
+            return pix_publico(gravar_qr(cur, atual))
+
+    @router.get("/carteira/pix/{pagamento_id}")
+    def consultar_pix(pagamento_id: str, u=Depends(motorista)):
+        with conectar() as con, con.cursor() as cur:
+            cur.execute("SELECT * FROM carteira_pix WHERE asaas_pagamento_id=%s AND usuario_id=%s", (pagamento_id, u["id"]))
+            pix = cur.fetchone()
+            if not pix:
+                raise HTTPException(404, "Pix não encontrado.")
+            return pix_publico(pix)
+
+    @router.post("/carteira/pix/{pagamento_id}/verificar")
+    def verificar_pix(pagamento_id: str, u=Depends(motorista)):
+        limitar_carteira(u["id"], "verificar")
+        with conectar() as con, con.cursor() as cur:
+            cur.execute("SELECT * FROM carteira_pix WHERE asaas_pagamento_id=%s AND usuario_id=%s FOR UPDATE", (pagamento_id, u["id"]))
+            pix = cur.fetchone()
+            if not pix:
+                raise HTTPException(404, "Pix não encontrado.")
+            base, _ = configuracao()
+            if pix["asaas_base"] and pix["asaas_base"] != base:
+                raise HTTPException(409, "Este Pix pertence a outro ambiente de pagamentos.")
+            pagamento = asaas("GET", f"/payments/{pix['asaas_pagamento_id']}")
+            pix = aplicar_pagamento(cur, pix, pagamento)
+            if not pix["payload_pix"] and pix["status"] == "PENDING":
+                pix = gravar_qr(cur, pix)
+            return pix_publico(pix)
+
+    @router.post("/carteira/credito-teste")
+    def credito_teste(u=Depends(motorista)):
+        base, _ = configuracao()
+        if base != SANDBOX or os.environ.get("WALLET_DEMO_MODE") != "1":
+            raise HTTPException(404, "Crédito de demonstração indisponível.")
+        limitar_carteira(u["id"], "criar")
+        with conectar() as con, con.cursor() as cur:
+            cur.execute("INSERT INTO carteira_lancamentos (usuario_id,tipo,valor_brl,descricao,referencia) "
+                        "VALUES (%s,'credito_teste',100,'Crédito fictício de demonstração',%s) "
+                        "ON CONFLICT (referencia) DO NOTHING", (u["id"], f"demo:{u['id']}"))
+        return {"ok": True}
+
+    @router.post("/webhooks/asaas", include_in_schema=False)
+    def webhook_asaas(request: Request, corpo: dict = Body(...)):
+        esperado = os.environ.get("ASAAS_WEBHOOK_TOKEN", "").strip()
+        recebido = request.headers.get("asaas-access-token", "")
+        if not esperado or not hmac.compare_digest(recebido.encode(), esperado.encode()):
+            raise HTTPException(401, "Webhook não autorizado.")
+        evento_id, evento = corpo.get("id"), corpo.get("event")
+        if not isinstance(evento_id, str) or not evento_id or len(evento_id) > 200:
+            raise HTTPException(422, "Evento sem identificador válido.")
+        if not isinstance(evento, str) or evento not in EVENTOS:
+            return {"ok": True, "ignorado": True}
+        pagamento = corpo.get("payment")
+        if not isinstance(pagamento, dict) or not isinstance(pagamento.get("id"), str):
+            raise HTTPException(422, "Evento sem cobrança válida.")
+        with conectar() as con, con.cursor() as cur:
+            cur.execute("SELECT * FROM carteira_pix WHERE asaas_pagamento_id=%s FOR UPDATE", (pagamento["id"],))
+            pix = cur.fetchone()
+            if not pix:
+                # Não marcar como processado: a Asaas pode notificar antes do
+                # INSERT local. Cobranças alheias à carteira são ignoradas.
+                referencia = pagamento.get("externalReference")
+                if referencia is None:
+                    referencia = asaas("GET", f"/payments/{pagamento['id']}").get("externalReference", "")
+                if str(referencia).startswith("smartcharge-carteira-"):
+                    raise HTTPException(503, "Cobrança em gravação. Reenvie o evento.")
+                return {"ok": True, "ignorado": True}
+            cur.execute("INSERT INTO carteira_eventos_asaas (evento_id) VALUES (%s) "
+                        "ON CONFLICT DO NOTHING RETURNING evento_id", (evento_id,))
+            if not cur.fetchone():
+                return {"ok": True, "duplicado": True}
+            base, _ = configuracao()
+            if pix["asaas_base"] and pix["asaas_base"] != base:
+                raise HTTPException(409, "Ambiente da cobrança não corresponde à integração.")
+            # O retrato atual evita que um evento atrasado desfaça um estorno.
+            aplicar_pagamento(cur, pix, asaas("GET", f"/payments/{pix['asaas_pagamento_id']}"))
+        return {"ok": True}
+
+    app.include_router(router)
