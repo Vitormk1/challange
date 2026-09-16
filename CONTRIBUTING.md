@@ -7,6 +7,11 @@ que ninguém empurra direto para lá.
 
 O resto deste documento é como fazer isso sem ninguém sobrescrever ninguém.
 
+> **Primeira vez aqui?** Vá antes ao [COMECE_AQUI.md](COMECE_AQUI.md): ele
+> leva do zero — instalar, clonar, configurar — até o primeiro Pull Request,
+> explicando cada comando. Este arquivo aqui é a referência de consulta, para
+> depois que o projeto já estiver rodando na sua máquina.
+
 ---
 
 ## A regra, em uma frase

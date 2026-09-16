@@ -90,8 +90,9 @@ O `main` é o que está no ar: o Render observa esse branch e publica sozinho a
 cada commit que chega nele. Por isso **ninguém empurra direto para o `main`** —
 cada tarefa vira um branch, um Pull Request e uma revisão.
 
-O passo a passo, o que a verificação automática olha e como rodar o projeto na
-sua máquina estão em [CONTRIBUTING.md](CONTRIBUTING.md).
+**Chegou agora?** Comece por [COMECE_AQUI.md](COMECE_AQUI.md) — do zero até o
+primeiro Pull Request, com cada comando explicado. Depois, o
+[CONTRIBUTING.md](CONTRIBUTING.md) é a referência do dia a dia.
 
 Dois avisos que valem repetir aqui:
 
