@@ -1663,12 +1663,38 @@ def config_do_mapa():
 @app.get("/saude")
 def saude():
     """Sonda do Render, e conferência rápida do que subiu configurado."""
+    armazenamento = {"ok": False, "tabelas_ausentes": [], "populado": False}
     try:
         consultar("SELECT 1 AS ok")
         banco = True
+        tabelas = consultar("SELECT table_name FROM information_schema.tables "
+                            "WHERE table_schema='public' AND table_type='BASE TABLE'")
+        nomes = {row["table_name"] for row in tabelas}
+        esperadas = {"usuarios", "clientes", "sessoes", "vendas", "carteiras",
+                     "carteira_pix", "carteira_lancamentos", "carteira_eventos_asaas"}
+        faltantes = sorted(esperadas - nomes)
+        if not faltantes:
+            resumo = consultar(
+                "SELECT "
+                "(SELECT count(*) FROM usuarios) AS usuarios, "
+                "(SELECT count(*) FROM clientes) AS clientes, "
+                "(SELECT count(*) FROM vendas) AS vendas, "
+                "(SELECT count(*) FROM carteiras) AS carteiras, "
+                "(SELECT count(*) FROM carteira_pix) AS pix, "
+                "(SELECT count(*) FROM carteira_lancamentos) AS lancamentos"
+            )[0]
+            armazenamento = {
+                "ok": True,
+                "tabelas_ausentes": [],
+                # Só informa se há registros; não expõe quantidades ou linhas.
+                "populado": any(int(resumo[campo] or 0) > 0 for campo in resumo),
+            }
+        else:
+            armazenamento["tabelas_ausentes"] = faltantes
     except Exception:
         banco = False
-    return {"ok": banco, "banco": banco, "carteira": estado_configuracao(),
+    return {"ok": banco, "banco": banco, "armazenamento": armazenamento,
+            "carteira": estado_configuracao(),
             # Qual commit esta REALMENTE no ar. O Render injeta isto sozinho.
             #
             # Existe porque faltou exatamente isto quando um build falhou: o
