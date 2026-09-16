@@ -331,6 +331,7 @@ function erroPrevisao(s){
    aguenta bem menos espaço. Sem esse piso por card, redimensionar quebra
    justamente os cards que mais importam. */
 const CARDS = {
+  vaga:     {t:"Vaga monitorada", g:"OperaÃ§Ã£o", tam:"large", cols:9, rows:4, min:{cols:6, rows:3}, mob:4},
   retorno:  {t:"Lucro atribuído × custo", g:"Retorno",  tam:"large", cols:11, rows:4, min:{cols:7, rows:3}, mob:3, financeiro:true},
   cashback: {t:"Teto de cashback",        g:"Retorno",  tam:"large", cols:9,  rows:4, min:{cols:5, rows:3}, mob:3, financeiro:true},
   horas:    {t:"Sessões por hora",        g:"Operação", tam:"large", cols:11, rows:4, min:{cols:7, rows:3}, mob:3},
@@ -1211,6 +1212,7 @@ function renderPainel(){
   aplicarSpans(cards);
   ligarArrasto(p, cards);
   ligarRedimensionar(p, cards);
+  ligarConfiguracaoVaga(p, cards);
   desenharGraficos();
   renderWorkspaces();
   renderBiblioteca();
@@ -1738,6 +1740,7 @@ function corpoCard(id, config){
     case "pontos":   return `<div class="trend-card">
                        ${cabecaCard("Agora","Carregadores")}
                        <div id="pontosAoVivo" class="lista-rolavel"></div></div>`;
+    case "vaga":     return corpoVaga(config);
     case "curva":    return corpoCurva(id, config);
     case "cashback": return `<div class="trend-card">
                        ${cabecaCard("Cashback","Quanto esta loja aguenta devolver")}
@@ -1792,6 +1795,49 @@ function sessoesComCurva(){
 function curvaEscolhida(config){
   const todas = sessoesComCurva();
   return todas.find(x => x.sessao.id === Number(config?.sessao_id)) || todas[0] || null;
+}
+
+function sessaoDaVaga(carregadorId){
+  return sessoesDaLoja().filter(s => Number(s.carregador_id) === Number(carregadorId))
+    .sort((a,b) => new Date(b.inicio || 0) - new Date(a.inicio || 0))[0] || null;
+}
+
+function ligarConfiguracaoVaga(p, cards){
+  $$("[data-dashboard-card='vaga']").forEach(card => card.onclick = ev => {
+    if (!state.paineis.editando || ev.target.closest("button, select, option")) return;
+    card.querySelector("[data-vaga-config]")?.click();
+  });
+  $$("[data-vaga-config]").forEach(botao => botao.onclick = () => {
+    const caixa = botao.parentElement.querySelector("[data-vaga-config-box]");
+    if (caixa) { caixa.hidden = !caixa.hidden; if (!caixa.hidden) caixa.querySelector("select")?.focus(); }
+  });
+  $$("[data-vaga-select]").forEach(select => select.onchange = ev => {
+    const card = cards.find(c => c.id === "vaga"); if (!card) return;
+    card.config = {...card.config, carregador_id: Number(ev.target.value)};
+    guardarLayout(p, cards); renderPainel();
+  });
+}
+function duracaoVaga(sessao){
+  if (!sessao?.inicio) return "";
+  const fim = sessao.fim ? new Date(sessao.fim) : new Date();
+  const minutos = Math.max(0, Math.round((fim - new Date(sessao.inicio)) / 60000));
+  return minutos < 60 ? `${minutos} min` : `${Math.floor(minutos / 60)}h ${minutos % 60}min`;
+}
+function corpoVaga(config){
+  const carregadores = carregadoresDaLoja();
+  const escolhido = carregadores.find(c => Number(c.id) === Number(config?.carregador_id)) || carregadores[0];
+  const sessao = escolhido ? sessaoDaVaga(escolhido.id) : null;
+  const situacao = String(sessao?.situacao || "").toLowerCase();
+  const emUso = Boolean(sessao && !sessao.fim && !["concluida", "cancelada", "encerrada"].includes(situacao));
+  const status = emUso ? "Em uso" : "Livre";
+  const potencia = emUso && sessao.potencia_kw ? `${num(sessao.potencia_kw, 1)} kW` : escolhido?.potencia_kw ? `${num(escolhido.potencia_kw, 1)} kW` : "—";
+  return `<div class="vaga-monitor-card"><div class="vaga-monitor-media" role="img" aria-label="Carro elétrico conectado ao carregador">
+    <img src="../img/carro.png" alt="Carro elétrico conectado ao carregador" loading="lazy"><div class="vaga-monitor-scrim"></div>
+    <div class="vaga-monitor-head"><div><p class="eyebrow">Monitoramento ao vivo</p><h3>${esc(escolhido?.nome || "Nenhuma vaga selecionada")}</h3></div><span class="vaga-monitor-status ${emUso ? "is-uso" : "is-livre"}"><i></i>${status}</span></div>
+    <div class="vaga-monitor-data"><div><small>Tempo</small><strong>${emUso ? duracaoVaga(sessao) : "Disponível"}</strong></div><div><small>Potência</small><strong>${potencia}</strong></div><div><small>Energia</small><strong>${emUso && sessao?.energia_kwh != null ? `${num(sessao.energia_kwh, 1)} kWh` : "—"}</strong></div></div>
+    <div class="vaga-monitor-config" data-vaga-config-box hidden><label>Vaga monitorada<select data-vaga-select aria-label="Escolher vaga monitorada">${carregadores.map(c => `<option value="${c.id}" ${c.id === escolhido?.id ? "selected" : ""}>${esc(c.nome || `Vaga #${c.id}`)}</option>`).join("")}</select></label></div>
+    ${carregadores.length ? `<button type="button" class="vaga-monitor-config-button" data-vaga-config>Configurar vaga</button>` : `<span class="vaga-monitor-empty">Cadastre um carregador para monitorar esta vaga.</span>`}
+  </div></div>`;
 }
 
 function corpoCurva(id, config){
