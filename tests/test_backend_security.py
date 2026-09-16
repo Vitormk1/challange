@@ -59,6 +59,7 @@ class Cursor:
         self.rows=[]; self.rowcount=0
         if query.startswith('SELECT pg_advisory'): return
         if query == main.SQL_DADOS: self.rows=[{'payload':copy.deepcopy(self.b.payload)}]; return
+        if query == 'context': self.rows=[{'ctx':copy.deepcopy(getattr(self.b,'context_payload',{}))}]; return
         if query.startswith('SELECT usuario_id FROM verificacoes_email'):
             t=self.b.tokens.get(args[0]); self.rows=[copy.deepcopy(t)] if t else []; return
         if query.startswith('SELECT ativo, email_verificado') or query.startswith('SELECT senha_hash'):
@@ -223,6 +224,19 @@ class SecurityTests(unittest.TestCase):
             self.assertEqual(self.client.get('/fidelidade').status_code,200)
             self.u['papel']='gerente'
             self.assertEqual(self.client.get('/fidelidade').status_code,403)
+
+    def test_contexto_da_ia_do_operador_redige_precos(self):
+        bruto={'loja':{'nome':'Loja','segmento':'x','margem_liquida_pct':20,'ticket_medio_brl':30,'tarifa_kwh_brl':2,'demanda_contratada_kw':50},
+               'carregadores':[{'nome':'C1','potencia_kw':10,'conector':'x','preco_kwh_brl':2,'cashback_pct':5,'taxa_ociosidade_min':1,'ativo':True}],
+               'operacao':{'sessoes':1,'energia_kwh':4,'custo_energia_brl':7,'recarga_cobrada_brl':8,'cashback_brl':5,'clientes':1},
+               'cupons':{'emitidos':1,'usados':1},'horarios_de_pico':[],'clientes_mais_frequentes':[{'visitas':3}],
+               'precisao_da_previsao':None,'vendas':{'n':1,'total':30,'com_cupom':5}}
+        self.b.context_payload=bruto
+        with patch.object(main,'SQL_CONTEXTO','context'):
+            ctx=main.contexto_da_loja(10,'operador')
+        for key in ('tarifa_energia_brl_kwh','demanda_contratada_kw'): self.assertNotIn(key,ctx['loja'])
+        for key in ('preco_kwh_brl','cashback_pct','taxa_ociosidade_min'): self.assertNotIn(key,ctx['carregadores'][0])
+        for key in ('custo_energia_brl','recarga_cobrada_brl','cashback_brl'): self.assertNotIn(key,ctx['operacao'])
 
 
 if __name__ == '__main__':

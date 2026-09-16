@@ -1317,6 +1317,10 @@ def contexto_da_loja(estabelecimento_id: int, papel: str) -> dict:
         for campo in ("custo_energia_brl", "recarga_cobrada_brl", "cashback_brl"):
             ctx["operacao"].pop(campo, None)
         ctx["loja"].pop("tarifa_energia_brl_kwh", None)
+        ctx["loja"].pop("demanda_contratada_kw", None)
+        for carregador in ctx["carregadores"]:
+            for campo in ("preco_kwh_brl", "cashback_pct", "taxa_ociosidade_min"):
+                carregador.pop(campo, None)
         # Daqui para baixo é dinheiro, e não é da conta dele. A chave abaixo
         # existe porque só omitir os números não basta: sem ela o modelo pega
         # o teto configurado no carregador e monta uma justificativa
