@@ -232,8 +232,12 @@ def lojas_do_usuario(u: dict) -> list[int]:
     if "_lojas" in u:
         return u["_lojas"]
     if u["papel"] == "main":
+        # `NOT so_mapa`: os 12 pontos do mapa sao estabelecimentos de verdade
+        # para poderem ser reservados, mas nao tem operacao nenhuma. Sem este
+        # filtro o seletor de lojas do painel ia de 3 para 15, com 12 vazias
+        # no meio -- e so o papel 'main' via isso, porque so ele enxerga todas.
         ids = [l["id"] for l in consultar(
-            "SELECT id FROM estabelecimentos WHERE ativo ORDER BY id")]
+            "SELECT id FROM estabelecimentos WHERE ativo AND NOT so_mapa ORDER BY id")]
     else:
         # loja desativada some da lista na requisição seguinte, do mesmo jeito
         # que um usuário desativado perde a sessão

@@ -16,9 +16,9 @@
       a tela de login diz isso, e é só o que ela faz.
    ========================================================================== */
 
-import "./static/js/aiEntity.js?v=20260916m";
-import { createTourModule } from "./static/js/tour.js?v=20260916m";
-import { api, BASE, ErroApi } from "./api.js?v=20260916m";
+import "./static/js/aiEntity.js?v=20260916n";
+import { createTourModule } from "./static/js/tour.js?v=20260916n";
+import { api, BASE, ErroApi } from "./api.js?v=20260916n";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);

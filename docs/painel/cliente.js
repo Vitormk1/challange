@@ -160,6 +160,9 @@ async function mostrarReservas(){
   // Só as que ainda valem alguma coisa. Reserva de três semanas atrás não é
   // informação, é entulho — e o extrato da carteira já guarda o histórico.
   const vivas = dados.reservas.filter(r => r.situacao === "ativa" || new Date(r.fim) > Date.now() - 86400000);
+  // ordena: o que ainda vai acontecer primeiro, o histórico do dia depois
+  vivas.sort((a, b) => (b.situacao === "ativa") - (a.situacao === "ativa")
+                     || new Date(a.inicio) - new Date(b.inicio));
   if (!vivas.length) return;
 
   bloco.hidden = false;
@@ -172,14 +175,33 @@ async function mostrarReservas(){
       </div>
       <div class="reserva-acao">
         <span class="reserva-situacao is-${r.situacao}">${SITUACOES[r.situacao] || r.situacao}</span>
-        ${r.situacao === "ativa"
-          ? `<button class="reserva-cancelar" type="button" data-cancelar="${r.id}">Cancelar</button>`
-          : ""}
+        ${r.pode_chegar
+          ? `<button class="reserva-chegar" type="button" data-chegar="${r.id}">Cheguei</button>`
+          : r.pode_cancelar
+            ? `<button class="reserva-cancelar" type="button" data-cancelar="${r.id}">Cancelar</button>`
+            : ""}
       </div>
     </li>`).join("");
 
   document.querySelector("#avisoReservas").textContent =
     `Cancelamento com mais de ${dados.devolve_ate_min} min de antecedência devolve o valor à carteira.`;
+
+  // Chegar é a outra metade da regra: o depósito volta como crédito da
+  // recarga. Quem decide o que mostrar é o servidor, via pode_chegar — a
+  // janela de tempo não é recalculada aqui, senão haveria duas versões dela.
+  document.querySelectorAll("[data-chegar]").forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    b.textContent = "Registrando…";
+    try {
+      const d = await api.chegueiNaReserva(Number(b.dataset.chegar));
+      alert(d.mensagem || "Chegada registrada.");
+      location.reload();
+    } catch (erro){
+      b.disabled = false;
+      b.textContent = "Cheguei";
+      alert(erro?.message || "Não consegui registrar.");
+    }
+  });
 
   document.querySelectorAll("[data-cancelar]").forEach(b => b.onclick = async () => {
     b.disabled = true;

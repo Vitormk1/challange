@@ -95,6 +95,7 @@ export const api = {
 
   reservas:        () => pedir("/reservas"),
   cancelarReserva: id => pedir(`/reservas/${id}/cancelar`, {metodo:"POST", corpo:{}}),
+  chegueiNaReserva: id => pedir(`/reservas/${id}/chegar`, {metodo:"POST", corpo:{}}),
   sair:    () => pedir("/auth/logout", {metodo:"POST"}),
   eu:      () => pedir("/auth/eu"),
 
