@@ -107,6 +107,7 @@ export const api = {
   criar:   (tabela, corpo) => pedir(`/registros/${tabela}`, {metodo:"POST", corpo}),
   alterar: (tabela, id, corpo) => pedir(`/registros/${tabela}/${id}`, {metodo:"PATCH", corpo}),
   excluir: (tabela, id) => pedir(`/registros/${tabela}/${id}`, {metodo:"DELETE"}),
+  vincularCliente: (id, email) => pedir(`/registros/clientes/${id}/vincular`, {metodo:"POST", corpo:{email}}),
 
   criarPainel:   corpo => pedir("/paineis", {metodo:"POST", corpo}),
   alterarPainel: (id, corpo) => pedir(`/paineis/${id}`, {metodo:"PATCH", corpo}),

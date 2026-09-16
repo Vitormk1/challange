@@ -18,7 +18,7 @@
 
 import "./static/js/aiEntity.js?v=20260916d";
 import { createTourModule } from "./static/js/tour.js?v=20260916d";
-import { api, BASE, ErroApi } from "./api.js?v=20260916d";
+import { api, BASE, ErroApi } from "./api.js?v=20260916e";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -224,6 +224,7 @@ const TABELAS = {
       {r:"Visitas", k:"visitas", v:l => num(l.visitas)},
       {r:"Última visita", k:"ultima_visita", v:l => dataHora(l.ultima_visita)},
       {r:"Consentimento", k:"consentimento_lgpd", v:l => l.consentimento_lgpd ? chip("dado","ok") : chip("pendente","warning")},
+      {r:"Conta", k:"usuario_id", v:l => l.usuario_id ? chip("vinculada","ok") : `<span class="table-cell-muted">não vinculada</span>`},
       {r:"Fidelidade", k:"fidelidade_saldo_cashback_brl", v:l => fidelidadeResumoCliente(l)},
     ],
     campos: [
@@ -993,6 +994,43 @@ function campoHtml(c, valor){
     <input id="${id}" class="editor-input" type="${c.t}" ${c.passo?`step="${c.passo}"`:""}
            value="${esc(valor ?? "")}" data-campo="${c.k}" data-tipo="${c.t}">${ajuda}</div>`;
 }
+/* Liga a ficha à conta de motorista dona daquele e-mail. Fica fora do fluxo
+   normal de "salvar campos" de propósito: usuario_id não é um texto livre
+   que o lojista digita, o servidor resolve a partir do e-mail — por isso
+   tem o próprio botão e a própria requisição, em vez de entrar junto com
+   apelido/modelo/bateria no "Salvar alterações". */
+function montarVincularConta(cliente){
+  const vinculada = Boolean(cliente.usuario_id);
+  $("#editorBody").insertAdjacentHTML("beforeend", `
+    <div class="editor-field" data-field-wrapper="vincular_conta">
+      <label>Conta do cliente</label>
+      ${vinculada
+        ? `<p class="editor-help">Esta ficha já está ligada a uma conta de motorista.</p>`
+        : `<div class="inline-form">
+             <input class="editor-input" type="email" id="vincularEmailInput"
+                    placeholder="e-mail da conta do cliente" autocomplete="off">
+             <button class="ghost-button" type="button" id="vincularEmailBotao">Vincular por e-mail</button>
+           </div>
+           <p class="editor-help">Liga esta ficha à conta de motorista com esse e-mail. A partir daí,
+           as compras contam fidelidade e aparecem para ela na área do cliente.</p>
+           <p class="refresh-status" id="vincularEmailStatus" aria-live="polite"></p>`}
+    </div>`);
+  if (vinculada) return;
+  $("#vincularEmailBotao").onclick = async () => {
+    const email = $("#vincularEmailInput").value.trim();
+    if (!email) return;
+    const botao = $("#vincularEmailBotao");
+    botao.disabled = true;
+    try {
+      await comAviso("Vinculando conta...", () => api.vincularCliente(cliente.id, email),
+        {sucesso: "Conta vinculada", detalhe: `A ficha agora pertence a ${email}.`});
+      await carregarDados();
+      renderTudo();
+      abrirEditorSelecao("clientes");
+    } catch { /* comAviso já mostrou */ }
+    finally { const b = $("#vincularEmailBotao"); if (b) b.disabled = false; }
+  };
+}
 function abrirEditor({secao, ids}){
   const cfg = TABELAS[secao];
   if (!cfg?.campos || !pode("editar_dados")) return fecharEditor();
@@ -1009,6 +1047,7 @@ function abrirEditor({secao, ids}){
     const misto = registros.length > 1 && registros.some(r => r[c.k] !== base[c.k]);
     return campoHtml(c, misto ? "" : base[c.k]);
   }).join("");
+  if (secao === "clientes" && !criando && ids.length === 1) montarVincularConta(base);
   $("#editorStatus").textContent = criando ? "Preencha e salve para criar."
     : ids.length > 1 ? `${ids.length} registros — o que você mudar vale para todos.`
     : "1 registro selecionado.";
