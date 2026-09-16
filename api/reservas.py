@@ -39,6 +39,30 @@ DEVOLVE_ATE_MIN = 30          # cancelou com mais de 30 min? devolve tudo
 CHEGADA_ANTES_MIN = 15        # dá para avisar que chegou 15 min antes
 ATIVAS_POR_PESSOA = 3         # teto de reservas em aberto ao mesmo tempo
 
+# ---- quem chega sem reserva, e a reserva de outra pessoa esta perto --------
+#
+# O caso: A reserva das 14h as 15h. B chega as 13h30, sem reserva, e quer
+# carregar 40 minutos -- o que comeria dez minutos do horario de A.
+#
+# A resposta nao pode ser "quem chegou primeiro leva", senao a reserva nao vale
+# nada e ninguem paga por ela. E tambem nao pode ser "a vaga fica bloqueada
+# esperando", senao a vaga passa metade do dia vazia sendo paga por ninguem.
+#
+# A regra e a do estacionamento de aeroporto: a vaga fica liberada ATE a
+# reserva, e nao um minuto alem. Quando B pluga as 13h30, o carregador pergunta
+# ao servidor quanto tempo ha, recebe 30 minutos e libera uma sessao de 30
+# minutos -- dizendo isso na tela ANTES de comecar, que e a parte que faz a
+# regra ser justa em vez de surpresa.
+#
+# MINIMO_SESSAO_MIN existe porque uma sessao de tres minutos nao serve a
+# ninguem: melhor dizer "reservada em 3 min" e mandar a pessoa para a vaga do
+# lado do que deixa-la plugar e desplugar em seguida.
+#
+# O que ESTE servidor faz e responder a pergunta (ver /vagas/{id}/disponibilidade).
+# Cortar a energia e do carregador; o que o software garante e que ele nunca
+# comece uma sessao sem saber que ela cabe.
+MINIMO_SESSAO_MIN = 10        # abaixo disso, nem vale comecar
+
 
 def _agora() -> datetime:
     return datetime.now(timezone.utc)
@@ -73,6 +97,21 @@ def expirar_vencidas(cur) -> int:
 
 # ------------------------------------------------------------------ mapa ---
 
+def _janela_livre(ocupada: bool, proxima_inicio) -> int | None:
+    """Minutos livres daqui ate a proxima reserva. None = livre sem limite.
+
+    Zero significa ocupada AGORA. Um numero significa "da para carregar, mas
+    so ate la". E a resposta para o caso de alguem chegar meia hora antes da
+    reserva de outra pessoa e querer plugar por quarenta minutos: nao da, e o
+    carregador precisa saber disso ANTES de liberar a sessao.
+    """
+    if ocupada:
+        return 0
+    if proxima_inicio is None:
+        return None
+    return max(0, int((proxima_inicio - _agora()).total_seconds() // 60))
+
+
 def pontos_do_mapa(cur, usuario_id: int | None) -> list[dict]:
     """As lojas com coordenada, cada uma com suas vagas.
 
@@ -90,7 +129,17 @@ def pontos_do_mapa(cur, usuario_id: int | None) -> list[dict]:
                           AND now() >= r.inicio AND now() < r.fim) AS ocupada,
                EXISTS (SELECT 1 FROM reservas r
                         WHERE r.carregador_id = c.id AND r.situacao = 'ativa'
-                          AND r.usuario_id = %s AND r.fim > now())        AS minha
+                          AND r.usuario_id = %s AND r.fim > now())        AS minha,
+               -- A proxima reserva que ainda nao terminou. E o que a tela
+               -- precisa para dizer "indisponivel das 14h as 15h" em vez de
+               -- so pintar a vaga de cinza -- reserva vale para um horario,
+               -- nao para sempre, e a tela tem que mostrar qual.
+               (SELECT r.inicio FROM reservas r
+                 WHERE r.carregador_id = c.id AND r.situacao = 'ativa'
+                   AND r.fim > now() ORDER BY r.inicio LIMIT 1)          AS proxima_inicio,
+               (SELECT r.fim FROM reservas r
+                 WHERE r.carregador_id = c.id AND r.situacao = 'ativa'
+                   AND r.fim > now() ORDER BY r.inicio LIMIT 1)          AS proxima_fim
           FROM estabelecimentos e
           JOIN carregadores c ON c.estabelecimento_id = e.id AND c.ativo
          -- Sem filtrar por so_mapa: o mapa mostra qualquer loja com
@@ -114,6 +163,13 @@ def pontos_do_mapa(cur, usuario_id: int | None) -> list[dict]:
             "cashback_pct": float(l["cashback_pct"]),
             "livre_agora": not l["ocupada"],
             "tenho_reserva": l["minha"],
+            "proxima_reserva": (
+                {"inicio": l["proxima_inicio"].isoformat(),
+                 "fim": l["proxima_fim"].isoformat()} if l["proxima_inicio"] else None),
+            # Quantos minutos a vaga ainda tem livres antes da proxima reserva.
+            # E o numero que decide se alguem que chega agora pode carregar --
+            # ver JANELA_LIVRE, mais abaixo.
+            "janela_livre_min": _janela_livre(l["ocupada"], l["proxima_inicio"]),
         })
 
     for p in lojas.values():
@@ -122,6 +178,10 @@ def pontos_do_mapa(cur, usuario_id: int | None) -> list[dict]:
         # resumo: a loja está livre se QUALQUER vaga dela estiver.
         p["vagas"] = len(vagas)
         p["livre"] = any(v["livre_agora"] for v in vagas)
+        # A reserva mais proxima entre as vagas da loja: e o que o marcador
+        # mostra quando a loja inteira esta comprometida em algum horario.
+        futuras = [v["proxima_reserva"] for v in vagas if v["proxima_reserva"]]
+        p["proxima_reserva"] = min(futuras, key=lambda r: r["inicio"]) if futuras else None
         p["potencia"] = max(v["potencia_kw"] for v in vagas)
         p["preco"] = min(v["preco_kwh_brl"] for v in vagas)
         p["cashback"] = max(v["cashback_pct"] for v in vagas)
@@ -159,6 +219,61 @@ def registrar_reservas(app, usuario_atual):
         if u["papel"] != "motorista":
             raise HTTPException(403, "Reservar vaga é para contas de motorista.")
         return u
+
+    @router.get("/vagas/{carregador_id}/disponibilidade")
+    def disponibilidade(carregador_id: int):
+        """Quanto tempo esta vaga tem livre agora. Aberto, como o mapa.
+
+        E o que o carregador (ou a telinha da vaga) consulta ANTES de liberar
+        energia para quem chegou sem reserva. A resposta e sempre em minutos,
+        porque e a unica forma de a tela dizer "voce tem 30 minutos" em vez de
+        um "disponivel" que vira briga as 14h em ponto.
+        """
+        with conectar() as con, con.cursor() as cur:
+            expirar_vencidas(cur)
+            cur.execute(
+                "SELECT c.id, c.nome, e.nome AS loja, "
+                "  EXISTS (SELECT 1 FROM reservas r WHERE r.carregador_id = c.id "
+                "           AND r.situacao = 'ativa' AND now() >= r.inicio "
+                "           AND now() < r.fim) AS ocupada, "
+                "  (SELECT r.inicio FROM reservas r WHERE r.carregador_id = c.id "
+                "    AND r.situacao = 'ativa' AND r.fim > now() "
+                "    ORDER BY r.inicio LIMIT 1) AS proxima_inicio, "
+                "  (SELECT r.fim FROM reservas r WHERE r.carregador_id = c.id "
+                "    AND r.situacao = 'ativa' AND r.fim > now() "
+                "    ORDER BY r.inicio LIMIT 1) AS proxima_fim "
+                "  FROM carregadores c JOIN estabelecimentos e ON e.id = c.estabelecimento_id "
+                " WHERE c.id = %s AND c.ativo AND e.ativo", (carregador_id,))
+            vaga = cur.fetchone()
+            con.commit()
+
+        if not vaga:
+            raise HTTPException(404, "Vaga não encontrada.")
+
+        minutos = _janela_livre(vaga["ocupada"], vaga["proxima_inicio"])
+        if vaga["ocupada"]:
+            pode, recado = False, "Vaga reservada neste horário."
+        elif minutos is None:
+            pode, recado = True, "Vaga livre, sem reserva à frente."
+        elif minutos < MINIMO_SESSAO_MIN:
+            pode = False
+            recado = (f"Reservada em {minutos} min — tempo curto demais para "
+                      "começar uma recarga.")
+        else:
+            pode = True
+            recado = f"Você tem {minutos} min até a próxima reserva."
+
+        return {
+            "carregador_id": vaga["id"], "vaga": vaga["nome"], "loja": vaga["loja"],
+            "livre_agora": not vaga["ocupada"],
+            "pode_iniciar": pode,
+            "minutos_disponiveis": minutos,
+            "minimo_sessao_min": MINIMO_SESSAO_MIN,
+            "proxima_reserva": (
+                {"inicio": vaga["proxima_inicio"].isoformat(),
+                 "fim": vaga["proxima_fim"].isoformat()} if vaga["proxima_inicio"] else None),
+            "recado": recado,
+        }
 
     @router.get("/mapa/pontos")
     def mapa(praca_sessao: str | None = Cookie(default=None)):

@@ -764,19 +764,32 @@
 .reserva-aberta .mapa-fab,
 .reserva-aberta .mapa-pilula { visibility: hidden; }
 
-
 /* ==========================================================================
-   Tema escuro do mapa
+   Vaga indisponivel
 
-   O OpenStreetMap padrao so existe no tema claro. Em vez de trocar de provedor
-   por causa disso -- e voltar a depender de chave --, os tiles sao invertidos
-   por filtro. `hue-rotate(180deg)` desfaz a inversao de matiz que o `invert`
-   causa, senao a agua fica laranja e a vegetacao roxa.
+   O pino de vaga ocupada usava `--carvao`. Num mapa CLARO isso se lia; no
+   escuro era carvao sobre quase-preto, e o ponto simplesmente sumia do mapa.
+   Quem reservava via o proprio carregador desaparecer -- o oposto do que uma
+   reserva deveria fazer.
 
-   O filtro vale so para o painel dos tiles: os marcadores e os controles ficam
-   de fora, porque estao em outros panes do Leaflet. Invertidos, o marcador
-   vermelho viraria ciano.
+   Cinza medio: destaca-se dos dois fundos, e continua obviamente diferente do
+   vermelho da marca, que e o que diz "tem vaga aqui".
    ========================================================================== */
-[data-theme="dark"] .leaflet-tile-pane {
-  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.92) saturate(0.85);
+.pino.is-ocupado {
+  background: #6E707A;
+  box-shadow: 0 2px 8px rgba(13, 13, 15, .28);
+}
+:root[data-theme="dark"] .pagina-mapa .pino.is-ocupado { background: #8A8D98; }
+
+/* O selo do horario reservado. Fica ao lado do "Livre"/"Indisponivel", e nao
+   no lugar dele: sao duas informacoes diferentes -- como esta agora, e ate
+   quando estara comprometida. */
+.selo.is-reservada {
+  background: var(--cinza-claro, #ECECEF);
+  color: var(--texto-2, #4A4F55);
+  font-variant-numeric: tabular-nums;
+}
+:root[data-theme="dark"] .pagina-mapa .selo.is-reservada {
+  background: rgba(255, 255, 255, .09);
+  color: #D5D7DE;
 }

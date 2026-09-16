@@ -124,28 +124,41 @@ const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
     });
     L.control.zoom({ position: "bottomright" }).addTo(mapa);
 
-    /* Tiles do OpenStreetMap, sem chave.
+    /* Basemap da Esri (ArcGIS Online), sem chave.
 
-       A CARTO nao serve mais basemap sem chave: qualquer tile dela volta 200,
-       porem com "API KEY REQUIRED" escrito por cima do mapa inteiro. E a chave
-       que /painel/config.js entrega esta sendo recusada, entao o mapa publicado
-       estava marcado d'agua para todo mundo, nos dois temas.
+       Terceira tentativa, e vale registrar as duas primeiras porque cada uma
+       falhou de um jeito diferente e nenhuma acusou erro:
 
-       (Registro de um erro meu, para poupar quem vier depois: cheguei a
-       concluir que sem chave funcionava, comparando o TAMANHO dos tiles. Nao
-       funciona -- eu estava comparando um tile @2x com um @1x. So olhando a
-       imagem deu para ver a marca d'agua. Tamanho de resposta nao distingue
-       mapa de aviso; abrir a imagem distingue.)
+       1. CARTO com chave -- a chave esta sendo recusada. O tile volta 200, so
+          que e o desenho cinza com "API KEY REQUIRED" por cima do mapa.
+       2. OpenStreetMap padrao -- os servidores deles sao mantidos por
+          voluntarios e tem politica de uso; passaram a responder 403 com
+          "Access blocked" desenhado no lugar do mapa. Eles estao certos: o
+          tile do OSM e para uso leve, nao para servir de basemap de produto.
 
-       O OSM padrao e gratuito, sem chave e sem marca d'agua. Em troca vem so
-       no tema claro e sem @2x -- por isso o `{r}` saiu daqui, e o tema escuro
-       e feito por filtro CSS sobre os tiles (ver mapa.css). */
-    const tiles = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+       Nos dois casos o codigo HTTP nao denunciava nada. O que denuncia e
+       ABRIR a imagem -- foi assim que os dois apareceram.
+
+       A Esri publica os basemaps "Canvas" abertos, com atribuicao. Sao limpos
+       de proposito (poucas cores, pouco rotulo), que e o que esta tela precisa:
+       o vermelho dos marcadores tem que saltar. E existe o par claro/escuro,
+       entao o tema escuro deixou de depender de filtro CSS -- que invertia
+       cores e sempre foi remendo.
+
+       ATENCAO a ordem: a Esri serve {z}/{y}/{x}, e nao {z}/{x}/{y} como o OSM.
+       Trocar os dois nao da erro, so mostra o lugar errado do mundo. */
+    const camada = ESCURO ? "World_Dark_Gray_Base" : "World_Light_Gray_Base";
+    const tiles = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/"
+                + `${camada}/MapServer/tile/{z}/{y}/{x}`;
 
     L.tileLayer(tiles, {
-      maxZoom: 19,
-      subdomains: "abc",
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      // O Canvas vai ate o zoom 16; acima disso a Esri devolve um tile de
+      // "sem dados". `maxNativeZoom` faz o Leaflet ampliar o tile do 16 em vez
+      // de pedir um que nao existe: fica menos nitido e continua um mapa.
+      maxNativeZoom: 16,
+      maxZoom: 18,
+      attribution: 'Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; '
+                 + 'Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
     }).addTo(mapa);
 
     montarMarcadores();
@@ -163,6 +176,21 @@ const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
   /* Um marcador por loja. Roda depois da carga, e de novo a cada atualização —
      por isso limpa os anteriores: sem isso, reservar deixaria dois pinos no
      mesmo lugar, o velho e o novo. */
+  /* "Indisponivel 17/09 · 14:00-15:00" em vez de so "Ocupado".
+
+     Reserva vale para um HORARIO, nao para sempre. Dizer apenas "ocupado"
+     esconde justamente o que decide se a pessoa vai ou nao ate la: se a vaga
+     volta a ficar livre daqui a quinze minutos, vale esperar; se e amanha de
+     manha, nao vale. */
+  function janelaReserva(r) {
+    if (!r) return "";
+    const i = new Date(r.inicio), f = new Date(r.fim);
+    const hoje = new Date().toDateString() === i.toDateString();
+    const hora = t => t.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const dia = hoje ? "hoje" : i.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    return `${dia} · ${hora(i)}–${hora(f)}`;
+  }
+
   function montarMarcadores() {
     marcadores.forEach(m => mapa.removeLayer(m));
     marcadores.clear();
@@ -188,7 +216,10 @@ const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
             <span>A partir de <b>R$ ${num(p.preco)}/kWh</b></span>
             <span>Cashback de <b>${num(p.cashback, 0)}%</b> para gastar na loja</span>
             <span>${livres ? `<b>${livres} de ${p.vagas} vaga(s) livre(s)</b>`
-                            : "Todas as vagas ocupadas agora"}</span>
+                            : "<b>Indisponível agora</b>"}</span>
+            ${p.proxima_reserva
+              ? `<span>${livres ? "Reservada" : "Indisponível"} ${janelaReserva(p.proxima_reserva)}</span>`
+              : ""}
           </div>
           ${livres ? `<button class="popup-reservar" type="button" data-reservar="${p.id}">
               Fazer reserva</button>` : ""}
@@ -232,7 +263,10 @@ const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
             <b>${p.nome}</b>
             <small>${rotuloSegmento(p.segmento)}</small>
             <span class="mapa-ponto-selos">
-              <span class="selo ${p.livre ? "is-livre" : "is-ocupado"}">${p.livre ? "Livre" : "Ocupado"}</span>
+              <span class="selo ${p.livre ? "is-livre" : "is-ocupado"}">${p.livre ? "Livre" : "Indisponível"}</span>
+              ${p.proxima_reserva
+                ? `<span class="selo is-reservada">Reservada ${janelaReserva(p.proxima_reserva)}</span>`
+                : ""}
               <span class="selo">${num(p.potencia, 1)} kW</span>
               <span class="selo">${num(p.cashback, 0)}% cashback</span>
             </span>

@@ -187,7 +187,12 @@ body:not(.tem-barra) { --barra-h: 0px; }
    aqui o que manda é a leitura. */
 @media (min-width: 700px) {
   .barra-app {
-    grid-template-columns: repeat(3, 116px);
+    /* `grid-auto-columns`, e nao `grid-template-columns: repeat(3, ...)`.
+       O valor fixo em tres sobreviveu a chegada da quarta aba: as tres
+       primeiras ficavam espremidas na esquerda e a de Ajustes ia parar sozinha
+       no meio da faixa. Assim a barra acompanha o numero de abas, como ja faz
+       no celular logo acima. */
+    grid-auto-columns: 116px;
     justify-content: center;
   }
 }
