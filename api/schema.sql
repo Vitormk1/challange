@@ -517,3 +517,46 @@ CREATE INDEX IF NOT EXISTS ix_clientes_usuario
 
 COMMENT ON COLUMN clientes.usuario_id IS
   'Conta do motorista dono desta ficha. NULL = carregou sem se identificar.';
+
+-- --------------------------------------------------------------------------
+-- Carteira do motorista. Saldo nunca e alterado por uma confirmacao vinda do
+-- navegador: cada centavo nasce em um lancamento, e uma cobranca Pix so vira
+-- credito quando o webhook autenticado da Asaas a marca como recebida.
+-- --------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS carteiras (
+  usuario_id        bigint PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+  asaas_cliente_id  text UNIQUE,
+  criado_em         timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS carteira_lancamentos (
+  id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  usuario_id        bigint NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  tipo              text NOT NULL CHECK (tipo IN ('recarga_pix','credito_teste','pagamento_recarga','estorno')),
+  valor_brl         numeric(10,2) NOT NULL CHECK (valor_brl <> 0),
+  descricao         text NOT NULL,
+  referencia        text UNIQUE,
+  criado_em         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_carteira_lancamentos_usuario
+  ON carteira_lancamentos (usuario_id, criado_em DESC);
+
+CREATE TABLE IF NOT EXISTS carteira_pix (
+  id                bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  usuario_id        bigint NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  asaas_pagamento_id text NOT NULL UNIQUE,
+  valor_brl         numeric(10,2) NOT NULL CHECK (valor_brl > 0),
+  status            text NOT NULL DEFAULT 'PENDING',
+  payload_pix       text,
+  expiracao_em      timestamptz,
+  recebido_em       timestamptz,
+  criado_em         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_carteira_pix_usuario ON carteira_pix (usuario_id, criado_em DESC);
+
+-- Entrega de webhook e "pelo menos uma vez". Guardar o id do evento faz o
+-- segundo envio inofensivo, em vez de duplicar saldo.
+CREATE TABLE IF NOT EXISTS carteira_eventos_asaas (
+  evento_id         text PRIMARY KEY,
+  recebido_em       timestamptz NOT NULL DEFAULT now()
+);

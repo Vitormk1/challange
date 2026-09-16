@@ -350,6 +350,26 @@
   opacity: 0.85;
 }
 
+/* ---------- carteira ---------- */
+.form-carteira { display: grid; gap: 14px; }
+.form-carteira label { display: grid; gap: 6px; color: var(--cl-suave); font-size: .85rem; font-weight: 650; }
+.form-carteira input, .pix-cobranca textarea { width: 100%; border: 1px solid var(--cl-linha); border-radius: 10px; padding: 11px 12px; background: var(--cl-fundo); color: var(--cl-texto); font: 500 16px/1.2 system-ui, sans-serif; }
+.campo-moeda { display: flex; align-items: center; gap: 8px; border: 1px solid var(--cl-linha); border-radius: 10px; padding: 0 12px; background: var(--cl-fundo); color: var(--cl-suave); }
+.campo-moeda input { border: 0; padding-left: 0; }
+.ajuda-carteira, .mensagem-carteira { margin: 0; color: var(--cl-suave); font-size: .78rem; line-height: 1.4; }
+.mensagem-carteira.erro { color: var(--cl-primaria); }
+.botao-secundario { margin-top: 14px; border: 1px solid var(--cl-linha); border-radius: 999px; padding: 10px 14px; background: transparent; color: var(--cl-texto); font: 650 13px/1 system-ui, sans-serif; cursor: pointer; }
+.pix-cobranca { display: grid; justify-items: center; gap: 10px; padding-top: 18px; text-align: center; }
+.pix-cobranca h3, .pix-cobranca p { margin: 0; font-size: .92rem; }
+.pix-cobranca img { width: min(220px, 100%); min-height: 120px; object-fit: contain; }
+.pix-cobranca textarea { height: 72px; resize: none; font-size: .72rem; }
+.extrato-carteira { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.extrato-carteira li { display: flex; justify-content: space-between; gap: 12px; color: var(--cl-suave); font-size: .88rem; }
+.extrato-carteira li span { display: grid; }
+.extrato-carteira small { color: var(--cl-suave); font-size: .75rem; }
+.extrato-carteira b { color: var(--cl-ok); white-space: nowrap; }
+.extrato-carteira b.debito { color: var(--cl-primaria); }
+
 /* ==========================================================================
    Convivência com o mapa
 
