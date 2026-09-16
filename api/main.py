@@ -377,13 +377,21 @@ def _novo_link(cur, usuario_id: int, request: Request) -> str:
 
 
 def _mandar_verificacao(para: str, nome: str, link: str) -> None:
-    """Roda em tarefa de fundo: falar com SMTP leva segundos, e o cadastro não
-    pode esperar por isso. Falha não derruba nada — a pessoa já tem conta, e a
-    tela oferece reenviar."""
+    """Roda em tarefa de fundo: falar com o provedor leva segundos, e o
+    cadastro não pode esperar por isso. Falha não derruba nada — a pessoa já
+    tem conta, e a tela oferece reenviar.
+
+    Registra os DOIS desfechos, e isso não é zelo excessivo. Enquanto só a
+    falha aparecia no log, "nada registrado" queria dizer tanto "enviou" como
+    "nem tentou" — e foi essa ambiguidade que escondeu o SMTP bloqueado pela
+    hospedagem, com a tela dizendo "link a caminho" e nenhum e-mail saindo.
+    """
     try:
         correio.enviar_verificacao(para, nome, link, HORAS_VERIFICACAO)
-    except Exception as erro:      # noqa: BLE001 — qualquer falha de SMTP
-        print(f"[correio] nao consegui enviar para {para}: {type(erro).__name__}: {erro}")
+        correio.log.info("verificação enviada para %s", para)
+    except Exception as erro:      # noqa: BLE001 — falha de rede, SMTP ou API
+        correio.log.error("não consegui enviar para %s: %s: %s",
+                          para, type(erro).__name__, erro)
 
 
 @app.post("/auth/cadastrar")

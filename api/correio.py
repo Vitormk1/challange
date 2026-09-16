@@ -31,20 +31,51 @@ código. Para isso não virar um silêncio perigoso, o estado aparece em
 
 from __future__ import annotations
 
+import logging
 import os
 import smtplib
 import ssl
 from email.message import EmailMessage      # o pacote da stdlib, não este arquivo
 from email.utils import formataddr
 
+import requests
+
+# Logger de verdade, e não print().
+#
+# O print() ia para o stdout, que fora de um terminal é armazenado em bloco —
+# no Render a mensagem podia ficar presa no buffer por muito tempo e nunca
+# aparecer no painel. Pior: só havia registro de FALHA, então "nada no log"
+# significava tanto "enviou" quanto "nem tentou", e foi exatamente essa
+# ambiguidade que fez perder tempo procurando um envio que nunca saiu.
+#
+# Agora os dois caminhos registram, e pelo logging do uvicorn, que sai na hora.
+log = logging.getLogger("correio")
+
 
 def _cfg(nome: str, padrao: str = "") -> str:
     return os.environ.get(nome, padrao).strip()
 
 
+def chave_resend() -> str:
+    """A chave da API do Resend, se houver.
+
+    Aceita as duas formas. RESEND_API_KEY é a explícita. Mas quem já
+    configurou SMTP para o Resend tem a mesma chave em SMTP_SENHA — lá ela faz
+    o papel de senha — e obrigar a cadastrar a mesma coisa duas vezes no
+    painel do Render seria só uma chance a mais de errar uma delas.
+    """
+    explicita = _cfg("RESEND_API_KEY")
+    if explicita:
+        return explicita
+    if "resend" in _cfg("SMTP_HOST").lower() and _cfg("SMTP_SENHA").startswith("re_"):
+        return _cfg("SMTP_SENHA")
+    return ""
+
+
 def configurado() -> bool:
-    """Há SMTP suficiente para enviar? É isto que liga a verificação."""
-    return bool(_cfg("SMTP_HOST") and _cfg("SMTP_USUARIO") and _cfg("SMTP_SENHA"))
+    """Dá para enviar? É isto que liga a verificação de e-mail."""
+    return bool(chave_resend()) or bool(
+        _cfg("SMTP_HOST") and _cfg("SMTP_USUARIO") and _cfg("SMTP_SENHA"))
 
 
 def remetente() -> tuple[str, str]:
@@ -67,14 +98,60 @@ def _montar(para: str, assunto: str, texto: str, html: str) -> EmailMessage:
     return msg
 
 
+def _enviar_por_api(para: str, assunto: str, texto: str, html: str, chave: str) -> None:
+    """Manda pela API HTTPS do Resend.
+
+    É o caminho preferido, e o motivo é a hospedagem: o Render bloqueia as
+    portas de SMTP na saída — 25, 465, 587 — como quase toda plataforma desse
+    tipo faz contra spam. O sintoma é cruel, porque não é recusa: a conexão
+    simplesmente não completa, estoura no tempo limite, e como o envio roda em
+    tarefa de fundo nada disso aparece para quem se cadastrou. A tela diz "o
+    link está a caminho" e nunca chegou nada.
+
+    Foi assim que este projeto descobriu: o painel do Resend não tinha
+    registro nenhum dos cadastros, só dos testes feitos de uma máquina comum.
+
+    HTTPS na 443 não é bloqueada em lugar nenhum, e o `requests` já era
+    dependência do projeto por causa da OpenRouter.
+    """
+    nome, endereco = remetente()
+    if not endereco:
+        # Sem isto o `from` sai como "Smart Charge <>", e o provedor devolve um
+        # erro de validação que fala do formato do campo — verdadeiro e
+        # inútil, porque manda procurar defeito no código quando o que falta é
+        # configuração. Acontece quando EMAIL_REMETENTE e SMTP_USUARIO estão
+        # os dois vazios.
+        raise RuntimeError(
+            "Nenhum remetente configurado: defina EMAIL_REMETENTE "
+            "(ou SMTP_USUARIO) com o endereço que deve aparecer no e-mail.")
+    r = requests.post(
+        "https://api.resend.com/emails",
+        headers={"Authorization": f"Bearer {chave}"},
+        json={"from": f"{nome} <{endereco}>", "to": [para],
+              "subject": assunto, "text": texto, "html": html},
+        timeout=20)
+    if r.status_code >= 400:
+        # O corpo do Resend diz o motivo em texto legível ("domain is not
+        # verified", "invalid to address"). Vale mais no log que o número.
+        raise RuntimeError(f"Resend recusou ({r.status_code}): {r.text[:300]}")
+
+
 def enviar(para: str, assunto: str, texto: str, html: str) -> None:
-    """Envia, ou levanta. Quem chama decide o que fazer com a falha.
+    """Envia pelo melhor caminho disponível, ou levanta.
+
+    Com chave do Resend, vai por HTTPS. Sem ela, cai no SMTP, que continua
+    servindo qualquer outro provedor e funciona bem fora de PaaS.
 
     Porta 465 é SMTPS (TLS desde o primeiro byte); 587 é STARTTLS (começa em
     claro e sobe para TLS). Trocar os dois não dá erro de senha, dá conexão
     pendurada até estourar o tempo — por isso o caminho é escolhido pela
     porta, e não por mais uma variável que alguém teria de acertar.
     """
+    chave = chave_resend()
+    if chave:
+        _enviar_por_api(para, assunto, texto, html, chave)
+        return
+
     host = _cfg("SMTP_HOST")
     porta = int(_cfg("SMTP_PORTA", "587") or 587)
     usuario = _cfg("SMTP_USUARIO")
