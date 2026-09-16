@@ -65,6 +65,15 @@ services:
       - key: OPENROUTER_API_KEY
         sync: false
 
+      # Pix: preencher no Environment do serviço existente, sem commitar valores.
+      # Uma atualização de Blueprint não solicita novos campos sync:false.
+      - key: ASAAS_API_KEY
+        sync: false
+      - key: ASAAS_WEBHOOK_TOKEN
+        sync: false
+      - key: WALLET_DEMO_MODE
+        value: "0"
+
       - key: OPENROUTER_MODEL
         value: mistralai/mistral-small-24b-instruct-2501
 
