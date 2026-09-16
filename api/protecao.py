@@ -237,6 +237,41 @@ CABECALHOS = {
 # do Render.
 HSTS = "max-age=31536000; includeSubDomains"
 
+# ---------------------------------------------------------------------------
+# Cache
+#
+# Antes daqui nenhuma resposta dizia nada sobre cache, e "nada" não significa
+# "não guarde": significa que o navegador decide sozinho. Com ETag e
+# Last-Modified na mão, ele aplica cache heurístico — reusa sem perguntar por
+# uma fatia do tempo desde a última modificação, que em arquivo de alguns dias
+# vira horas.
+#
+# O estrago não é o arquivo velho em si, é a MISTURA. As telas pedem os
+# recursos com ?v=..., e quando o HTML vem do cache ele pede as versões
+# antigas; publicar CSS novo não muda nada para quem já visitou o site. Isso
+# custou duas depurações hoje, as duas procurando um defeito que não existia
+# no código, e aconteceria igual com quem já tivesse aberto o site antes.
+#
+# A regra é a de sempre para site versionado, e ela se apoia no ?v=:
+#
+#   HTML  revalida sempre. É barato: com ETag a resposta é um 304 sem corpo.
+#         É ele quem aponta para as versões certas, então tem de estar
+#         atualizado; é a âncora de tudo.
+#   com ?v=  guarda por um ano e nem revalida. Mudou o conteúdo, muda a URL —
+#         então o que está em cache nunca está errado, só velho e sem uso.
+#   o resto  revalida. Sem versão na URL não há como saber se mudou.
+CACHE_ETERNO = "public, max-age=31536000, immutable"
+CACHE_REVALIDA = "no-cache"
+
+
+def _cache_para(request: Request) -> str:
+    caminho = request.url.path
+    # config.js é gerado pelo servidor a cada pedido e carrega a chave dos
+    # tiles; não entra no balde eterno mesmo que um dia ganhe ?v=.
+    if caminho.endswith((".html", "/")) or caminho.endswith("/config.js"):
+        return CACHE_REVALIDA
+    return CACHE_ETERNO if request.url.query.startswith("v=") else CACHE_REVALIDA
+
 
 class CabecalhosDeSeguranca(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -247,6 +282,11 @@ class CabecalhosDeSeguranca(BaseHTTPMiddleware):
         # /painel/mapa.html.qualquer-coisa herdar a política afrouxada
         if request.url.path == "/painel/mapa.html":
             resposta.headers["Content-Security-Policy"] = CSP_MAPA
+        # Só nas telas e nos recursos delas. As rotas de dados são POST ou
+        # respondem conforme a sessão, e não devem ganhar política de cache
+        # por engano.
+        if request.url.path.startswith("/painel/") or request.url.path.startswith("/vaga/"):
+            resposta.headers.setdefault("Cache-Control", _cache_para(request))
         protocolo = request.headers.get("x-forwarded-proto", request.url.scheme)
         if protocolo == "https":
             resposta.headers.setdefault("Strict-Transport-Security", HSTS)

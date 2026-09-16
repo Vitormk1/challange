@@ -203,8 +203,15 @@ operação do zero. É o comportamento certo para um seed, e é justamente por
 isso que rodá-lo contra o banco compartilhado apaga os dados que todo mundo
 está usando.
 
-O script agora pergunta antes e mostra qual banco vai apagar. **Leia o host
-antes de responder.**
+O script tem duas travas, conforme o alvo:
+
+- **Banco local** — pergunta, e `--sim` dispensa a pergunta. Apagar o próprio
+  banco de desenvolvimento é rotina.
+- **Banco remoto** (o que está no ar) — **nenhuma flag serve**. É preciso
+  digitar o endereço do banco, letra por letra. Sem terminal, ele recusa.
+
+Se você chegou na pergunta que pede o endereço, quase certamente não era o
+que você queria: `Ctrl+C`.
 
 Se você precisa de um banco só seu para experimentar à vontade, suba um
 Postgres local:

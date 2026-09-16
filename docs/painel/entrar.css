@@ -154,3 +154,57 @@
 @media (prefers-reduced-motion: reduce) {
   .entrada-abas-trilho { transition: none; }
 }
+
+/* ---------- a porta do lojista ----------
+   Separada do formulário por uma linha, porque é outro caminho e não outro
+   campo: quem chega aqui como motorista não deve tropeçar nela, e quem é
+   lojista precisa achá-la sem ler tudo. */
+.entrada-lojista {
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding-top: 20px;
+  border-top: 1px solid var(--lg-linha);
+  text-align: center;
+}
+.entrada-lojista[hidden] { display: none; }
+
+.entrada-lojista p {
+  margin: 0;
+  color: var(--lg-texto);
+  font: 600 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.entrada-lojista-botao {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 20px;
+  border: 1px solid var(--lg-linha);
+  border-radius: 999px;
+  background: var(--lg-superficie);
+  color: var(--lg-texto);
+  font: 600 14px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-decoration: none;
+  transition: border-color .16s ease, background-color .16s ease;
+}
+.entrada-lojista-botao svg { width: 18px; height: 18px; }
+.entrada-lojista-botao:hover {
+  border-color: var(--lg-primaria);
+  background: color-mix(in srgb, var(--lg-primaria) 7%, var(--lg-superficie));
+}
+.entrada-lojista-botao:focus-visible {
+  outline: 2px solid var(--lg-primaria);
+  outline-offset: 2px;
+}
+
+.entrada-lojista small {
+  max-width: 34ch;
+  color: var(--lg-suave);
+  font: 400 12.5px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entrada-lojista-botao { transition: none; }
+}

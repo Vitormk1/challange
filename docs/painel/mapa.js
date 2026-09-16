@@ -15,6 +15,25 @@
 (() => {
   "use strict";
 
+  /* ----------------------------------------------------------- tema ---
+     O mapa é uma aba da área do cliente, e trocar de aba não pode trocar de
+     tema: quem estava no escuro via o mapa abrir branco na cara.
+
+     A leitura acontece aqui, e não no cliente.js que também cuida disso, por
+     uma questão de ordem. Este arquivo é script clássico e roda durante o
+     parse; o cliente.js é módulo, e módulo só executa depois. Se a escolha do
+     ladrilho esperasse por ele, o mapa já teria pedido os ladrilhos claros —
+     e o `data-theme` chegaria tarde, com o branco piscando antes. */
+  const TEMA = (() => {
+    let escolha = "system";
+    try { escolha = localStorage.getItem("pr.tema") || "system"; } catch {}
+    return escolha === "system"
+      ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+      : escolha;
+  })();
+  document.documentElement.dataset.theme = TEMA;
+  const ESCURO = TEMA === "dark";
+
   /* --------------------------------------------------- dados simulados ---
      Gerador com semente: `Math.random()` daria um mapa diferente a cada F5,
      e numa banca isso vira "o mapa mudou sozinho". */
@@ -109,9 +128,14 @@
        — e por isso merece restrição de domínio no painel da CARTO.
        Sem chave, cai no endpoint anônimo, que funciona e é limitado. */
     const chave = (window.CARTO_KEY || "").trim();
+    // `voyager` é o mapa claro da CARTO; `dark_all` é o escuro. Os dois
+    // existem com e sem chave — conferido antes de escolher, porque
+    // `dark_matter`, que é o nome que se esperaria pelo par com voyager,
+    // devolve 404 no caminho com chave.
+    const estilo = ESCURO ? "dark_all" : "voyager";
     const tiles = chave
-      ? `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${chave}`
-      : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+      ? `https://{s}.basemaps.cartocdn.com/rastertiles/${estilo}/{z}/{x}/{y}{r}.png?key=${chave}`
+      : `https://{s}.basemaps.cartocdn.com/${ESCURO ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`;
 
     L.tileLayer(tiles, {
       maxZoom: chave ? 20 : 19,

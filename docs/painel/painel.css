@@ -431,6 +431,72 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
 }
 .curva-resumo b { color: var(--text); font-variant-numeric: tabular-nums; }
 
+/* ==========================================================================
+   Fidelidade — escolha de modelo e customização
+
+   Três cartões-botão fazem o papel de radiogroup: maiores que o
+   `.theme-choice` do tema, porque aqui cada opção carrega descrição e
+   exemplo, não só um ícone e um rótulo.
+   ========================================================================== */
+.fidelidade-opcoes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding: 18px;
+}
+.fidelidade-opcao {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  text-align: left;
+  padding: 16px;
+  border-radius: var(--radius-lg, 20px);
+  border: 1px solid var(--line, rgba(22, 22, 26, 0.12));
+  background: var(--surface-soft, rgba(255, 255, 255, 0.5));
+  color: var(--text, #16161a);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.fidelidade-opcao:hover {
+  border-color: color-mix(in srgb, var(--primary, #b4160f) 45%, var(--line, rgba(22, 22, 26, 0.12)));
+}
+.fidelidade-opcao:disabled { cursor: default; opacity: 0.75; }
+.fidelidade-opcao.is-selected {
+  border-color: var(--primary, #b4160f);
+  background: color-mix(in srgb, var(--primary, #b4160f) 8%, var(--surface, #fff));
+}
+.fidelidade-opcao-cabeca { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fidelidade-opcao-cabeca strong { font-size: 1rem; }
+.fidelidade-opcao-descricao { font-size: 0.86rem; line-height: 1.45; color: var(--muted, #5b5b66); }
+.fidelidade-opcao-exemplo {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--muted, #5b5b66);
+  padding-top: 4px;
+  border-top: 1px dashed var(--line, rgba(22, 22, 26, 0.12));
+}
+
+.fidelidade-config {
+  margin: 0 18px 18px;
+  padding: 18px;
+  border-radius: var(--radius-lg, 20px);
+  border: 1px solid var(--line, rgba(22, 22, 26, 0.12));
+  background: var(--surface, #fff);
+}
+.fidelidade-config .inline-form { margin-top: 10px; }
+.fidelidade-config-vazio {
+  display: grid;
+  place-items: center;
+  padding: 28px 18px;
+  color: var(--muted, #5b5b66);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .fidelidade-opcoes { grid-template-columns: 1fr; }
+}
+
 /* o clique tem que mudar algo antes de a permissão ser resolvida */
 .global-ai-chat-audio.is-processing { opacity: 0.75; cursor: progress; }
 

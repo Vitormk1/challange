@@ -470,7 +470,11 @@ CAMPOS_EDITAVEIS = {
     "clientes": {"apelido", "modelo_veiculo", "bateria_kwh", "consentimento_lgpd"},
     "vendas": {"valor_brl", "cupom_id", "sessao_id", "momento"},
     "estabelecimentos": {"nome", "segmento", "margem_liquida_pct", "ticket_medio_brl",
-                         "tarifa_kwh_brl", "demanda_contratada_kw"},
+                         "tarifa_kwh_brl", "demanda_contratada_kw",
+                         "fidelidade_tipo", "fidelidade_cashback_pct",
+                         "fidelidade_tiers_desconto_inicial_pct", "fidelidade_tiers_a_partir_da_compra",
+                         "fidelidade_tiers_desconto_top_pct",
+                         "fidelidade_creditos_reais_por_credito", "fidelidade_creditos_minutos_por_credito"},
 }
 
 

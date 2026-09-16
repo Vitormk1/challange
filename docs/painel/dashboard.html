@@ -4,17 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Smart Charge — Painel</title>
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260915b">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260915b">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260915b">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916c">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916c">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916c">
 <meta name="description" content="Painel do lojista: retorno, carregadores, sessões, clientes e vendas atribuídas.">
-<link rel="stylesheet" href="./style.css?v=20260915b">
+<link rel="stylesheet" href="./style.css?v=20260916c">
 <!-- marca.css vem depois do style.css: ele só troca os tokens de cor, e
      precisa vencer os valores originais da referência -->
-<link rel="stylesheet" href="./marca.css?v=20260915b">
-<link rel="stylesheet" href="./static/css/tour.css?v=20260915b">
-<link rel="stylesheet" href="./painel.css?v=20260915b">
-<link rel="stylesheet" href="./login.css?v=20260915b">
+<link rel="stylesheet" href="./marca.css?v=20260916c">
+<link rel="stylesheet" href="./static/css/tour.css?v=20260916c">
+<link rel="stylesheet" href="./painel.css?v=20260916d">
+<link rel="stylesheet" href="./login.css?v=20260916c">
 </head>
 <body class="primary-loading sem-sessao">
 
@@ -23,7 +23,7 @@
   <div class="dashboard-loading-panel" role="status" aria-live="polite" aria-label="Carregando painel">
     <div class="dashboard-loading-brand">
       <div class="dashboard-loading-mark" aria-hidden="true">
-        <img src="./img/logo.png?v=20260915b" alt="" width="50" height="50" decoding="async">
+        <img src="./img/logo.png?v=20260916c" alt="" width="50" height="50" decoding="async">
       </div>
       <div class="dashboard-loading-copy">
         <p class="eyebrow">Visão do lojista</p>
@@ -47,7 +47,7 @@
     <!-- marca: o anel enche conforme a pessoa preenche o formulário -->
     <div class="login-marca">
       <span class="login-selo" aria-hidden="true">
-        <img src="./img/logo.png?v=20260915b" alt="" width="60" height="60" decoding="async">
+        <img src="./img/logo.png?v=20260916c" alt="" width="60" height="60" decoding="async">
       </span>
       <h1>Smart Charge</h1>
     </div>
@@ -96,7 +96,7 @@
   <aside class="sidebar">
     <button class="brand brand-button" id="brandReloadButton" type="button" aria-label="Recarregar painel">
       <div class="brand-mark" aria-hidden="true">
-        <img src="./img/logo.png?v=20260915b" alt="" width="26" height="26" decoding="async">
+        <img src="./img/logo.png?v=20260916c" alt="" width="26" height="26" decoding="async">
       </div>
       <h1>Smart Charge</h1>
     </button>
@@ -133,6 +133,7 @@
             <button class="nav-item" type="button" data-section="clientes"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.3 0-7 1.7-7 4v2h14v-2c0-2.3-3.7-4-7-4Zm7.5-8.6a4 4 0 0 1 0 7.2v-7.2ZM17 14.4c2.4.6 5 2 5 3.6v2h-4v-2c0-1.4-.4-2.6-1-3.6Z"></path></svg></span>Clientes</span></button>
             <button class="nav-item" type="button" data-section="vendas"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7 4h10l1 3H6l1-3Zm-2 5h14l-1.2 11.1a2 2 0 0 1-2 1.9H8.2a2 2 0 0 1-2-1.9L5 9Zm4 3v6h2v-6H9Zm4 0v6h2v-6h-2Z"></path></svg></span>Vendas</span></button>
             <button class="nav-item" type="button" data-section="cupons"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M2 7h20v4a2 2 0 0 0 0 4v4H2v-4a2 2 0 0 0 0-4V7Zm7 2v6h2V9H9Z"></path></svg></span>Cupons</span></button>
+            <button class="nav-item" type="button" data-section="fidelidade"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 21s-7.5-4.6-10-9.1C.5 8.6 2 5 5.6 5c2 0 3.4 1 4.4 2.5C11 6 12.4 5 14.4 5 18 5 19.5 8.6 22 11.9 19.5 16.4 12 21 12 21Z"></path></svg></span>Fidelidade</span></button>
             <button class="nav-item" type="button" data-section="financeiro"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M11 2h2v3.1c2 .3 3.5 1.5 3.9 3.4h-2.1c-.3-.9-1.3-1.5-2.8-1.5-1.7 0-2.7.7-2.7 1.7 0 .9.7 1.4 2.9 1.9 3 .6 4.8 1.6 4.8 4 0 2.1-1.6 3.5-4 3.9V22h-2v-3.5c-2.3-.3-4-1.6-4.3-3.8h2.1c.3 1.1 1.4 1.8 3.2 1.8 1.9 0 2.9-.8 2.9-1.8 0-1-.8-1.5-3.1-2-3-.6-4.6-1.7-4.6-3.9 0-2 1.5-3.4 3.8-3.8V2Z"></path></svg></span>Financeiro</span></button>
           </div>
         </section>
@@ -309,6 +310,7 @@
         <section class="panel-section" id="section-clientes"><div class="table-screen" id="screen-clientes"></div></section>
         <section class="panel-section" id="section-vendas"><div class="table-screen" id="screen-vendas"></div></section>
         <section class="panel-section" id="section-cupons"><div class="table-screen" id="screen-cupons"></div></section>
+        <section class="panel-section" id="section-fidelidade"><div class="table-screen" id="screen-fidelidade"></div></section>
         <section class="panel-section" id="section-estabelecimentos"><div class="table-screen" id="screen-estabelecimentos"></div></section>
         <section class="panel-section" id="section-paineis"><div class="table-screen" id="screen-paineis"></div></section>
         <section class="panel-section" id="section-financeiro"><div class="table-screen" id="screen-financeiro"></div></section>
@@ -528,6 +530,6 @@
 
 <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
 
-<script type="module" src="./app.js?v=20260915b"></script>
+<script type="module" src="./app.js?v=20260916d"></script>
 </body>
 </html>
