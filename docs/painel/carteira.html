@@ -31,10 +31,28 @@
 
   <p class="nota-cliente" data-estado-conexao role="status" hidden></p>
 
+  <section class="cartao-saldo" aria-labelledby="rotuloSaldo">
+    <p id="rotuloSaldo">Saldo para recargas</p><strong data-saldo>R$ 0,00</strong>
+    <small>Use este saldo para pagar suas recargas Smart Charge. O Pix sÃ³ entra depois da confirmaÃ§Ã£o segura da Asaas.</small>
+  </section>
+  <section class="bloco-cliente" aria-labelledby="tituloAdicionar">
+    <h2 id="tituloAdicionar">Adicionar saldo</h2><div class="cartao-cliente">
+      <form class="form-carteira" data-form-pix>
+        <label>Valor da recarga <span class="campo-moeda"><span>R$</span><input data-valor inputmode="decimal" autocomplete="off" placeholder="0,00" required></span></label>
+        <label>CPF ou CNPJ do pagador <input data-cpf inputmode="numeric" autocomplete="off" placeholder="Somente na primeira recarga" required></label>
+        <p class="ajuda-carteira">O documento Ã© enviado diretamente Ã  Asaas para identificar o pagador; nÃ£o fica salvo neste projeto.</p>
+        <button class="botao-cliente" type="submit" data-enviar-pix>Gerar Pix</button><p class="mensagem-carteira" data-mensagem aria-live="polite"></p>
+      </form>
+      <section class="pix-cobranca" data-pix hidden aria-live="polite"><h3>Escaneie para adicionar saldo</h3><img data-qr alt="QR Code Pix para adicionar saldo"><p data-pix-valor></p><textarea data-copia readonly aria-label="Pix copia e cola"></textarea><button class="botao-secundario" type="button" data-copiar>Copiar cÃ³digo Pix</button><p class="mensagem-carteira" data-pix-status>Esperando o pagamento.</p></section>
+      <button class="botao-secundario" type="button" data-credito-teste hidden>Adicionar R$ 100 para demonstraÃ§Ã£o</button>
+    </div>
+  </section>
+  <section class="bloco-cliente" aria-labelledby="tituloExtrato"><h2 id="tituloExtrato">Extrato</h2><div class="cartao-cliente"><ul class="extrato-carteira" data-extrato><li>Seu extrato aparecerÃ¡ aqui.</li></ul></div></section>
+
   <!-- A aba existe e diz a verdade: ainda não está pronta. Escondê-la até
        ficar seria pior — a barra mudaria de forma no meio do caminho, e quem
        já conhece o aplicativo procuraria uma aba que sumiu. -->
-  <section class="bloco-cliente" aria-labelledby="tituloBreve">
+  <section class="bloco-cliente" aria-labelledby="tituloBreve" hidden>
     <h2 id="tituloBreve" class="sr-only">Em desenvolvimento</h2>
     <div class="cartao-cliente">
       <div class="vazio-cliente">
@@ -80,7 +98,7 @@
     </svg>
     <span>Mapa</span>
   </a>
-  <a class="barra-app-item is-breve" href="./carteira.html">
+  <a class="barra-app-item" href="./carteira.html">
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M3.5 7.4A2.4 2.4 0 0 1 5.9 5h11.7a2 2 0 0 1 2 2v1.4"></path>
       <path d="M3.5 7.4v9.2A2.4 2.4 0 0 0 5.9 19h12.7a1.9 1.9 0 0 0 1.9-1.9v-2.2"></path>
@@ -96,5 +114,6 @@
 </noscript>
 
 <script type="module" src="./cliente.js?v=20260916c"></script>
+<script type="module" src="./carteira.js?v=20260916c"></script>
 </body>
 </html>
