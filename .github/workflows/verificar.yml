@@ -111,6 +111,42 @@ jobs:
           fi
           echo "ok: nenhum segredo encontrado"
 
+      - name: Acentos não podem estar corrompidos
+        run: |
+          # Um editor gravando em Latin-1 no lugar de UTF-8 transforma "ação"
+          # em "aÃ§Ã£o" e reescreve o arquivo inteiro. Já aconteceu: um commit
+          # de uma linha corrompeu 732 trechos do app.js, e o estrago só
+          # apareceu porque alguém estranhou um diff de 443 linhas.
+          #
+          # Parte do dano é irreversível — caracteres fora do Latin-1, como o
+          # marcador ● e as aspas tipográficas, somem em vez de se
+          # transformar. Por isso a barreira é aqui, antes de entrar.
+          #
+          # Se falhar: no VS Code, "Reopen with Encoding > UTF-8", depois
+          # "Save with Encoding > UTF-8". E ajuste files.encoding para utf8.
+          python - <<'FIM'
+          import pathlib, sys
+          MARCAS = ["Ã©","Ã£","Ã¡","Ãª","Ã§","Ãµ","Ã­","Ã³","Ãº","â€”","â€œ","Â "]
+          ruim = False
+          for p in list(pathlib.Path("docs").rglob("*")) + list(pathlib.Path("api").rglob("*")):
+              if p.suffix not in (".js", ".css", ".html", ".py", ".sql", ".md"): continue
+              if "static" in p.parts: continue          # biblioteca de terceiro
+              try: t = p.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, OSError): continue
+              n = sum(t.count(m) for m in MARCAS)
+              if t.startswith("﻿"):
+                  print(f"::error file={p}::arquivo começa com BOM"); ruim = True
+              if n:
+                  print(f"::error file={p}::{n} trecho(s) com acento corrompido (gravado em Latin-1?)")
+                  ruim = True
+          if ruim:
+              print("")
+              print("Abra o arquivo no VS Code: Reopen with Encoding > UTF-8,")
+              print("depois Save with Encoding > UTF-8. E ajuste files.encoding.")
+              sys.exit(1)
+          print("ok: acentuação íntegra")
+          FIM
+
       - name: O .env não pode estar versionado
         run: |
           if git ls-files --error-unmatch .env >/dev/null 2>&1; then
