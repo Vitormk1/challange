@@ -1813,6 +1813,16 @@ if PAINEL.is_dir():
     if (PAINEL / "vaga").is_dir():
         app.mount("/vaga", StaticFiles(directory=PAINEL / "vaga", html=True), name="vaga")
 
+    # docs/img e docs/fontes ficam na raiz de docs/ e sao usados por telas de
+    # pastas diferentes (a telinha da vaga e a pagina de apresentacao). No
+    # GitHub Pages, onde docs/ E a raiz, `/img/...` sempre funcionou; aqui nao,
+    # porque so /painel e /vaga eram montados -- e o icone da telinha dava 404
+    # em producao sem que nada quebrasse na cara, que e como isso passou
+    # despercebido. Montar iguala os dois lugares.
+    for pasta in ("img", "fontes"):
+        if (PAINEL / pasta).is_dir():
+            app.mount(f"/{pasta}", StaticFiles(directory=PAINEL / pasta), name=pasta)
+
     @app.get("/", include_in_schema=False)
     def raiz():
         return RedirectResponse("/painel/")
