@@ -986,6 +986,16 @@ registrar_carteira(app, usuario_atual)
 
 
 # ----------------------------------------------------------- fidelidade ---
+# Esta função também existe dentro de carteira.py, como dependência local do
+# router de lá — mas não é importável de fora, e um NameError aqui derrubava
+# /fidelidade inteiro com 500 pra qualquer conta de motorista. Duplicar as
+# quatro linhas é mais simples e mais seguro do que criar um acoplamento
+# entre dois arquivos que evoluem por motivos diferentes.
+def exigir_motorista(u: dict) -> None:
+    if u["papel"] != "motorista":
+        raise HTTPException(403, "esta área é exclusiva para contas de motorista")
+
+
 # O que essa pessoa já rendeu em cada loja onde tem ficha — só aparecem as
 # lojas que escolheram um modelo (fidelidade_tipo). A conta é por
 # estabelecimento, nunca somada entre lojas: um crédito de cashback ganho
