@@ -7,11 +7,11 @@
 <meta name="description" content="Entre na sua conta Smart Charge ou crie uma para acompanhar suas recargas e o cashback das lojas.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#F4F4F6">
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916a">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916a">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916a">
-<link rel="stylesheet" href="./login.css?v=20260916a">
-<link rel="stylesheet" href="./entrar.css?v=20260916a">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916b">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916b">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916b">
+<link rel="stylesheet" href="./login.css?v=20260916b">
+<link rel="stylesheet" href="./entrar.css?v=20260916b">
 </head>
 <body class="pagina-entrar">
 
@@ -31,7 +31,7 @@
 
     <div class="login-marca">
       <span class="login-selo" aria-hidden="true">
-        <img src="./img/logo.png?v=20260916a" alt="" width="60" height="60" decoding="async">
+        <img src="./img/logo.png?v=20260916b" alt="" width="60" height="60" decoding="async">
       </span>
       <h1>Smart Charge</h1>
     </div>
@@ -117,10 +117,29 @@
 
     <p class="login-status" id="status" role="status" aria-live="polite"></p>
 
-    <p class="entrada-nota" id="notaLojista">
-      É dono de uma loja com carregador? Use o e-mail que o Smart Charge criou
-      para você — a conta já vem ligada ao painel.
-    </p>
+    <!-- A porta do lojista.
+
+         São duas contas diferentes, e não dois caminhos para a mesma: aqui
+         em cima entra o motorista, com a conta que ele mesmo criou; o painel
+         da loja tem login próprio, com a conta que nós entregamos ao
+         lojista. A mesma pessoa pode ter as duas no mesmo aparelho.
+
+         Por isso este botão só leva à porta, sem tentar adivinhar nada: quem
+         decide quem está entrando é a tela de lá. -->
+    <div class="entrada-lojista" id="notaLojista">
+      <p>É dono de uma loja com carregador?</p>
+      <a class="entrada-lojista-botao" href="./dashboard.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3.5 9.5 5 4.6A1 1 0 0 1 6 4h12a1 1 0 0 1 1 .6l1.5 4.9"></path>
+          <path d="M4.5 9.5h15V19a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1V9.5Z"></path>
+          <path d="M9.5 20v-5h5v5"></path>
+        </svg>
+        <span>Entrar como lojista</span>
+      </a>
+      <small>O painel da loja tem login próprio, com o acesso que criamos
+      para você.</small>
+    </div>
 
     <div class="login-tema" role="radiogroup" aria-label="Tema da interface">
       <button class="login-tema-op" type="button" role="radio" aria-checked="false" data-theme-choice="light" title="Claro" aria-label="Tema claro">
@@ -142,6 +161,6 @@
   com o servidor. Ative-o e recarregue a página.</p>
 </noscript>
 
-<script type="module" src="./entrar.js?v=20260916a"></script>
+<script type="module" src="./entrar.js?v=20260916b"></script>
 </body>
 </html>

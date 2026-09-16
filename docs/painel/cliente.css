@@ -60,10 +60,12 @@
 }
 
 /* O mapa é a única aba que não é uma tela da área do cliente: ele é página
-   aberta, tem paleta própria (a do site.css) e não segue o tema salvo. A
-   barra ali empresta os tokens dele, senão ficaria um retângulo de outro
-   aplicativo colado embaixo — e, pior, mudaria de cor com o tema enquanto o
-   mapa acima continuaria claro. */
+   aberta e tem paleta própria, a do site.css. A barra ali empresta os tokens
+   dele, senão ficaria um retângulo de outro aplicativo colado embaixo.
+
+   Emprestar os tokens também resolve o tema de graça: desde que o mapa.css
+   ganhou bloco escuro, esses mesmos tokens viram com a página, e a barra vira
+   junto sem precisar saber de nada. */
 .pagina-mapa {
   --cl-superficie: var(--superficie);
   --cl-texto: var(--texto);
@@ -165,6 +167,18 @@
 /* A aba que ainda não existe não pode parecer quebrada quando alguém toca
    nela: fica visivelmente adiada, e o toque leva a uma página que explica. */
 .barra-app-item.is-breve { opacity: 0.62; }
+
+/* No computador as três abas se juntam no meio.
+   Esticadas em 1fr cada, num monitor largo elas ficavam a palmos de distância
+   uma da outra — três ilhas numa faixa vazia, e o olho não as lê mais como um
+   grupo. No celular 1fr é o certo, porque a largura do polegar é o que manda;
+   aqui o que manda é a leitura. */
+@media (min-width: 700px) {
+  .barra-app {
+    grid-template-columns: repeat(3, 116px);
+    justify-content: center;
+  }
+}
 
 /* ==========================================================================
    Telas (Recargas, Carteira)

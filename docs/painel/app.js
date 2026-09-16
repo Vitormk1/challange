@@ -16,9 +16,9 @@
       a tela de login diz isso, e é só o que ela faz.
    ========================================================================== */
 
-import "./static/js/aiEntity.js?v=20260908c";
-import { createTourModule } from "./static/js/tour.js?v=20260908c";
-import { api, BASE, ErroApi } from "./api.js?v=20260908c";
+import "./static/js/aiEntity.js?v=20260916b";
+import { createTourModule } from "./static/js/tour.js?v=20260916b";
+import { api, BASE, ErroApi } from "./api.js?v=20260916b";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -2601,16 +2601,23 @@ function esconderCarregando(){
 
 /* Entra de fato: guarda quem é, aplica papel, busca dados, restaura a tela. */
 async function entrarNoPainel(sessao){
-  // Motorista não tem loja, e sem loja o painel não tem o que mostrar: umas
-  // linhas abaixo isto viraria "Seu usuário não está ligado a nenhuma loja.
-  // Peça ao gerente para vincular seu acesso" — um beco sem saída para quem
-  // simplesmente se cadastrou no site. O lugar dele é a área do cliente.
+  // Sessão de motorista não abre o painel — mas também NÃO é expulsa daqui.
   //
-  // Vale nos dois caminhos que passam por aqui: o carregamento da página, com
-  // sessão já aberta, e o formulário de login desta mesma tela.
+  // A versão anterior redirecionava para a área do cliente, e isso quebrava o
+  // caso que este painel existe para atender: a mesma pessoa tem duas contas,
+  // a dela e a da loja. Chegando com a sessão de motorista aberta, ela era
+  // mandada de volta antes de conseguir digitar o acesso de lojista, e não
+  // havia como entrar na loja sem sair da própria conta primeiro.
+  //
+  // Agora a porta de login desta tela aparece, que é o que ela veio buscar. O
+  // login de lojista simplesmente substitui a sessão.
+  //
+  // Lançar, em vez de chamar mostrarLogin() aqui, cobre os dois caminhos que
+  // passam por esta função: o carregamento da página e o próprio formulário.
   if (sessao?.usuario?.papel === "motorista"){
-    location.replace("./cliente.html");
-    return;
+    throw new ErroApi(403,
+      "Esta é a entrada do painel da loja. Sua conta atual é de motorista — "
+      + "entre com o acesso de lojista que você recebeu.");
   }
 
   state.usuario = sessao.usuario;

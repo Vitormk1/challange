@@ -128,8 +128,13 @@ if (usuario?.papel === "motorista"){
     saudacao.textContent = primeiro ? `Olá, ${primeiro}` : "Olá";
   }
 } else if (usuario && exigir){
-  // Quem é da loja não tem o que fazer aqui: o painel é a ferramenta dele, e
-  // esta área mostraria três abas vazias. O contrário também vale — o
-  // motorista que cai no painel é mandado para cá pelo próprio painel.
-  location.replace("./dashboard.html");
+  // Sessão de loja aberta nesta área: manda para a tela de entrada, não para
+  // o painel.
+  //
+  // Mandar para o painel pareceria mais direto e tiraria a saída: a pessoa
+  // ficaria presa do lado do lojista, sem lugar onde entrar com a conta
+  // pessoal dela. A tela de entrada é justamente onde as duas portas ficam
+  // lado a lado — ela entra como motorista ali, ou volta ao painel pelo
+  // botão de lojista.
+  location.replace("./entrar.html");
 }
