@@ -120,6 +120,7 @@ const SECOES = {
   clientes:    { eyebrow:"Negócio", titulo:"Clientes", tabela:"clientes" },
   vendas:      { eyebrow:"Negócio", titulo:"Vendas atribuídas", tabela:"vendas" },
   cupons:      { eyebrow:"Negócio", titulo:"Cupons", tabela:"cupons" },
+  fidelidade:  { eyebrow:"Negócio", titulo:"Fidelidade" },
   financeiro:  { eyebrow:"Negócio", titulo:"Financeiro" },
   estabelecimentos:{ eyebrow:"Cadastros", titulo:"Estabelecimentos", tabela:"estabelecimentos" },
   paineis:     { eyebrow:"Cadastros", titulo:"Painéis salvos", tabela:"paineis" },
@@ -694,6 +695,7 @@ async function trocarEstabelecimento(id){
   state.paineis.editando = false;
   Object.values(state.tabela).forEach(u => u.selecionados.clear());
   fecharEditor();
+  fidelidadeSelecao = undefined;   // o rascunho era da loja anterior
   try {
     await comAviso("Trocando de estabelecimento...", () => carregarDados(),
       {sucesso: () => `Agora vendo ${loja().nome}`,
@@ -785,6 +787,7 @@ function renderSecaoAtual(){
   const s = state.section;
   if (s === "painel") renderPainel();
   else if (s === "financeiro") renderFinanceiro();
+  else if (s === "fidelidade") renderFidelidade();
   else if (s === "perfil") renderPerfil();
   else if (TABELAS[s]) renderTabela(s);
 }
@@ -2010,6 +2013,138 @@ function renderFinanceiro(){
               Aqui o caminho é subir o preço por kWh antes de devolver crédito.`}
       </div>
     </article>`;
+}
+
+/* ==========================================================================
+   fidelidade
+
+   Um modelo por loja, entre os três que existem. As colunas de cada modelo
+   ficam todas em `estabelecimentos` (como margem_liquida_pct e afins) e
+   nunca se apagam ao trocar de modelo — voltar para um modelo antigo
+   reaproveita o que já estava configurado nele.
+   ========================================================================== */
+const FIDELIDADE_MODELOS = {
+  cashback: {
+    titulo: "Cashback",
+    descricao: "O cliente gasta na loja e ganha um percentual de desconto na próxima carga. Simples de rodar: a loja só “paga” depois de já ter lucrado com a venda.",
+    exemplo: "Exemplo: cliente gasta R$ 40 no café e ganha 15% de desconto na próxima carga.",
+    campos: [
+      {k:"fidelidade_cashback_pct", r:"Cashback (%)", t:"number", passo:"0.5", obrigatorio:true,
+       ajuda:"Percentual do valor gasto na loja que volta como desconto na próxima carga."},
+    ],
+  },
+  tiers: {
+    titulo: "Tiers",
+    descricao: "Quanto mais o cliente volta, maior o benefício — fideliza de verdade, não é só uma promoção pontual.",
+    exemplo: "Exemplo: 1ª compra do mês dá 5% de desconto; a partir da 3ª compra, sobe para 10%.",
+    campos: [
+      {k:"fidelidade_tiers_desconto_inicial_pct", r:"Desconto na 1ª compra do mês (%)", t:"number", passo:"0.5", obrigatorio:true},
+      {k:"fidelidade_tiers_a_partir_da_compra", r:"A partir de qual compra do mês sobe", t:"number", passo:"1", obrigatorio:true,
+       ajuda:"Da 2ª compra em diante — a 1ª já está coberta pelo desconto inicial."},
+      {k:"fidelidade_tiers_desconto_top_pct", r:"Desconto a partir dessa compra (%)", t:"number", passo:"0.5", obrigatorio:true},
+    ],
+  },
+  creditos: {
+    titulo: "Créditos do app",
+    descricao: "O cliente acumula uma moeda própria da Smart Charge, usável na carga e, no futuro, em outras lojas parceiras. Cria efeito de rede.",
+    exemplo: "Exemplo: a cada R$ 10 gastos o cliente ganha 1 crédito; 1 crédito equivale a 5 minutos de carga.",
+    campos: [
+      {k:"fidelidade_creditos_reais_por_credito", r:"Reais gastos por crédito (R$)", t:"number", passo:"0.5", obrigatorio:true},
+      {k:"fidelidade_creditos_minutos_por_credito", r:"Minutos de carga por crédito", t:"number", passo:"1", obrigatorio:true},
+    ],
+  },
+};
+
+// Rascunho na tela, antes de salvar. `undefined` == ainda não abriu a seção
+// nesta sessão de uso; a partir da primeira renderização vira o modelo ativo
+// da loja (ou `null`, se nenhum foi escolhido ainda).
+let fidelidadeSelecao;
+
+function renderFidelidade(){
+  if (!podeVer("fidelidade")) return;
+  const e = loja();
+  if (fidelidadeSelecao === undefined) fidelidadeSelecao = e.fidelidade_tipo || null;
+  const editavel = pode("editar_dados");
+
+  const aviso = !editavel ? `
+    <div class="aviso-somente-leitura">
+      <span aria-hidden="true">🔒</span>
+      <span>Seu papel vê o programa de fidelidade, mas não altera. Quem edita é o gerente.</span>
+    </div>` : "";
+
+  const cartoes = Object.entries(FIDELIDADE_MODELOS).map(([id, m]) => `
+    <button class="fidelidade-opcao ${fidelidadeSelecao === id ? "is-selected" : ""}" type="button"
+            role="radio" aria-checked="${fidelidadeSelecao === id}" data-fidelidade-opcao="${id}"
+            ${editavel ? "" : "disabled"}>
+      <span class="fidelidade-opcao-cabeca">
+        <strong>${esc(m.titulo)}</strong>
+        ${e.fidelidade_tipo === id ? chip("ativo","ok") : ""}
+      </span>
+      <span class="fidelidade-opcao-descricao">${esc(m.descricao)}</span>
+      <span class="fidelidade-opcao-exemplo">${esc(m.exemplo)}</span>
+    </button>`).join("");
+
+  const modelo = fidelidadeSelecao ? FIDELIDADE_MODELOS[fidelidadeSelecao] : null;
+  const config = modelo ? `
+    <div class="fidelidade-config">
+      <div class="card-heading">
+        <div><h3>Personalizar ${esc(modelo.titulo)}</h3>
+        <p>Estes números valem para toda a loja, a partir de quando você salvar.</p></div>
+      </div>
+      <form class="inline-form" id="formFidelidade">
+        ${modelo.campos.map(c => campoHtml(c, e[c.k])).join("")}
+        <div class="filter-modal-actions">
+          <button class="primary-button" type="submit" ${editavel ? "" : "disabled"}>Salvar programa de fidelidade</button>
+        </div>
+      </form>
+      <div class="refresh-status" id="fidelidadeStatus" aria-live="polite"></div>
+    </div>` : `
+    <div class="fidelidade-config fidelidade-config-vazio">
+      <p>Escolha um modelo acima para configurar os detalhes.</p>
+    </div>`;
+
+  $("#screen-fidelidade").innerHTML = `${aviso}
+    <article class="table-card">
+      <div class="table-toolbar">
+        <div class="toolbar-left"><h3 class="table-title">Programa de fidelidade de ${esc(e.nome || "")}</h3></div>
+        <div class="toolbar-right"><span class="table-meta">${
+          e.fidelidade_tipo ? `Modelo ativo: ${esc(FIDELIDADE_MODELOS[e.fidelidade_tipo]?.titulo || e.fidelidade_tipo)}`
+                            : "Nenhum modelo ativo ainda"}</span></div>
+      </div>
+      <div class="fidelidade-opcoes" role="radiogroup" aria-label="Modelo de fidelidade">${cartoes}</div>
+      ${config}
+    </article>`;
+
+  if (!editavel) return;
+
+  $$("[data-fidelidade-opcao]", $("#screen-fidelidade")).forEach(b => b.onclick = () => {
+    fidelidadeSelecao = b.dataset.fidelidadeOpcao;
+    renderFidelidade();
+  });
+  const form = $("#formFidelidade");
+  if (form) form.onsubmit = salvarFidelidade;
+}
+
+async function salvarFidelidade(ev){
+  ev.preventDefault();
+  const modelo = FIDELIDADE_MODELOS[fidelidadeSelecao];
+  if (!modelo) return;
+  const payload = {fidelidade_tipo: fidelidadeSelecao};
+  for (const c of modelo.campos){
+    const el = $(`#formFidelidade [data-campo="${c.k}"]`);
+    if (c.obrigatorio && el.value === ""){ toast(`${c.r} é obrigatório.`, "error"); return; }
+    payload[c.k] = el.value === "" ? null : Number(el.value);
+  }
+  const botao = $("#formFidelidade button[type=submit]");
+  botao.disabled = true;
+  try {
+    await comAviso("Salvando programa de fidelidade...",
+      () => api.alterar("estabelecimentos", loja().id, payload),
+      {sucesso: "Fidelidade atualizada", detalhe: `${modelo.titulo} salvo para ${loja().nome}.`});
+    await carregarDados();
+    renderTudo();
+  } catch { /* comAviso já mostrou */ }
+  finally { if (botao) botao.disabled = false; }
 }
 
 /* ==========================================================================

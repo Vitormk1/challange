@@ -506,3 +506,35 @@ CREATE INDEX IF NOT EXISTS ix_clientes_usuario
 
 COMMENT ON COLUMN clientes.usuario_id IS
   'Conta do motorista dono desta ficha. NULL = carregou sem se identificar.';
+
+
+-- --------------------------------------------------------------------------
+-- Programa de fidelidade da loja: um dos tres modelos, nunca mais de um ao
+-- mesmo tempo. Colunas tipadas e anulaveis em vez de tabela ou jsonb novos --
+-- e o mesmo desenho de margem_liquida_pct/ticket_medio_brl, e o CHECK deixa
+-- passar NULL: "ainda nao escolheu" nao e o mesmo que "escolheu um valor
+-- invalido". Trocar de modelo nao apaga a configuracao do modelo anterior,
+-- entao voltar para ele reaproveita o que estava salvo.
+-- --------------------------------------------------------------------------
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS fidelidade_tipo text
+  CHECK (fidelidade_tipo IN ('cashback','tiers','creditos'));
+
+-- Cashback: % de desconto na proxima carga.
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS fidelidade_cashback_pct numeric(5,2)
+  CHECK (fidelidade_cashback_pct BETWEEN 0 AND 100);
+
+-- Tiers: desconto da 1a compra do mes, e o desconto maior a partir de qual
+-- compra do mes.
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS fidelidade_tiers_desconto_inicial_pct numeric(5,2)
+  CHECK (fidelidade_tiers_desconto_inicial_pct BETWEEN 0 AND 100);
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS fidelidade_tiers_a_partir_da_compra integer
+  CHECK (fidelidade_tiers_a_partir_da_compra >= 2);
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS fidelidade_tiers_desconto_top_pct numeric(5,2)
+  CHECK (fidelidade_tiers_desconto_top_pct BETWEEN 0 AND 100);
+
+-- Creditos do app: quanto se gasta por credito, e quantos minutos de carga
+-- vale cada credito.
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS fidelidade_creditos_reais_por_credito numeric(10,2)
+  CHECK (fidelidade_creditos_reais_por_credito > 0);
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS fidelidade_creditos_minutos_por_credito numeric(10,2)
+  CHECK (fidelidade_creditos_minutos_por_credito > 0);

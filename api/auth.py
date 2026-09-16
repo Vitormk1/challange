@@ -99,7 +99,7 @@ SECOES_BLOQUEADAS = {
     "operador": {"financeiro"},
     # o motorista não tem seção de painel nenhuma: a área dele é outra
     "motorista": {"financeiro", "estabelecimentos", "paineis", "clientes",
-                  "vendas", "cupons", "carregadores", "sessoes", "leituras"},
+                  "vendas", "cupons", "carregadores", "sessoes", "leituras", "fidelidade"},
 }
 
 
