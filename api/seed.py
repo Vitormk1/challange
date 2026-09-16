@@ -382,11 +382,47 @@ def _confirmar() -> bool:
     sabia o que estava fazendo. Com a equipe, deixa de ser — alguém clona,
     lê no README que existe um seed, e roda para "ver funcionando".
 
-    Com terminal, pergunta. Sem terminal (CI, script), exige --sim explícito,
-    porque num ambiente que não pode responder o silêncio não vale como
-    consentimento.
+    A trava tem dois níveis, porque o estrago tem dois tamanhos:
+
+      banco local     pergunta, e `--sim` dispensa a pergunta. Apagar o
+                      próprio banco de desenvolvimento é rotina, e é para
+                      isso que o seed existe.
+      banco remoto    nenhuma flag serve. É preciso digitar o endereço do
+                      banco, letra por letra. Sem terminal, recusa direto.
+
+    O nível remoto existe porque a equipe passou a trabalhar contra a
+    produção: o endereço que apaga tudo está em várias máquinas, e `--sim` é
+    curto demais para ser uma barreira — viaja em mensagem de grupo e é
+    colado sem ser lido.
     """
     alvo = _onde_vai_apagar()
+    local = alvo.split(":")[0].lower() in ("localhost", "127.0.0.1", "::1", "[::1]")
+
+    # Banco remoto tem trava diferente, e mais dura de propósito.
+    #
+    # A equipe inteira passou a trabalhar direto contra a produção, então o
+    # endereço que apaga tudo está em quatro máquinas. Nesse cenário `--sim` é
+    # fraco demais: é uma palavra curta que viaja em mensagem de grupo, e quem
+    # cola uma linha pronta não lê o que ela faz. Aqui não há flag que sirva —
+    # é preciso digitar o endereço do banco, que só quem está olhando a tela
+    # consegue fazer.
+    if not local:
+        print(f"!! ATENÇÃO: {alvo} NÃO é um banco local.")
+        print( "   Este script APAGA e recria todas as tabelas.")
+        print()
+        print( "   Se este for o banco que está no ar, somem as lojas, os trinta")
+        print( "   dias de operação e as contas de todo mundo — inclusive as que")
+        print( "   as pessoas criaram no site.")
+        print()
+        if not sys.stdin.isatty():
+            print("   Sem terminal para confirmar. Recusado.")
+            return False
+        try:
+            return input(f"   Para continuar, digite o endereço exato ({alvo}): ").strip() == alvo
+        except EOFError:
+            print("   Sem resposta. Recusado.")
+            return False
+
     if "--sim" in sys.argv:
         print(f"apagando e recriando: {alvo}")
         return True
@@ -398,9 +434,6 @@ def _confirmar() -> bool:
 
     print(f"!! Este script APAGA e recria todas as tabelas de:")
     print(f"   {alvo}")
-    print()
-    print("   Se este for o banco compartilhado, os dados de demonstração de")
-    print("   todo mundo somem e voltam com outra semente.")
     print()
     try:
         return input("   Digite APAGAR para continuar: ").strip() == "APAGAR"

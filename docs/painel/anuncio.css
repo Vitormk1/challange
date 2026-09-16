@@ -539,21 +539,30 @@ img { display: block; max-width: 100%; }
 
 /* Convite de quem tem "menos movimento" ligado. Respeitar a preferência é
    não tocar sozinho — não é recusar a mostrar. */
+/* Agora é o único botão da tela, então veste a roupa do principal — a mesma
+   do .fecho-botao. Como contorno discreto ele fazia sentido ao lado de outro
+   botão, competindo por atenção; sozinho, discrição vira só apagado. */
 .assistir-assim {
-  margin-top: 3vmin;
-  min-height: 44px;
-  padding: 0 3vmin;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4vmin;
+  min-height: 48px;
+  padding: 0 3.4vmin;
+  border: 0;
   border-radius: 999px;
-  background: transparent;
-  color: var(--branco);
+  background: var(--vermelho-forte);
+  color: #FFF;
   font: inherit;
-  font-size: clamp(0.76rem, 1.9vmin, 0.96rem);
-  font-weight: 600;
+  font-size: clamp(0.82rem, 2vmin, 1.02rem);
+  font-weight: 700;
   cursor: pointer;
   opacity: 1 !important;
 }
-.assistir-assim:hover { border-color: var(--vermelho); color: var(--vermelho); }
+.assistir-assim:hover { background: #9C120C; }
+.assistir-assim:focus-visible { outline: 2px solid #FFF; outline-offset: 3px; }
+/* O [hidden] do botão do site perde para o `opacity`/`display` que a cena de
+   fecho aplica nos filhos; sem isto ele continuaria aparecendo. */
+.cena-fecho .fecho-botao[hidden] { display: none; }
 
 /* ==========================================================================
    Sem JavaScript
