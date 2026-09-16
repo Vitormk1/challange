@@ -22,6 +22,16 @@
 
 import { api, ErroApi } from "./api.js";
 
+/* Segura a cortina de carregamento ate esta tela ter o que mostrar.
+   A chamada e sincrona de proposito: modulos sao avaliados antes do `load`,
+   entao inscrever-se aqui garante que a cortina saiba esperar. Inscrever
+   dentro de um `then` seria tarde. Ver docs/painel/carregando.js.
+
+   Este modulo roda em tres telas, e nas outras duas ele divide a espera com
+   o modulo principal (carteira-app.js, mapa.js). Cada um se inscreve por si;
+   a cortina so sai quando o ultimo soltar, sem que precisem se conhecer. */
+const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
+
 /* ------------------------------------------------------------------ tema */
 
 /* Repetido do entrar.js de propósito. Juntar os dois num módulo compartilhado
@@ -243,11 +253,16 @@ try {
 
 const usuario = sessao?.usuario;
 
+/* O que ainda esta em voo. A cortina espera por isto: sem esperar, ela sairia
+   com a tela montada mas vazia, e as reservas e a fidelidade apareceriam
+   depois -- o piscar que a cortina existe para evitar. */
+const espera = [];
+
 if (usuario?.papel === "motorista"){
   ligarBarra();
   ligarSair();
 
-  mostrarReservas();
+  espera.push(mostrarReservas());
 
   const saudacao = document.querySelector("#saudacao");
   if (saudacao){
@@ -256,7 +271,7 @@ if (usuario?.papel === "motorista"){
     const primeiro = (usuario.nome || "").trim().split(/\s+/)[0];
     saudacao.textContent = primeiro ? `Olá, ${primeiro}` : "Olá";
   }
-  carregarFidelidade();
+  espera.push(carregarFidelidade());
 } else if (usuario && exigir){
   // Sessão de loja aberta nesta área: manda para a tela de entrada, não para
   // o painel.
@@ -268,3 +283,8 @@ if (usuario?.papel === "motorista"){
   // botão de lojista.
   location.replace("./entrar.html");
 }
+
+/* allSettled, e nao all: uma das duas falhando nao pode prender a cortina.
+   Cada funcao ja trata o proprio erro na tela. */
+await Promise.allSettled(espera);
+if (soltarCortina) soltarCortina();

@@ -51,10 +51,12 @@ const bibliotecas = {
 export default [
   {
     // static/ é biblioteca de terceiro: não é nosso para corrigir.
-    ignores: ["docs/painel/static/**", "docs/vaga/**"],
+    // docs/vaga/ saiu daqui quando o script da telinha deixou de ser inline e
+    // virou arquivo: agora é código nosso, e código nosso é conferido.
+    ignores: ["docs/painel/static/**"],
   },
   {
-    files: ["docs/painel/**/*.js"],
+    files: ["docs/painel/**/*.js", "docs/vaga/**/*.js"],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: "module",     // vale também para os IIFE clássicos

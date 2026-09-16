@@ -6,12 +6,25 @@
 <title>Smart Charge — vídeo pitch</title>
 <meta name="description" content="Recarga elétrica que se paga: o motorista paga por kWh, recebe cashback para gastar na loja, e o painel mede o retorno.">
 <meta name="theme-color" content="#08080A">
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916q">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916q">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916q">
-<link rel="stylesheet" href="./anuncio.css?v=20260916q">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916r">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916r">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916r">
+<link rel="stylesheet" href="./anuncio.css?v=20260916r">
+<link rel="stylesheet" href="./carregando.css?v=20260916r">
+<script src="./carregando.js?v=20260916r"></script>
+<noscript><style>#carregando{display:none}</style></noscript>
 </head>
 <body class="pagina-anuncio">
+<!-- Cortina de carregamento. Cobre a tela desde a primeira pintura e sai
+     quando a pagina esta pronta; ver docs/carregando.js. -->
+<div id="carregando" role="status" aria-live="polite">
+  <div class="carregando-miolo">
+    <span class="carregando-giro" aria-hidden="true"></span>
+    <p class="carregando-marca">Smart Charge</p>
+    <p class="carregando-nota">Carregando…</p>
+  </div>
+</div>
+
 
 <main class="palco" id="palco" aria-label="Anúncio do Smart Charge">
 
@@ -161,7 +174,7 @@
   </div>
 </noscript>
 
-<script src="./static/motion/motion.js?v=20260916q"></script>
-<script src="./anuncio.js?v=20260916q"></script>
+<script src="./static/motion/motion.js?v=20260916r"></script>
+<script src="./anuncio.js?v=20260916r"></script>
 </body>
 </html>

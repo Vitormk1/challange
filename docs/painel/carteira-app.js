@@ -1,4 +1,10 @@
-import { api, ErroApi } from "./api.js?v=20260916q";
+import { api, ErroApi } from "./api.js?v=20260916r";
+
+/* Segura a cortina de carregamento ate esta tela ter o que mostrar.
+   A chamada e sincrona de proposito: modulos sao avaliados antes do `load`,
+   entao inscrever-se aqui garante que a cortina saiba esperar. Inscrever
+   dentro de um `then` seria tarde. Ver docs/painel/carregando.js. */
+const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
 
 const el = s => document.querySelector(s);
 const brl = v => new Intl.NumberFormat("pt-BR", {style:"currency", currency:"BRL"}).format(Number(v));
@@ -263,3 +269,4 @@ document.addEventListener("visibilitychange", () => { clearTimeout(timer); timer
 window.addEventListener("pagehide", () => clearTimeout(timer)); setInterval(validade, 30000);
 try { const sessao = await api.eu(); if (sessao.usuario.papel === "motorista") await carregar({retomar:true}); else location.replace("./entrar.html"); }
 catch (e) { falha(e); }
+finally { if (soltarCortina) soltarCortina(); }
