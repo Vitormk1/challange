@@ -810,6 +810,30 @@ def excluir(tabela: str, registro_id: int, u: dict = Depends(usuario_atual)):
     return {"ok": True, "id": registro_id}
 
 
+@app.post("/registros/clientes/{cliente_id}/vincular")
+def vincular_cliente(cliente_id: int, corpo: dict = Body(...), u: dict = Depends(usuario_atual)):
+    """Liga a ficha de cliente à conta de motorista dona daquele e-mail.
+
+    usuario_id não entra em CAMPOS_EDITAVEIS de propósito: não é um texto
+    livre que o lojista digita — é resolvido aqui, a partir do e-mail, e só
+    aceita conta de motorista ativa. Ligar a um gerente ou ao main não faz
+    sentido nenhum, e um campo comum deixaria isso acontecer sem querer.
+    """
+    exigir(u, "editar_dados")
+    _confere_dono("clientes", cliente_id, lojas_do_usuario(u))
+    email = str(corpo.get("email", "")).strip().lower()
+    if not email:
+        raise HTTPException(400, "informe o e-mail da conta do cliente")
+    linhas = consultar(
+        "SELECT id FROM usuarios WHERE lower(email) = %s AND papel = 'motorista' AND ativo", (email,))
+    if not linhas:
+        raise HTTPException(404, "não existe conta de motorista ativa com esse e-mail")
+    with conectar() as con, con.cursor() as cur:
+        cur.execute("UPDATE clientes SET usuario_id = %s WHERE id = %s RETURNING *",
+                    (linhas[0]["id"], cliente_id))
+        return limpar(cur.fetchone())
+
+
 # ---------------------------------------------------------------- painéis ---
 # O layout chega como JSON livre do navegador, e o Postgres só confere se é
 # JSON válido — não a forma de dentro. Sem normalizar aqui, qualquer coisa
