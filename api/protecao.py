@@ -68,6 +68,15 @@ LIMITE_IA = (30, 3600)       # 30 perguntas por hora, por usuário
 #     chegado ao banco, e o limite passa a punir engano em vez de abuso.
 LIMITE_CADASTRO_IP = (20, 3600)
 
+# Reenvio de verificação. Dois baldes, e o do e-mail é o que importa:
+#
+#   por e-mail — impede usar a rota para bombardear a caixa de outra pessoa.
+#     Três em meia hora cobre "não chegou, manda de novo" e não cobre assédio.
+#   por IP — segura o laço automatizado, que gastaria o nosso limite de envio
+#     no provedor de e-mail pedindo reenvio para endereços aleatórios.
+LIMITE_REENVIO_EMAIL = (3, 1800)
+LIMITE_REENVIO_IP = (10, 1800)
+
 LIMITE_IA_PUBLICA_IP = (10, 3600)
 LIMITE_IA_PUBLICA_TOTAL = (300, 86400)
 
@@ -168,6 +177,25 @@ def limitar_cadastro(request: Request) -> None:
         raise HTTPException(429,
             f"Já foram {quantas} cadastros desta rede nesta hora. "
             f"Tente de novo em {espera // 60 + 1} min.")
+
+
+def limitar_reenvio(request: Request, email: str) -> None:
+    """Teto do reenvio de verificação.
+
+    Erra para o lado de bloquear: o custo de um reenvio a mais é a caixa de
+    entrada de alguém, e o de um a menos é esperar meia hora. A mensagem
+    também não diz se o e-mail existe — quem chama responde igual de qualquer
+    jeito, e um 429 diferente por conta existente desfaria isso.
+    """
+    _limpar_velhas()
+    for chave, (quantas, janela) in (
+        (f"reenvio:email:{email.lower()}", LIMITE_REENVIO_EMAIL),
+        (f"reenvio:ip:{ip_de(request)}", LIMITE_REENVIO_IP),
+    ):
+        ok, espera = _bater(chave, quantas, janela)
+        if not ok:
+            raise HTTPException(429, f"Muitos pedidos de reenvio. "
+                                     f"Espere {espera // 60 + 1} min.")
 
 
 def zerar_login(request: Request, email: str) -> None:

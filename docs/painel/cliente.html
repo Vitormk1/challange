@@ -7,10 +7,10 @@
 <meta name="description" content="Suas recargas e o cashback acumulado nas lojas parceiras do Smart Charge.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#F4F4F6">
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916c">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916c">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916c">
-<link rel="stylesheet" href="./cliente.css?v=20260916c">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916d">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916d">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916d">
+<link rel="stylesheet" href="./cliente.css?v=20260916d">
 </head>
 <body class="pagina-cliente">
 
@@ -31,14 +31,26 @@
 
   <p class="nota-cliente" data-estado-conexao role="status" hidden></p>
 
-  <!-- O saldo é real: zero. Este projeto ainda não liga uma recarga a uma
-       conta de motorista, então não há crédito nenhum a mostrar — e inventar
-       um número aqui seria mentir para quem está avaliando o produto. -->
-  <section class="cartao-saldo" aria-labelledby="rotuloSaldo">
-    <p id="rotuloSaldo">Cashback disponível</p>
-    <strong id="saldo">R$ 0,00</strong>
-    <small>O crédito aparece aqui depois da sua primeira recarga, e vale na
-    loja onde você carregou.</small>
+  <section class="bloco-cliente" aria-labelledby="tituloFidelidade">
+    <h2 id="tituloFidelidade">Fidelidade por loja</h2>
+    <div class="cartao-cliente">
+      <ul class="extrato-carteira" data-fidelidade-lista hidden></ul>
+      <div class="vazio-cliente" data-fidelidade-vazio>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 21s-7.5-4.6-10-9.1C.5 8.6 2 5 5.6 5c2 0 3.4 1 4.4 2.5C11 6 12.4 5 14.4 5 18 5 19.5 8.6 22 11.9 19.5 16.4 12 21 12 21Z"></path>
+        </svg>
+        <p>Você ainda não tem fidelidade em nenhuma loja parceira. O
+        cashback, os créditos ou o desconto por tiers aparecem aqui assim
+        que a loja onde você compra tiver um programa ativo.</p>
+        <a class="botao-cliente" href="./mapa.html">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20 10c0 5.5-8 12-8 12s-8-6.5-8-12a8 8 0 1 1 16 0Z"></path>
+            <circle cx="12" cy="10" r="2.8"></circle>
+          </svg>
+          <span>Encontrar um ponto</span>
+        </a>
+      </div>
+    </div>
   </section>
 
   <section class="bloco-cliente" aria-labelledby="tituloRecargas">
@@ -125,6 +137,6 @@
   servidor. Ative-o e recarregue a página.</p>
 </noscript>
 
-<script type="module" src="./cliente.js?v=20260916c"></script>
+<script type="module" src="./cliente.js?v=20260916d"></script>
 </body>
 </html>

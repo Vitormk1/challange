@@ -7,11 +7,11 @@
 <meta name="description" content="Entre na sua conta Smart Charge ou crie uma para acompanhar suas recargas e o cashback das lojas.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#F4F4F6">
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916c">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916c">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916c">
-<link rel="stylesheet" href="./login.css?v=20260916c">
-<link rel="stylesheet" href="./entrar.css?v=20260916c">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260916d">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260916d">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260916d">
+<link rel="stylesheet" href="./login.css?v=20260916d">
+<link rel="stylesheet" href="./entrar.css?v=20260916d">
 </head>
 <body class="pagina-entrar">
 
@@ -31,7 +31,7 @@
 
     <div class="login-marca">
       <span class="login-selo" aria-hidden="true">
-        <img src="./img/logo.png?v=20260916c" alt="" width="60" height="60" decoding="async">
+        <img src="./img/logo.png?v=20260916d" alt="" width="60" height="60" decoding="async">
       </span>
       <h1>Smart Charge</h1>
     </div>
@@ -115,6 +115,25 @@
       </button>
     </form>
 
+    <!-- Estado "confira seu e-mail". Substitui os formulários depois de um
+         cadastro que exigiu confirmação, e também aparece quando o login
+         recusa por conta pendente — nos dois casos a próxima ação é a mesma,
+         então a tela é a mesma. -->
+    <div class="entrada-conferir" id="confira" hidden>
+      <span class="verificar-marca verificar-marca-ok" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3.5 7.5A2 2 0 0 1 5.5 5.5h13a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2Z"></path>
+          <path d="m4 7 8 6 8-6"></path>
+        </svg>
+      </span>
+      <h2 class="sr-only">Confirme seu e-mail</h2>
+      <p>Mandamos um link de confirmação para<br><strong id="confiraEmail"></strong></p>
+      <p>Abra o e-mail e clique no link para ativar sua conta. Confira também
+      a caixa de spam.</p>
+      <button class="entrada-reenviar" id="botaoReenviar" type="button">Não recebi, mandar de novo</button>
+    </div>
+
     <p class="login-status" id="status" role="status" aria-live="polite"></p>
 
     <!-- A porta do lojista.
@@ -161,6 +180,6 @@
   com o servidor. Ative-o e recarregue a página.</p>
 </noscript>
 
-<script type="module" src="./entrar.js?v=20260916c"></script>
+<script type="module" src="./entrar.js?v=20260916d"></script>
 </body>
 </html>

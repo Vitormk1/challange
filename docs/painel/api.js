@@ -87,6 +87,11 @@ export const api = {
   /* Cria conta e já devolve a sessão aberta. O papel não vai no corpo de
      propósito — quem decide é o servidor, que fixa 'motorista'. */
   cadastrar: (nome, email, senha) => pedir("/auth/cadastrar", {metodo:"POST", corpo:{nome, email, senha}}),
+  /* Consome o link do e-mail e já devolve a sessão aberta. */
+  verificar: token => pedir("/auth/verificar", {metodo:"POST", corpo:{token}}),
+  /* Responde 200 mesmo para e-mail que não existe, de propósito: senão a rota
+     viraria um verificador de quem tem conta, aberto e sem login. */
+  reenviar: email => pedir("/auth/reenviar", {metodo:"POST", corpo:{email}}),
   sair:    () => pedir("/auth/logout", {metodo:"POST"}),
   eu:      () => pedir("/auth/eu"),
 
@@ -95,6 +100,8 @@ export const api = {
   consultarPix: id => pedir(`/carteira/pix/${encodeURIComponent(id)}`),
   verificarPix: id => pedir(`/carteira/pix/${encodeURIComponent(id)}/verificar`, {metodo:"POST"}),
   creditoTeste: () => pedir("/carteira/credito-teste", {metodo:"POST"}),
+
+  minhaFidelidade: () => pedir("/fidelidade"),
 
   dados:   id => pedir(`/dados?estabelecimento_id=${id}`),
 
