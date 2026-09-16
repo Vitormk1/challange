@@ -438,6 +438,25 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
    `.theme-choice` do tema, porque aqui cada opção carrega descrição e
    exemplo, não só um ícone e um rótulo.
    ========================================================================== */
+/* Fidelidade não é uma tabela com rolagem própria — é um formulário, e a
+   altura dela é a do conteúdo. `.table-screen`/`.table-card` são pensados
+   para "barra de cima fixa + tabela que rola por dentro" e travam a altura
+   num cálculo de viewport, com a última linha da grade presa a `1fr`. Sem
+   isto, o card de customização — o de Tiers, com três campos, é quem mais
+   sofre — ficava espremido nesse terço da tela, e o que não coubesse
+   continuava depois da borda, sem fundo nem moldura por baixo.
+   `#screen-fidelidade` vence por especificidade de id, então as outras
+   telas de tabela continuam do jeito que estavam. */
+#screen-fidelidade {
+  height: auto;
+  max-height: none;
+  align-items: start;
+}
+#screen-fidelidade .table-card {
+  height: auto;
+  grid-template-rows: none;
+}
+
 .fidelidade-opcoes {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
