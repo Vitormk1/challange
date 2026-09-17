@@ -375,10 +375,22 @@ const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
      mesmo se o dedo sair de cima da alça no meio do caminho. */
   let gesto = null;
 
+  /* O gesto começa na alça e na faixa do título, mas NUNCA em cima de um
+     controle.
+
+     Quem esbarrou nisso foi o X de fechar, que mora dentro de `.mapa-lista-topo`:
+     o `pointerdown` nele abria um gesto e chamava setPointerCapture. A captura
+     redireciona os eventos seguintes para o elemento que capturou — e o `click`
+     junto. Resultado no celular: o clique chegava na alça, o botão nunca era
+     avisado, e a folha não fechava de jeito nenhum.
+
+     A captura também passa a ser de quem recebeu o toque, e não da alça sempre:
+     arrastar pelo título não tem por que sequestrar o clique de outro lugar. */
   const comecar = ev => {
     if (!celular()) return;
+    if (ev.target.closest("button, a, input, select, textarea")) return;
     gesto = { y: ev.clientY, base: alturaFolha, t: Date.now(), moveu: false };
-    alca.setPointerCapture?.(ev.pointerId);
+    ev.currentTarget.setPointerCapture?.(ev.pointerId);
     painel.classList.remove("is-animando");
   };
 
@@ -392,6 +404,11 @@ const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
 
   const soltar = ev => {
     if (!gesto) return;
+    /* Toque parado não é arrasto. `moveu` já era calculado e não era usado:
+       sem isto, encostar na faixa do título e soltar mandava a folha para a
+       altura mais próxima — e um tremor de 40px para cima em menos de 260ms
+       contava como flique e abria a folha em tela cheia. */
+    if (!gesto.moveu) { gesto = null; irPara(estado); return; }
     const d = gesto.y - ev.clientY;
     const rapido = Date.now() - gesto.t < 260 && Math.abs(d) > 40;
     const frac = alturaFolha / innerHeight;
@@ -435,8 +452,15 @@ const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
   rolo.addEventListener("pointerup", ev => {
     if (!inicioRolo || !celular()) { inicioRolo = null; return; }
     const d = inicioRolo.y - ev.clientY;
+    const base = inicioRolo;
     inicioRolo = null;
-    if (d < -8) soltar(ev);
+    /* `soltar` desiste quando não há gesto, e este caminho nunca abria um:
+       puxar a lista para baixo movia a folha e soltar a deixava parada no meio,
+       sem encostar em altura nenhuma. Monta o gesto aqui para o encaixe rodar. */
+    if (d < -8) {
+      gesto = { y: base.y, base: base.base, t: Date.now(), moveu: true };
+      soltar(ev);
+    }
   });
 
   /* ---- onde estou ---- */

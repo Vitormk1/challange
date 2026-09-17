@@ -1,4 +1,4 @@
-import { api, ErroApi } from "./api.js?v=20260917m";
+import { api, ErroApi } from "./api.js?v=20260917n";
 
 /* Segura a cortina de carregamento ate esta tela ter o que mostrar.
    A chamada e sincrona de proposito: modulos sao avaliados antes do `load`,
