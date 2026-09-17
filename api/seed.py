@@ -117,18 +117,6 @@ def _sortear_senha(tamanho: int = 14) -> str:
 
 SENHA_DEMO = os.environ.get("SENHA_DEMO") or _sortear_senha()
 SENHA_MAIN = os.environ.get("SENHA_MAIN") or _sortear_senha()
-SENHA_CLIENTE_TESTE = os.environ.get("SENHA_CLIENTE_TESTE") or _sortear_senha()
-
-# Duas lojas só para mostrar a caixa "Fidelidade por loja" da área do cliente
-# com os três modelos ao vivo. As três lojas de LOJAS não ligam fidelidade
-# nenhuma — isso é escolha do gerente, feita pelo painel — então sem isto a
-# conta de teste veria a caixa sempre vazia.
-LOJAS_FIDELIDADE_TESTE = [
-    # (nome, tipo, desconto inicial %, a partir da compra nº, desconto topo %,
-    #  reais por crédito, minutos por crédito, compras no mês, créditos)
-    ("Loja Teste — Tiers",    "tiers",    5.0, 3, 15.0, None, None, 4, 0),
-    ("Loja Teste — Créditos", "creditos", None, None, None, 25.0, 15.0, 0, 7),
-]
 
 # (apelido do slug, nome do gerente, nome do operador)
 EQUIPE = {
@@ -370,40 +358,6 @@ def semear() -> None:
                 ["estabelecimento_id", "cupom_id", "sessao_id", "valor_brl", "momento"],
                 linhas_venda)
 
-        # ---- lojas de teste da fidelidade (tiers e créditos) ----
-        fidelidade_estab_ids = inserir(
-            cur, "estabelecimentos",
-            ["nome", "segmento", "margem_liquida_pct", "ticket_medio_brl", "tarifa_kwh_brl",
-             "fidelidade_tipo", "fidelidade_tiers_desconto_inicial_pct",
-             "fidelidade_tiers_a_partir_da_compra", "fidelidade_tiers_desconto_top_pct",
-             "fidelidade_creditos_reais_por_credito", "fidelidade_creditos_minutos_por_credito"],
-            [(nome, "outro", 15.0, 50.0, TARIFA, tipo, ini, limiar, topo, reais, minutos)
-             for nome, tipo, ini, limiar, topo, reais, minutos, _, _ in LOJAS_FIDELIDADE_TESTE],
-            devolve_id=True,
-        )
-
-        # conta de motorista fixa, para sempre ter para onde apontar a
-        # verificação manual da caixa de fidelidade — email_verificado=true
-        # porque é conta de teste, não alguém que vai clicar num link.
-        cliente_teste_id = inserir(
-            cur, "usuarios", ["nome", "email", "papel", "senha_hash", "email_verificado"],
-            [("Cliente Teste", "cliente1@teste.com", "motorista",
-              criar_hash(SENHA_CLIENTE_TESTE), True)],
-            devolve_id=True)[0]
-
-        veiculo, bateria = VEICULOS[0]
-        inserir(
-            cur, "clientes",
-            ["estabelecimento_id", "identificador_hash", "apelido", "modelo_veiculo",
-             "bateria_kwh", "primeira_visita", "consentimento_lgpd", "usuario_id",
-             "fidelidade_compras_mes", "fidelidade_creditos"],
-            [(estab_id, hashlib.sha256(f"{estab_id}-cliente-teste".encode()).hexdigest()[:32],
-              "Cliente Teste", veiculo, bateria, janela, True, cliente_teste_id,
-              compras_mes, creditos)
-             for estab_id, (_, _, _, _, _, _, _, compras_mes, creditos)
-             in zip(fidelidade_estab_ids, LOJAS_FIDELIDADE_TESTE)],
-        )
-
         # visitas e última visita saem das próprias sessões
         cur.execute("""
             UPDATE clientes c
@@ -419,8 +373,6 @@ def semear() -> None:
     for slug, nome_g, nome_o in EQUIPE.values():
         print(f"          gerente.{slug}@praca.local / {SENHA_DEMO}   ({nome_g})")
         print(f"          operador.{slug}@praca.local / {SENHA_DEMO}  ({nome_o})")
-    print(f"          cliente1@teste.com / {SENHA_CLIENTE_TESTE}  (motorista, fidelidade "
-          f"em tiers e créditos)")
     print(f"lojas: {len(LOJAS)}  carregadores: {len(linhas_carregador)}  "
           f"clientes: {len(linhas_cliente)}  sessões: {len(linhas_sessao)}  "
           f"leituras: {len(linhas_leitura)}  cupons: {len(linhas_cupom)}  "
