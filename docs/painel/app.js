@@ -22,9 +22,9 @@
    dentro de um `then` seria tarde. Ver docs/painel/carregando.js. */
 const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
 
-import "./static/js/aiEntity.js?v=20260917e";
-import { createTourModule } from "./static/js/tour.js?v=20260917e";
-import { api, BASE, ErroApi } from "./api.js?v=20260917e";
+import "./static/js/aiEntity.js?v=20260917i";
+import { createTourModule } from "./static/js/tour.js?v=20260917i";
+import { api, BASE, ErroApi } from "./api.js?v=20260917i";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -344,6 +344,7 @@ const CARDS = {
   pontos:   {t:"Carregadores",            g:"Operação", tam:"large", cols:9,  rows:4, min:{cols:5, rows:3}, mob:3},
   previsao: {t:"Erro da previsão",        g:"Operação", tam:"large", cols:9,  rows:4, min:{cols:7, rows:3}, mob:3},
   curva:    {t:"Curva de recarga",        g:"Operação", tam:"large", cols:20, rows:5, min:{cols:9, rows:4}, mob:4},
+  demanda:  {t:"Demanda de potência",     g:"Energia",  tam:"large", cols:20, rows:5, min:{cols:9, rows:4}, mob:4, financeiro:true},
   lucro:    {t:"Lucro atribuído",         g:"Retorno",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
   vendas:   {t:"Vendas atribuídas",       g:"Retorno",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
   sessoes:  {t:"Sessões no período",      g:"Operação", tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}},
@@ -356,7 +357,10 @@ const minimoDoCard = id => CARDS[id]?.min || {cols: MIN_COLS, rows: MIN_ROWS};
 const cardVisivel = id => CARDS[id] && (!CARDS[id].financeiro || pode("ver_financeiro"));
 
 const layoutPadrao = () => (pode("ver_financeiro")
-  ? ["retorno","cashback","lucro","sessoes","clientes","energia"]
+  // `demanda` entra no padrão, e não como card opcional: ultrapassar a demanda
+  // contratada é multa na fatura, e quem não sabe que o card existe não vai
+  // procurá-lo no menu antes de o problema acontecer.
+  ? ["retorno","demanda","cashback","lucro","sessoes","energia"]
   : ["horas","pontos","sessoes","clientes","energia","cupons"]
 ).map(id => ({id, grupo:CARDS[id].tam, cols:CARDS[id].cols, rows:CARDS[id].rows, config:{}}));
 
@@ -1452,6 +1456,155 @@ function ligarRedimensionar(p, cards){
 }
 
 /* ---------- menu de painéis ---------- */
+/* ==========================================================================
+   Demanda de potência — o card de energia
+
+   O único card que busca dados por conta própria. Os outros desenham o que já
+   veio em `/dados`; este pede `/estabelecimentos/{id}/demanda`, porque a conta
+   mistura coisas que o painel não tem em mãos: a posição do sol agora, o
+   estado da bateria e a curva de leituras agregada por hora. Fazer isso no
+   navegador seria repetir em JavaScript o que ai/demanda.py já faz em Python,
+   e as duas versões divergiriam na primeira mudança.
+   ========================================================================== */
+
+let demandaCache = null;
+
+async function desenharDemanda(){
+  const alvo = $("#chartDemanda");
+  if (!alvo || !state.estabelecimentoId) return;
+
+  try {
+    if (!demandaCache || demandaCache.id !== state.estabelecimentoId){
+      const d = await api.demanda(state.estabelecimentoId);
+      demandaCache = { id: state.estabelecimentoId, dados: d };
+    }
+  } catch {
+    alvo.innerHTML = "";
+    $("#demandaLegenda").textContent = "Não consegui carregar a demanda agora.";
+    return;
+  }
+
+  const d = demandaCache.dados;
+  const a = d.agora;
+  const contratada = Number(d.contratada_kw || 0);
+
+  /* O resumo antes do gráfico. A ordem é a da pergunta que o lojista faz:
+     quanto sobra, e por quê. */
+  const risco = d.risco_ultrapassagem;
+  $("#demandaResumo").innerHTML = `
+    <div class="demanda-numero">
+      <b>${num(a.disponivel_kw, 1)} kW</b>
+      <small>livres para carregar agora</small>
+    </div>
+    <div class="demanda-numero">
+      <b>${Math.round(a.ocupacao * 100)}%</b>
+      <small>do teto em uso</small>
+    </div>
+    <div class="demanda-numero">
+      <b>${num(a.solar_kw, 1)} kW</b>
+      <small>vindo do sol</small>
+    </div>
+    <div class="demanda-numero">
+      <b>${a.em_ponta ? "ponta" : "fora de ponta"}</b>
+      <small>cashback ×${a.cashback_fator}</small>
+    </div>
+    ${risco ? chip("risco de ultrapassagem", "critical") : ""}`;
+
+  /* O gráfico: barras empilhadas de base + carregadores, a linha da demanda
+     contratada por cima, e a geração solar como uma linha separada — ela não
+     passa pelo medidor, então não pode ser somada à barra sem mentir. */
+  const horas = d.dia || [];
+  const W = 640, H = 240, L = 40, R = 14, T = 16, B = 28;
+  const topo = Math.max(contratada * 1.15, ...horas.map(h => h.base_kw + h.carregadores_kw), 1);
+  const slot = (W - L - R) / Math.max(1, horas.length);
+  const bw = slot * 0.62;
+  const y = v => H - B - v * (H - T - B) / topo;
+
+  let g = "";
+  for (let k = 0; k <= 4; k++){
+    const v = topo * k / 4;
+    g += `<line x1="${L}" y1="${y(v).toFixed(1)}" x2="${W - R}" y2="${y(v).toFixed(1)}"
+                stroke="${cor("--chart-grid")}" stroke-width="1"/>
+          <text x="${L - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end" font-size="10"
+                fill="${cor("--muted")}">${num(v, 0)}</text>`;
+  }
+
+  horas.forEach((h, i) => {
+    const x = L + slot * i + (slot - bw) / 2;
+    const hb = Math.max(0, (H - T - B) * h.base_kw / topo);
+    const hc = Math.max(0, (H - T - B) * h.carregadores_kw / topo);
+    // A faixa de ponta ganha fundo próprio: é onde o kWh custa várias vezes
+    // mais, e ver isso alinhado com as barras é metade do argumento.
+    if (h.em_ponta){
+      g += `<rect x="${(L + slot * i).toFixed(1)}" y="${T}" width="${slot.toFixed(1)}"
+                  height="${(H - T - B).toFixed(1)}" fill="${cor("--status-warning")}" opacity="0.10"/>`;
+    }
+    g += `<rect x="${x.toFixed(1)}" y="${(H - B - hb).toFixed(1)}" width="${bw.toFixed(1)}"
+                height="${Math.max(hb, 0.5).toFixed(1)}" fill="${cor("--muted")}" opacity="0.45"
+                ><title>${h.hora}h — loja ${num(h.base_kw, 1)} kW</title></rect>`;
+    if (hc > 0.5){
+      const topoBarra = H - B - hb - hc;
+      g += `<rect x="${x.toFixed(1)}" y="${topoBarra.toFixed(1)}" width="${bw.toFixed(1)}"
+                  height="${hc.toFixed(1)}" rx="2" fill="${cor("--primary")}"
+                  ><title>${h.hora}h — carregadores ${num(h.carregadores_kw, 1)} kW</title></rect>`;
+      /* A hora que estourou a demanda ganha um triângulo, e não só outra cor.
+         `--primary` é #B4160F e `--status-critical` é #9B1C1C: dois vermelhos
+         que ninguém distingue lado a lado, e menos ainda quem tem dificuldade
+         com cor. O aviso mais caro do painel não pode depender de enxergar a
+         diferença entre dois tons. */
+      if (h.ultrapassou){
+        const cx = x + bw / 2, ty = topoBarra - 7;
+        g += `<polygon points="${cx.toFixed(1)},${(ty - 7).toFixed(1)} ${(cx - 6).toFixed(1)},${ty.toFixed(1)} ${(cx + 6).toFixed(1)},${ty.toFixed(1)}"
+                    fill="${cor("--status-critical")}"
+                    ><title>${h.hora}h — passou da demanda contratada</title></polygon>`;
+      }
+    }
+    if (i % 3 === 0){
+      g += `<text x="${(L + slot * i + slot / 2).toFixed(1)}" y="${H - B + 15}" text-anchor="middle"
+                  font-size="10" fill="${cor("--muted")}">${h.hora}h</text>`;
+    }
+  });
+
+  if (contratada > 0){
+    g += `<line x1="${L}" y1="${y(contratada).toFixed(1)}" x2="${W - R}" y2="${y(contratada).toFixed(1)}"
+                stroke="${cor("--status-critical")}" stroke-width="2" stroke-dasharray="6 4"/>
+          <text x="${W - R}" y="${(y(contratada) - 6).toFixed(1)}" text-anchor="end" font-size="10"
+                fill="${cor("--status-critical")}">contratada ${num(contratada, 0)} kW</text>`;
+  }
+
+  const solar = horas.filter(h => h.solar_kw > 0);
+  if (solar.length){
+    const caminho = horas.map((h, i) =>
+      `${i ? "L" : "M"}${(L + slot * i + slot / 2).toFixed(1)},${y(h.solar_kw).toFixed(1)}`).join(" ");
+    g += `<path d="${caminho}" fill="none" stroke="${cor("--status-ok")}" stroke-width="2"
+                stroke-linejoin="round" opacity="0.9"/>`;
+  }
+
+  alvo.innerHTML = g;
+
+  /* Quando o gráfico não é de hoje, ele DIZ de que dia é. Uma barra de
+     carregadores em zero se lê como "ninguém carregou", e não como "não há
+     medição" — e essas duas coisas levam a decisões opostas sobre aumentar a
+     demanda contratada. */
+  const dia = d.dia_e_hoje ? "" :
+    `<br><b>Dia ${new Date(d.dia_referencia + "T12:00:00").toLocaleDateString("pt-BR",
+      {day: "2-digit", month: "2-digit"})}</b> — último com medição nesta loja.`;
+
+  $("#demandaLegenda").innerHTML =
+    `<span style="color:${cor("--muted")}">■</span> loja &nbsp;
+     <span style="color:${cor("--primary")}">■</span> carregadores &nbsp;
+     <span style="color:${cor("--status-ok")}">▬</span> geração solar &nbsp;
+     <span style="color:${cor("--status-critical")}">▬</span> demanda contratada`
+    + (risco ? `&nbsp; <span style="color:${cor("--status-critical")}">▲</span> passou da contratada` : "")
+    + (d.instalada_kw > (contratada - a.base_kw)
+        ? `<br>Os carregadores instalados somam <b>${num(d.instalada_kw, 0)} kW</b> e, à noite —
+           sem sol —, sobram <b>${num(contratada - a.base_kw, 0)} kW</b> da rede: ligados juntos
+           na potência máxima, não cabem. É o que a repartição resolve.`
+        : "")
+    + dia;
+}
+
+
 const ICO_EDITAR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
 const ICO_EXCLUIR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>';
 const ICO_PESSOAS = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>';
@@ -1751,6 +1904,12 @@ function corpoCard(id, config){
     case "cashback": return `<div class="trend-card">
                        ${cabecaCard("Cashback","Quanto esta loja aguenta devolver")}
                        <div id="cashbackCard"></div></div>`;
+    case "demanda":  return `<div class="trend-card">
+                       ${cabecaCard("Energia","Demanda de potência ao longo do dia")}
+                       <div id="demandaResumo" class="demanda-resumo"></div>
+                       <svg id="chartDemanda" viewBox="0 0 640 240" preserveAspectRatio="none" role="img"
+                            aria-label="Potência por hora contra a demanda contratada"></svg>
+                       <p class="dashboard-kpi-meta" id="demandaLegenda"></p></div>`;
     default: return "";
   }
 }
@@ -2063,6 +2222,8 @@ function desenharGraficos(){
       ? `<strong>${Math.round(dentro/erros.length*100)}%</strong> das previsões erraram 10 minutos ou menos, em ${erros.length} sessões.`
       : "Sem sessões concluídas para comparar.";
   }
+
+  if ($("#chartDemanda")) desenharDemanda();
 
   if ($("#pontosAoVivo")){
     const cs = carregadoresDaLoja();

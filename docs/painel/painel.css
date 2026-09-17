@@ -830,3 +830,37 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
   .dashboard-kpi-value { font-size: 1.35rem; }
   .table-screen tbody td::before { flex-basis: 46%; }
 }
+
+/* ==========================================================================
+   Card de demanda de potencia
+
+   Quatro numeros antes do grafico. A ordem responde a pergunta na sequencia em
+   que o lojista faz: quanto sobra, quanto ja foi, de onde vem o alivio, e se
+   agora e hora cara.
+   ========================================================================== */
+.demanda-resumo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 22px;
+  margin-bottom: 10px;
+}
+.demanda-numero { display: grid; gap: 2px; }
+.demanda-numero b {
+  font-size: 1.32rem;
+  font-weight: 650;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.demanda-numero small {
+  font-size: 0.74rem;
+  line-height: 1.2;
+  color: var(--muted);
+}
+
+/* Num card estreito, quatro numeros lado a lado espremem o grafico contra o
+   rodape. Duas colunas cabem e continuam legiveis. */
+@media (max-width: 900px) {
+  .demanda-resumo { gap: 16px; }
+  .demanda-numero b { font-size: 1.12rem; }
+}

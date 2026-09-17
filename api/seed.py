@@ -34,11 +34,21 @@ NOVOS = 0.20           # fatia de clientes que não viria sem o carregador
 COMPRAM = 0.90         # quantos de fato passam no caixa
 DIAS = 30
 
-# (nome, segmento, margem %, ticket médio, demanda kW)
+# (nome, segmento, margem %, ticket médio, demanda kW, carga base kW,
+#  solar kWp, bateria kWh, bateria kW, tarifa de ponta)
+#
+# A carga base é o que a loja consome SEM os carregadores — geladeira, luz,
+# ar-condicionado. É ela que decide quanto sobra de teto, e é por isso que o
+# supermercado, que contrata 220 kW, tem menos folga proporcional que o pet
+# shop: câmara fria come uma fatia grande antes de qualquer carro chegar.
+#
+# Solar e bateria só nas duas maiores: é onde o investimento se paga, e deixar
+# o pet shop sem os dois mantém no seed o caso de quem NÃO tem geração — que
+# é a maioria das lojas e não pode quebrar a tela.
 LOJAS = [
-    ("Pet & Cia Vila Mariana", "pet",         22.0, 180.0, 75.0),
-    ("Cantina do Porto",       "restaurante", 12.0,  95.0, 60.0),
-    ("Supermercado Bom Preço", "mercado",      2.9, 140.0, 220.0),
+    ("Pet & Cia Vila Mariana", "pet",         22.0, 180.0,  75.0,  18.0,   0.0,  0.0,  0.0, None),
+    ("Cantina do Porto",       "restaurante", 12.0,  95.0,  60.0,  26.0,  20.0, 15.0,  7.5, 2.15),
+    ("Supermercado Bom Preço", "mercado",      2.9, 140.0, 220.0, 145.0,  80.0, 60.0, 30.0, 2.15),
 ]
 
 # (nome, kW, preço R$/kWh, cashback %)
@@ -76,6 +86,10 @@ APELIDOS = ["Ana", "Bruno", "Carla", "Diego", "Elis", "Fábio", "Gabi", "Heitor"
 # computador para outro exatamente como a pessoa deixou.
 CARDS_PADRAO = [
     {"id": "retorno",  "grupo": "large", "cols": 11, "rows": 4, "config": {}},
+    # Demanda de potencia logo no topo: ultrapassar a contratada e multa na
+    # fatura, e quem nao sabe que o card existe nao vai procura-lo no menu
+    # antes de o problema acontecer.
+    {"id": "demanda",  "grupo": "large", "cols": 20, "rows": 5, "config": {}},
     {"id": "cashback", "grupo": "large", "cols": 9,  "rows": 4, "config": {}},
     {"id": "lucro",    "grupo": "small", "cols": 5,  "rows": 2, "config": {}},
     {"id": "sessoes",  "grupo": "small", "cols": 5,  "rows": 2, "config": {}},
@@ -168,9 +182,12 @@ def semear() -> None:
         estab_ids = inserir(
             cur, "estabelecimentos",
             ["nome", "segmento", "margem_liquida_pct", "ticket_medio_brl",
-             "tarifa_kwh_brl", "demanda_contratada_kw"],
-            [(nome, seg, margem, ticket, TARIFA, demanda)
-             for nome, seg, margem, ticket, demanda in LOJAS],
+             "tarifa_kwh_brl", "demanda_contratada_kw", "carga_base_kw",
+             "solar_kwp", "bateria_kwh", "bateria_kw", "tarifa_ponta_kwh_brl"],
+            [(nome, seg, margem, ticket, TARIFA, demanda, base,
+              solar, bat_kwh, bat_kw, ponta)
+             for nome, seg, margem, ticket, demanda, base, solar, bat_kwh, bat_kw, ponta
+             in LOJAS],
             devolve_id=True,
         )
 

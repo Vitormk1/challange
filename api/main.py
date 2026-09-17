@@ -713,6 +713,11 @@ CAMPOS_EDITAVEIS = {
     "vendas": {"valor_brl", "cupom_id", "sessao_id", "momento", "cliente_id"},
     "estabelecimentos": {"nome", "segmento", "margem_liquida_pct", "ticket_medio_brl",
                          "tarifa_kwh_brl", "demanda_contratada_kw",
+                         # Gerenciamento de demanda: sem estes campos o teto de
+                         # potencia e um chute, e o erro so aparece na fatura.
+                         "carga_base_kw", "grupo_tarifario", "ponta_inicio",
+                         "ponta_fim", "tarifa_ponta_kwh_brl", "solar_kwp",
+                         "bateria_kwh", "bateria_kw",
                          "fidelidade_tipo", "fidelidade_cashback_pct",
                          "fidelidade_tiers_desconto_inicial_pct", "fidelidade_tiers_a_partir_da_compra",
                          "fidelidade_tiers_desconto_top_pct",
@@ -1108,6 +1113,9 @@ registrar_carteira(app, usuario_atual)
 
 from reservas import registrar_reservas
 registrar_reservas(app, usuario_atual)
+
+from potencia import registrar_potencia
+registrar_potencia(app, usuario_atual)
 
 # ---------------------------------------------------------------- perfil ---
 

@@ -111,6 +111,12 @@ export const api = {
   minhaFidelidade: () => pedir("/fidelidade"),
 
   dados:   id => pedir(`/dados?estabelecimento_id=${id}`),
+  /* A demanda não vem no /dados porque a conta depende da hora: posição do
+     sol, janela de ponta e estado da bateria mudam entre uma carga de tela e
+     outra. Vir junto do resto seria servir um número velho. */
+  demanda: id => pedir(`/estabelecimentos/${id}/demanda`),
+  repartir: (id, pedidos_kw) =>
+    pedir(`/estabelecimentos/${id}/repartir`, {metodo:"POST", corpo:{pedidos_kw}}),
 
   criar:   (tabela, corpo) => pedir(`/registros/${tabela}`, {metodo:"POST", corpo}),
   alterar: (tabela, id, corpo) => pedir(`/registros/${tabela}/${id}`, {metodo:"PATCH", corpo}),
