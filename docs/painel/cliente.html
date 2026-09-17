@@ -7,12 +7,12 @@
 <meta name="description" content="Suas recargas e o cashback acumulado nas lojas parceiras do Smart Charge.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#F4F4F6">
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260917j">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260917j">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260917j">
-<link rel="stylesheet" href="./cliente.css?v=20260917j">
-<link rel="stylesheet" href="./carregando.css?v=20260917j">
-<script src="./carregando.js?v=20260917j"></script>
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260917m">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260917m">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260917m">
+<link rel="stylesheet" href="./cliente.css?v=20260917m">
+<link rel="stylesheet" href="./carregando.css?v=20260917m">
+<script src="./carregando.js?v=20260917m"></script>
 <noscript><style>#carregando{display:none}</style></noscript>
 </head>
 <body class="pagina-cliente">
@@ -163,11 +163,26 @@
   </a>
 </nav>
 
+<!-- Perguntas que valem dinheiro. Um <dialog> nativo em vez de confirm(): o
+     do navegador não aceita estilo nenhum, não cabe o valor em destaque, e em
+     algumas configurações nem aparece. Este fecha no Esc e prende o foco
+     sozinho, que é o que o confirm() dava de graça. -->
+<dialog class="dialogo" id="dialogo" aria-labelledby="dialogoTitulo">
+  <form method="dialog" class="dialogo-caixa">
+    <h2 class="dialogo-titulo" id="dialogoTitulo"></h2>
+    <p class="dialogo-texto" id="dialogoTexto"></p>
+    <div class="dialogo-acoes">
+      <button class="botao-secundario" value="nao" id="dialogoNao">Voltar</button>
+      <button class="botao-cliente" value="sim" id="dialogoSim">Confirmar</button>
+    </div>
+  </form>
+</dialog>
+
 <noscript>
   <p class="nota-cliente">Esta tela precisa de JavaScript para falar com o
   servidor. Ative-o e recarregue a página.</p>
 </noscript>
 
-<script type="module" src="./cliente.js?v=20260917j"></script>
+<script type="module" src="./cliente.js?v=20260917m"></script>
 </body>
 </html>

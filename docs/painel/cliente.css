@@ -694,3 +694,52 @@ body:not(.tem-barra) { --barra-h: 0px; }
 @media (max-width: 460px) {
   .formas-pagamento { grid-template-columns: 1fr; }
 }
+
+/* ==========================================================================
+   Diálogo de confirmação
+
+   Substitui o `confirm()` do navegador, que não aceita estilo nenhum e não
+   deixa destacar o valor que a pessoa está prestes a perder.
+
+   `<dialog>` nativo: o Esc fecha e o foco fica preso dentro sozinho — as duas
+   coisas que o confirm() dava de graça e que uma div qualquer não daria.
+   ========================================================================== */
+.dialogo {
+  width: min(420px, calc(100vw - 32px));
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  background: var(--cl-superficie);
+  color: var(--cl-texto);
+  box-shadow: 0 26px 70px rgba(13, 13, 15, .28);
+}
+.dialogo::backdrop { background: rgba(13, 13, 15, .48); }
+
+.dialogo-caixa { display: grid; gap: 14px; padding: 26px 24px 22px; }
+.dialogo-titulo { margin: 0; font-size: 1.16rem; font-weight: 650; line-height: 1.25; }
+.dialogo-texto { margin: 0; font-size: .94rem; line-height: 1.5; color: var(--cl-suave); }
+
+.dialogo-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+/* O botão que confirma vem por último e cresce: no celular, o polegar chega
+   primeiro à direita, e é ali que deve estar a ação que a pessoa veio fazer. */
+.dialogo-acoes .botao-secundario { flex: 0 0 auto; margin: 0; }
+.dialogo-acoes .botao-cliente { flex: 1 1 auto; margin: 0; justify-content: center; }
+
+/* Quando cancelar custa dinheiro, o botão para de ser o vermelho da marca e
+   vira o vermelho de alerta. Não é decoração: são ações diferentes com o mesmo
+   nome, e a cor é o que separa "cancelar e receber de volta" de "cancelar e
+   perder". O texto do botão diz o valor, para não depender só da cor. */
+.dialogo-acoes .botao-cliente.is-perigo { background: #9B1C1C; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .dialogo[open] { animation: dialogo-entra .16s ease-out; }
+  @keyframes dialogo-entra {
+    from { opacity: 0; transform: translateY(8px) scale(.98); }
+    to   { opacity: 1; transform: none; }
+  }
+}

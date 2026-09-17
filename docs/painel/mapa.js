@@ -80,8 +80,16 @@ const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
     DURACAO_MIN = d.duracao_min;
   }
 
+  /* `Number(v)` antes de formatar, e isso não é zelo.
+
+     Valores em dinheiro chegam da API como STRING ("10.00"), porque o Postgres
+     serializa `numeric` assim para não perder precisão em float. E
+     `String.prototype.toLocaleString()` existe: devolve a string intacta, sem
+     erro nenhum. O resultado era "R$ 10.00" com ponto na tela de reserva —
+     falha silenciosa, do tipo que só aparece quando alguém lê o print. */
   const num = (v, casas = 2) =>
-    v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
+    Number(v || 0).toLocaleString("pt-BR",
+      { minimumFractionDigits: casas, maximumFractionDigits: casas });
 
   const ICONE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -489,7 +497,11 @@ const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
   const folha = $("folhaReserva");
   const fReservaLoja = $("reservaLoja");
   const fReservaVagas = $("reservaVagas");
-  const fReservaDia = $("reservaDia");
+  const fReservaDias = $("reservaDias");
+  // O dia escolhido vive numa variavel, e nao no valor de um campo:
+  // a faixa de botoes nao tem `value`, e ter um lugar so onde ele mora
+  // evita a tela e o envio discordarem.
+  let diaEscolhido = "";
   const fReservaHora = $("reservaHora");
   const fReservaResumo = $("reservaResumo");
   const fReservaStatus = $("reservaStatus");
@@ -520,8 +532,33 @@ const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
     return saida;
   }
 
+  /* Os 14 dias que a reserva aceita, como botoes.
+
+     Os dois primeiros ganham nome -- "Hoje" e "Amanha" --, porque e para eles
+     que quase toda reserva vai e reconhecer a palavra e mais rapido que ler
+     uma data. Os outros mostram o dia da semana abreviado e o numero.
+
+     A faixa rola na horizontal no celular; no computador cabe inteira. */
+  function montarDias() {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const semana = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+    let html = "";
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(hoje.getTime() + i * 86400000);
+      const valor = diaLocal(d);
+      const rotulo = i === 0 ? "Hoje" : i === 1 ? "Amanhã" : semana[d.getDay()];
+      const numero = i < 2 ? "" : `<small>${doisDigitos(d.getDate())}/${doisDigitos(d.getMonth() + 1)}</small>`;
+      html += `<button type="button" class="reserva-dia" role="radio"
+                       aria-checked="${i === 0}" data-dia="${valor}">
+                 <b>${rotulo}</b>${numero}</button>`;
+    }
+    fReservaDias.innerHTML = html;
+    diaEscolhido = diaLocal(hoje);
+  }
+
   function preencherHorarios() {
-    const horas = horariosDoDia(fReservaDia.value);
+    const horas = horariosDoDia(diaEscolhido);
     fReservaHora.innerHTML = horas.length
       ? horas.map(h => `<option value="${h}">${h}</option>`).join("")
       : `<option value="">Sem horário hoje</option>`;
@@ -551,10 +588,7 @@ const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
         </span>
       </label>`).join("");
 
-    const hoje = new Date();
-    fReservaDia.min = diaLocal(hoje);
-    fReservaDia.max = diaLocal(new Date(hoje.getTime() + 14 * 86400000));
-    fReservaDia.value = diaLocal(hoje);
+    montarDias();
     preencherHorarios();
     dizerReserva("");
     folha.hidden = false;
@@ -577,7 +611,14 @@ const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
     folha.querySelector(".reserva-fechar").onclick = fecharReserva;
     folha.querySelector(".reserva-fundo").onclick = fecharReserva;
     addEventListener("keydown", ev => { if (ev.key === "Escape" && !folha.hidden) fecharReserva(); });
-    fReservaDia.onchange = preencherHorarios;
+    fReservaDias.onclick = ev => {
+      const b = ev.target.closest("[data-dia]");
+      if (!b) return;
+      diaEscolhido = b.dataset.dia;
+      fReservaDias.querySelectorAll("[data-dia]").forEach(
+        x => x.setAttribute("aria-checked", String(x === b)));
+      preencherHorarios();
+    };
     fReservaHora.onchange = atualizarResumo;
     fReservaVagas.onchange = atualizarResumo;
 
@@ -590,7 +631,7 @@ const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
       // Monta a data no fuso de quem está olhando e manda com o deslocamento
       // explícito. Sem o fuso o servidor recusa, de propósito: interpretar
       // como UTC daria uma reserva três horas fora do lugar, em silêncio.
-      const quando = new Date(`${fReservaDia.value}T${fReservaHora.value}:00`);
+      const quando = new Date(`${diaEscolhido}T${fReservaHora.value}:00`);
       try {
         const r = await fetch("/reservas", {
           method: "POST", credentials: "include",

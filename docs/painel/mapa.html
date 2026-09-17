@@ -7,15 +7,15 @@
 <meta name="description" content="Mapa dos pontos de recarga Smart Charge. Aberto, sem cadastro e sem login.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#0D0D0F">
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260917j">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260917j">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260917j">
-<link rel="stylesheet" href="./static/leaflet/leaflet.css?v=20260917j">
-<link rel="stylesheet" href="./site.css?v=20260917j">
-<link rel="stylesheet" href="./mapa.css?v=20260917j">
-<link rel="stylesheet" href="./cliente.css?v=20260917j">
-<link rel="stylesheet" href="./carregando.css?v=20260917j">
-<script src="./carregando.js?v=20260917j"></script>
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260917m">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260917m">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260917m">
+<link rel="stylesheet" href="./static/leaflet/leaflet.css?v=20260917m">
+<link rel="stylesheet" href="./site.css?v=20260917m">
+<link rel="stylesheet" href="./mapa.css?v=20260917m">
+<link rel="stylesheet" href="./cliente.css?v=20260917m">
+<link rel="stylesheet" href="./carregando.css?v=20260917m">
+<script src="./carregando.js?v=20260917m"></script>
 <noscript><style>#carregando{display:none}</style></noscript>
 </head>
 <body class="pagina-mapa">
@@ -119,16 +119,20 @@
         <div id="reservaVagas"></div>
       </fieldset>
 
-      <div class="reserva-quando">
-        <label class="reserva-campo">
-          <span>Dia</span>
-          <input type="date" id="reservaDia">
-        </label>
-        <label class="reserva-campo">
-          <span>Hora</span>
-          <select id="reservaHora"></select>
-        </label>
-      </div>
+      <fieldset class="reserva-campo reserva-dias-campo">
+        <legend>Dia</legend>
+        <!-- Faixa de dias, e nao <input type="date">. O seletor nativo abre um
+             calendario de sistema que muda de cara em cada navegador e pede
+             tres toques para escolher "amanha" -- e reserva de vaga quase
+             sempre e hoje ou amanha. E o mesmo motivo que ja tinha descartado
+             o <input type="time"> aqui do lado. -->
+        <div class="reserva-dias" id="reservaDias" role="radiogroup" aria-label="Dia da reserva"></div>
+      </fieldset>
+
+      <label class="reserva-campo">
+        <span>Hora</span>
+        <select id="reservaHora"></select>
+      </label>
 
       <p class="reserva-resumo" id="reservaResumo"></p>
       <button class="reserva-enviar" id="reservaEnviar" type="button" disabled>Confirmar reserva</button>
@@ -185,8 +189,8 @@
 </nav>
 
 <script src="./ajustes.js"></script>
-<script src="./static/leaflet/leaflet.js?v=20260917j"></script>
-<script src="./mapa.js?v=20260917j"></script>
-<script type="module" src="./cliente.js?v=20260917j"></script>
+<script src="./static/leaflet/leaflet.js?v=20260917m"></script>
+<script src="./mapa.js?v=20260917m"></script>
+<script type="module" src="./cliente.js?v=20260917m"></script>
 </body>
 </html>
