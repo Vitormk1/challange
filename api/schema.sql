@@ -857,3 +857,75 @@ END $$;
 
 COMMENT ON COLUMN usuarios.foto IS
   'Data URL da foto de perfil, 256x256, recortada no navegador. Nulo = icone padrao.';
+
+
+-- ==========================================================================
+-- Gerenciamento da demanda de potencia
+--
+-- Ate aqui a loja DECLARAVA `demanda_contratada_kw` e ninguem calculava nada
+-- em cima dela. Estes campos sao o que falta para a conta fechar:
+--
+--   carga_base_kw    o carregador divide o medidor com a geladeira e o
+--                    ar-condicionado. Sem saber o que a loja consome sozinha,
+--                    o teto do carregador e um chute -- e o erro so aparece na
+--                    fatura, como multa de ultrapassagem.
+--
+--   ponta            tres horas consecutivas em dias uteis em que a energia
+--                    custa varias vezes mais. Os horarios exatos vem da
+--                    distribuidora, por isso sao campo da loja e nao constante
+--                    no codigo. `tarifa_kwh_brl`, que ja existia, passa a ser
+--                    a de FORA de ponta.
+--
+--   solar e bateria  cada kW que vem do telhado nao passa pelo medidor, entao
+--                    levanta o teto enquanto o sol esta no ceu. A bateria
+--                    guarda o excedente do meio-dia e devolve na ponta, que e
+--                    quando o teto aperta e a tarifa pesa.
+--
+-- A conta em si esta em ai/demanda.py, que nao toca no banco.
+-- ==========================================================================
+
+ALTER TABLE estabelecimentos
+  ADD COLUMN IF NOT EXISTS carga_base_kw         numeric(8,2)  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS grupo_tarifario       text          NOT NULL DEFAULT 'B',
+  ADD COLUMN IF NOT EXISTS ponta_inicio          smallint      NOT NULL DEFAULT 18,
+  ADD COLUMN IF NOT EXISTS ponta_fim             smallint      NOT NULL DEFAULT 21,
+  ADD COLUMN IF NOT EXISTS tarifa_ponta_kwh_brl  numeric(6,4),
+  ADD COLUMN IF NOT EXISTS solar_kwp             numeric(8,2)  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS bateria_kwh           numeric(8,2)  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS bateria_kw            numeric(8,2)  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS bateria_soc           numeric(4,3)  NOT NULL DEFAULT 0.500;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conrelid = 'estabelecimentos'::regclass
+                    AND conname = 'estabelecimentos_demanda_check') THEN
+    ALTER TABLE estabelecimentos ADD CONSTRAINT estabelecimentos_demanda_check
+      CHECK (carga_base_kw >= 0
+         AND solar_kwp     >= 0
+         AND bateria_kwh   >= 0
+         AND bateria_kw    >= 0
+         AND bateria_soc BETWEEN 0 AND 1
+         AND grupo_tarifario IN ('A', 'B')
+         -- Janela de ponta valida: comeca antes de terminar, e cabe no dia.
+         -- Sem isto, uma janela invertida faria `em_ponta` responder sempre
+         -- nao, e a loja carregaria na hora cara sem ninguem perceber.
+         AND ponta_inicio BETWEEN 0 AND 23
+         AND ponta_fim    BETWEEN 1 AND 24
+         AND ponta_inicio < ponta_fim
+         AND (tarifa_ponta_kwh_brl IS NULL OR tarifa_ponta_kwh_brl > 0));
+  END IF;
+END $$;
+
+COMMENT ON COLUMN estabelecimentos.carga_base_kw IS
+  'O que a loja consome sem os carregadores. Entra como piso na conta do teto.';
+COMMENT ON COLUMN estabelecimentos.tarifa_ponta_kwh_brl IS
+  'Tarifa no horario de ponta. Nulo = sem tarifa horaria; usa tarifa_kwh_brl o dia todo.';
+COMMENT ON COLUMN estabelecimentos.bateria_soc IS
+  'Estado de carga da bateria, de 0 a 1. Numa instalacao real viria do inversor.';
+
+-- As leituras ja guardam potencia por carregador e por instante; o que faltava
+-- era conseguir varrer uma loja inteira por faixa de tempo sem ler a tabela
+-- toda. E a consulta que desenha a curva de 24h do painel.
+CREATE INDEX IF NOT EXISTS ix_leituras_carregador_momento
+  ON leituras (carregador_id, momento DESC);

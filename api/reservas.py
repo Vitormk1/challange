@@ -27,6 +27,8 @@ import psycopg
 from fastapi import APIRouter, Body, Cookie, Depends, HTTPException, Request
 
 from db import conectar
+from potencia import contexto_da_vaga, local_da_loja
+from ai.demanda import fator_cashback
 from protecao import limitar_reserva
 
 # ---------------------------------------------------------------- regras ---
@@ -72,6 +74,11 @@ ATIVAS_POR_PESSOA = 3         # teto de reservas em aberto ao mesmo tempo
 # Cortar a energia e do carregador; o que o software garante e que ele nunca
 # comece uma sessao sem saber que ela cabe.
 MINIMO_SESSAO_MIN = 10        # abaixo disso, nem vale comecar
+
+# Abaixo disto a recarga e teatro: 2 kW num carro de 50 kWh rende 4 km por
+# hora. Melhor dizer que nao ha potencia do que deixar plugar e a pessoa
+# descobrir sozinha, meia hora depois, que nao saiu do lugar.
+POTENCIA_MINIMA_KW = 3.0
 
 
 def _agora() -> datetime:
@@ -132,6 +139,9 @@ def pontos_do_mapa(cur, usuario_id: int | None) -> list[dict]:
     """
     cur.execute("""
         SELECT e.id, e.nome, e.segmento, e.lat, e.lng,
+               e.tarifa_kwh_brl, e.tarifa_ponta_kwh_brl, e.ponta_inicio,
+               e.ponta_fim, e.grupo_tarifario, e.solar_kwp, e.carga_base_kw,
+               e.demanda_contratada_kw, e.bateria_kwh, e.bateria_kw, e.bateria_soc,
                c.id AS carregador_id, c.nome AS vaga, c.potencia_kw,
                c.conector, c.preco_kwh_brl, c.cashback_pct,
                EXISTS (SELECT 1 FROM reservas r
@@ -164,6 +174,8 @@ def pontos_do_mapa(cur, usuario_id: int | None) -> list[dict]:
         p = lojas.setdefault(l["id"], {
             "id": l["id"], "nome": l["nome"], "segmento": l["segmento"],
             "lat": float(l["lat"]), "lng": float(l["lng"]), "carregadores": [],
+            # guardado so para o calculo abaixo; sai antes de virar resposta
+            "_linha": l,
         })
         p["carregadores"].append({
             "id": l["carregador_id"], "nome": l["vaga"],
@@ -195,6 +207,16 @@ def pontos_do_mapa(cur, usuario_id: int | None) -> list[dict]:
         p["potencia"] = max(v["potencia_kw"] for v in vagas)
         p["preco"] = min(v["preco_kwh_brl"] for v in vagas)
         p["cashback"] = max(v["cashback_pct"] for v in vagas)
+
+        # O cashback DA HORA, e nao o nominal. Na ponta ele cai pela metade;
+        # com sol sobrando ele sobe. E o incentivo que move a demanda para a
+        # hora barata sem precisar cortar potencia de ninguem -- gerenciamento
+        # de demanda que o motorista escolhe, em vez de sofrer.
+        local = local_da_loja(p.pop("_linha"))
+        fator = fator_cashback(local, _agora())
+        p["cashback_agora"] = round(p["cashback"] * fator, 1)
+        p["cashback_fator"] = fator
+        p["em_ponta"] = local.tarifa.em_ponta(_agora()) if local.tarifa else False
     return list(lojas.values())
 
 
@@ -273,6 +295,23 @@ def registrar_reservas(app, usuario_atual):
             pode = True
             recado = f"Você tem {minutos} min até a próxima reserva."
 
+        # A segunda escassez. O tempo diz ATE QUANDO da para carregar; a
+        # potencia diz COM QUANTOS kW. Uma vaga pode estar livre a tarde
+        # inteira e mesmo assim nao ter potencia agora, porque o resto da loja
+        # esta puxando tudo -- e liberar 11 kW nessa hora e multa de
+        # ultrapassagem na fatura do lojista.
+        with conectar() as con, con.cursor() as cur:
+            energia = contexto_da_vaga(cur, carregador_id, _agora())
+
+        if pode and energia and energia["potencia_liberada_kw"] < POTENCIA_MINIMA_KW:
+            pode = False
+            recado = ("Sem potência disponível na loja agora. "
+                      f"Tente em alguns minutos.")
+        elif pode and energia and energia["limitada_pela_rede"]:
+            recado = (f"{recado} A vaga vai entregar "
+                      f"{energia['potencia_liberada_kw']:.1f} kW em vez de "
+                      f"{energia['potencia_nominal_kw']:.1f} kW.")
+
         return {
             "carregador_id": vaga["id"], "vaga": vaga["nome"], "loja": vaga["loja"],
             "livre_agora": not vaga["ocupada"],
@@ -282,6 +321,7 @@ def registrar_reservas(app, usuario_atual):
             "proxima_reserva": (
                 {"inicio": vaga["proxima_inicio"].isoformat(),
                  "fim": vaga["proxima_fim"].isoformat()} if vaga["proxima_inicio"] else None),
+            "energia": energia,
             "recado": recado,
         }
 

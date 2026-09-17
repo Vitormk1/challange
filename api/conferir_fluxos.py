@@ -287,6 +287,33 @@ def main() -> int:
         r = requests.get(f"{API}/vagas/99999999/disponibilidade", timeout=TEMPO)
         ok("vaga inexistente devolve 404", r.status_code == 404, f"HTTP {r.status_code}")
 
+        # ------------------------------------------ demanda de potencia
+        # A vaga agora responde em MINUTOS e em kW. Um carregador que libera
+        # 11 kW numa loja sem folga e multa de ultrapassagem na fatura.
+        secao("demanda de potencia")
+        if vaga:
+            r = requests.get(f"{API}/vagas/{vaga['id']}/disponibilidade", timeout=TEMPO)
+            e = r.json().get("energia") if r.status_code == 200 else None
+            ok("a vaga informa potencia, nao so tempo", e is not None)
+            if e:
+                ok("nunca libera mais que a potencia nominal",
+                   e["potencia_liberada_kw"] <= e["potencia_nominal_kw"] + 1e-6,
+                   f"{e['potencia_liberada_kw']} de {e['potencia_nominal_kw']} kW")
+                ok("informa o preco da hora", e.get("preco_kwh_brl", 0) > 0,
+                   f"R$ {e.get('preco_kwh_brl')}/kWh · ponta={e.get('em_ponta')}")
+                ok("o cashback acompanha a hora", "cashback_fator" in e,
+                   f"x{e.get('cashback_fator')}")
+
+        r = requests.get(f"{API}/mapa/pontos", timeout=TEMPO)
+        pts = r.json().get("pontos", []) if r.status_code == 200 else []
+        ok("o mapa traz o cashback da hora",
+           bool(pts) and all("cashback_agora" in p for p in pts),
+           f"{len(pts)} ponto(s)")
+
+        r = requests.get(f"{API}/estabelecimentos/1/demanda", timeout=TEMPO)
+        ok("a demanda da loja exige sessao de lojista", r.status_code in (401, 403),
+           f"HTTP {r.status_code}")
+
         # ---------------------------------------------------- fidelidade
         secao("fidelidade")
         r = motorista.get(f"{API}/fidelidade", timeout=TEMPO)
@@ -343,6 +370,26 @@ def main() -> int:
 
                 r = lojista.get(f"{API}/perfil", timeout=TEMPO)
                 ok("perfil responde", r.status_code == 200, f"HTTP {r.status_code}")
+
+                r = lojista.get(f"{API}/estabelecimentos/{est['id']}/demanda", timeout=TEMPO)
+                ok("lojista abre a demanda da loja dele", r.status_code == 200,
+                   f"HTTP {r.status_code}")
+                if r.status_code == 200:
+                    d = r.json()
+                    ok("a curva tem as 24 horas", len(d.get("dia", [])) == 24)
+                    a = d["agora"]
+                    ok("o teto desconta a carga da loja",
+                       a["disponivel_kw"] <= a["teto_kw"] - a["base_kw"] + 1e-6,
+                       f"sobra {a['disponivel_kw']} de teto {a['teto_kw']}")
+                    ok("a ocupacao fica entre 0 e 1", 0 <= a["ocupacao"] <= 1,
+                       str(a["ocupacao"]))
+
+                r = lojista.post(f"{API}/estabelecimentos/{est['id']}/repartir",
+                                 json={"pedidos_kw": [1000, 1000]}, timeout=TEMPO)
+                ok("a reparticao nunca passa do disponivel", r.status_code == 200
+                   and sum(v["recebe_kw"] for v in r.json()["vagas"])
+                       <= r.json()["disponivel_kw"] + 1e-6,
+                   f"HTTP {r.status_code}")
 
                 # Escrita de verdade, com volta: cria, confere no banco, apaga.
                 # A tabela escolhida e `clientes` porque e por onde passa a
