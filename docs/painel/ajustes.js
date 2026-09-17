@@ -9,8 +9,8 @@
    elas começam a divergir.
    ========================================================================== */
 
-import { api, ErroApi } from "./api.js?v=20260917j";
-import { pintarAvatar, sessao } from "./cliente.js?v=20260917j";
+import { api, ErroApi } from "./api.js?v=20260917m";
+import { pintarAvatar, sessao } from "./cliente.js?v=20260917m";
 
 const el = s => document.querySelector(s);
 

@@ -182,6 +182,45 @@ function quando(inicio, fim) {
   return `${dia} · ${hora(i)}–${hora(f)}`;
 }
 
+/* Pergunta de sim ou não, num diálogo que dá para estilizar.
+
+   Devolve uma promessa: `await perguntar(...)` lê como o `confirm()` lia, e a
+   chamada não precisa virar callback.
+
+   O `confirm()` continua ali de reserva para navegador sem <dialog>. Ele é
+   feio, mas perder a pergunta seria pior: sem ela a pessoa cancela em cima da
+   hora e descobre depois que os R$ 10 não voltaram. */
+function perguntar({ titulo, texto, confirmar = "Confirmar", perigo = false }){
+  const d = document.querySelector("#dialogo");
+  if (!d || typeof d.showModal !== "function"){
+    return Promise.resolve(window.confirm(`${titulo}
+
+${texto}`));
+  }
+  document.querySelector("#dialogoTitulo").textContent = titulo;
+  document.querySelector("#dialogoTexto").textContent = texto;
+  const sim = document.querySelector("#dialogoSim");
+  sim.textContent = confirmar;
+  sim.classList.toggle("is-perigo", perigo);
+  return new Promise(resolve => {
+    d.addEventListener("close", () => resolve(d.returnValue === "sim"), { once: true });
+    d.showModal();
+  });
+}
+
+/* O recado fica NA tela, no lugar onde o aviso das reservas já mora.
+
+   Antes era `alert()` — e, no cancelamento, um `alert()` chamado DEPOIS do
+   `location.reload()`: ele corria contra o recarregamento e boa parte das
+   vezes não aparecia. A pessoa cancelava e não lia nada. */
+function recadoReserva(texto, tipo = ""){
+  const alvo = document.querySelector("#avisoReservas");
+  if (!alvo) return;
+  alvo.textContent = texto;
+  alvo.classList.toggle("is-erro", tipo === "erro");
+  alvo.classList.toggle("is-ok", tipo === "ok");
+}
+
 async function mostrarReservas(){
   const bloco = document.querySelector("#blocoReservas");
   if (!bloco) return;                       // só existe na tela de Dashboard
@@ -229,28 +268,48 @@ async function mostrarReservas(){
     b.textContent = "Registrando…";
     try {
       const d = await api.chegueiNaReserva(Number(b.dataset.chegar));
-      alert(d.mensagem || "Chegada registrada.");
-      location.reload();
+      recadoReserva(d.mensagem || "Chegada registrada.", "ok");
+      // Recarrega depois de a pessoa ter tempo de ler. O saldo lá em cima
+      // também mudou, e recarregar é mais honesto que remendar duas partes.
+      setTimeout(() => location.reload(), 1400);
     } catch (erro){
       b.disabled = false;
       b.textContent = "Cheguei";
-      alert(erro?.message || "Não consegui registrar.");
+      recadoReserva(erro?.message || "Não consegui registrar.", "erro");
     }
   });
 
   document.querySelectorAll("[data-cancelar]").forEach(b => b.onclick = async () => {
+    const id = Number(b.dataset.cancelar);
+    const r = vivas.find(x => x.id === id);
+
+    /* A pergunta que faltava. Cancelar com menos de `devolve_ate_min` de
+       antecedência NÃO devolve o valor — e até agora a tela deixava a pessoa
+       descobrir isso pelo extrato, depois. A regra de quanto falta é a mesma
+       do servidor; aqui ela só decide o texto da pergunta, não o dinheiro. */
+    const devolve = r && (new Date(r.inicio) - Date.now()) > dados.devolve_ate_min * 60000;
+    const valor = brl(r?.valor_brl ?? 0);
+    const ok = await perguntar({
+      titulo: "Cancelar esta reserva?",
+      texto: devolve
+        ? `A vaga volta a ficar livre e ${valor} voltam para a sua carteira.`
+        : `Faltam menos de ${dados.devolve_ate_min} minutos para o horário: `
+          + `a vaga volta a ficar livre, mas ${valor} não voltam.`,
+      confirmar: devolve ? "Cancelar reserva" : `Cancelar e perder ${valor}`,
+      perigo: !devolve,
+    });
+    if (!ok) return;
+
     b.disabled = true;
     b.textContent = "Cancelando…";
     try {
-      const d = await api.cancelarReserva(Number(b.dataset.cancelar));
-      // Recarrega em vez de remendar a linha na mão: o saldo lá em cima também
-      // mudou, e duas atualizações parciais é onde a tela começa a mentir.
-      location.reload();
-      if (d.aviso) alert(d.aviso);
+      const d = await api.cancelarReserva(id);
+      recadoReserva(d.aviso || "Reserva cancelada.", devolve ? "ok" : "");
+      setTimeout(() => location.reload(), 1400);
     } catch (erro){
       b.disabled = false;
       b.textContent = "Cancelar";
-      alert(erro?.message || "Não consegui cancelar.");
+      recadoReserva(erro?.message || "Não consegui cancelar.", "erro");
     }
   });
 }
