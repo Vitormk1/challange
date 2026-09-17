@@ -1168,6 +1168,19 @@ def minha_fidelidade(u: dict = Depends(usuario_atual)):
     return saida
 
 
+# Rota de uso único para levar a massa de teste da fidelidade (as duas lojas
+# de tiers/créditos e a conta cliente1@teste.com) para produção sem precisar
+# de acesso direto ao banco — só o navegador logado como main. Restrita a
+# 'main' porque cria conta e mexe em estabelecimentos, o que não é operação
+# de lojista. Idempotente: chamar de novo só atualiza os mesmos registros.
+@app.post("/admin/seed-fidelidade-teste")
+def seed_fidelidade_teste_endpoint(u: dict = Depends(usuario_atual)):
+    if u["papel"] != "main":
+        raise HTTPException(403, "só a conta main pode rodar isto")
+    from seed_fidelidade_teste import semear_fidelidade_teste
+    return semear_fidelidade_teste()
+
+
 @app.get("/perfil")
 def perfil(u: dict = Depends(usuario_atual)):
     """Quem é a pessoa, e a que ela tem acesso."""
