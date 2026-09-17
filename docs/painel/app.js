@@ -22,9 +22,9 @@
    dentro de um `then` seria tarde. Ver docs/painel/carregando.js. */
 const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
 
-import "./static/js/aiEntity.js?v=20260917m";
-import { createTourModule } from "./static/js/tour.js?v=20260917m";
-import { api, BASE, ErroApi } from "./api.js?v=20260917m";
+import "./static/js/aiEntity.js?v=20260917n";
+import { createTourModule } from "./static/js/tour.js?v=20260917n";
+import { api, BASE, ErroApi } from "./api.js?v=20260917n";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
