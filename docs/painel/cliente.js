@@ -132,7 +132,7 @@ function ligarBarra(usuario){
   if (!barra) return;
   barra.hidden = false;
   document.body.classList.add("tem-barra");
-  barra.querySelectorAll("[data-avatar]").forEach(a => pintarAvatar(a, usuario));
+  document.querySelectorAll("[data-avatar]").forEach(a => pintarAvatar(a, usuario));
 
   // aria-current marca a aba da página atual, e é o que o leitor de tela
   // anuncia. O CSS pendura o traço vermelho no mesmo atributo, então não há
