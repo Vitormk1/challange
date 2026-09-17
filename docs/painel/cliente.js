@@ -81,7 +81,7 @@ function linhaFidelidade(item){
   }
   if (item.tipo === "creditos"){
     return `<li><span>${nome}<small>Créditos do app</small></span>`
-         + `<b>${num(item.creditos, 1)} · ${num(item.minutos)} min</b></li>`;
+         + `<b>${num(item.minutos)} min de recarga</b></li>`;
   }
   return "";
 }
