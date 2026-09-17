@@ -215,6 +215,8 @@ body:not(.tem-barra) { --barra-h: 0px; }
   gap: 12px;
   padding: 6px 0 20px;
 }
+.cliente-perfil { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cliente-perfil .avatar-dashboard { width: 48px; height: 48px; font-size: 20px; flex: 0 0 auto; }
 .cliente-saudacao { min-width: 0; }
 .cliente-saudacao p {
   margin: 0;
