@@ -33,7 +33,8 @@ from db import conectar
 # ai/ e irmao de api/, e o servidor roda com api/ no sys.path.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from ai.demanda import (  # noqa: E402
-    Bateria, Local, Tarifa, fator_cashback, folga_kw, melhor_janela,
+    Bateria, Local, Tarifa, fator_cashback, folga_kw, melhor_hora_de_carregar,
+    melhor_janela,
     plano_do_dia, repartir, solar_kw,
 )
 
@@ -299,6 +300,83 @@ def registrar_potencia(app, usuario_atual):
             "vagas": [{"nome": n, "pediu_kw": round(p, 2), "recebe_kw": round(c, 2)}
                       for n, p, c in zip(nomes, pedidos, concedido)],
         }
+
+    @router.get("/melhor-hora")
+    def melhor_hora(u=Depends(usuario_atual)):
+        """Quando vale mais a pena carregar, nas lojas que o motorista usa.
+
+        `melhor_janela` ja existia em ai/demanda.py e so era consultada pela
+        telinha, dentro de `contexto_da_vaga`. Quem decide a hora de carregar,
+        porem, e quem dirige -- e no aplicativo dele a conta nao aparecia em
+        lugar nenhum. Esta rota e a mesma funcao, exposta para o lado certo.
+
+        Escolhe as lojas por vinculo real: onde o motorista tem ficha de
+        fidelidade, e onde ele tem reserva marcada. Sem vinculo nenhum, cai
+        para as lojas com carregador ativo -- devolver lista vazia para conta
+        nova esconderia a funcionalidade justamente de quem ainda nao conhece.
+        """
+        from main import exigir_motorista     # evita import circular na subida
+        exigir_motorista(u)
+
+        agora = _agora()
+        with conectar() as con, con.cursor() as cur:
+            cur.execute(
+                "SELECT e.* FROM estabelecimentos e"
+                " WHERE e.ativo AND ("
+                "   e.id IN (SELECT estabelecimento_id FROM clientes WHERE usuario_id = %s)"
+                "   OR e.id IN (SELECT c.estabelecimento_id FROM reservas r"
+                "                 JOIN carregadores c ON c.id = r.carregador_id"
+                "                WHERE r.usuario_id = %s AND r.situacao = 'ativa'"
+                "                  AND r.fim > now()))"
+                " ORDER BY e.nome", (u["id"], u["id"]))
+            linhas = cur.fetchall()
+            if not linhas:
+                cur.execute(
+                    "SELECT e.* FROM estabelecimentos e"
+                    " WHERE e.ativo AND EXISTS (SELECT 1 FROM carregadores c"
+                    "   WHERE c.estabelecimento_id = e.id AND c.ativo)"
+                    " ORDER BY e.nome LIMIT 6")
+                linhas = cur.fetchall()
+
+        lojas = []
+        for l in linhas:
+            local = local_da_loja(l)
+            if local.tarifa is None or local.tarifa.fora_ponta_kwh <= 0:
+                continue                      # loja sem preco cadastrado nao opina
+            r = melhor_hora_de_carregar(local, agora)
+            barato, credito = r["mais_barato"], r["mais_cashback"]
+            if not barato and not credito:
+                continue                      # nada a sugerir nesta loja agora
+            lojas.append({
+                "estabelecimento_id": l["id"],
+                "estabelecimento_nome": l["nome"],
+                "agora": {
+                    "em_ponta": r["agora"]["em_ponta"],
+                    "preco_kwh_brl": round(r["agora"]["preco_kwh_brl"], 4),
+                    "cashback_fator": r["agora"]["cashback_fator"],
+                },
+                "mais_barato": None if not barato else {
+                    "quando": barato["quando"].isoformat(),
+                    "economia_pct": round(barato["economia_pct"], 1),
+                },
+                "mais_cashback": None if not credito else {
+                    "quando": credito["quando"].isoformat(),
+                    "fator": credito["fator"],
+                    "vezes_mais": round(credito["vezes_mais"], 2),
+                },
+            })
+
+        # Primeiro quem tem mais a ganhar esperando. Economia de preco pesa
+        # mais que credito porque sai do bolso na hora; o credito so vale na
+        # proxima compra. Empate: nome, para a ordem nao dancar a cada
+        # atualizacao da tela.
+        def ganho(x):
+            p = x["mais_barato"]["economia_pct"] if x["mais_barato"] else 0.0
+            c = 100.0 * (x["mais_cashback"]["vezes_mais"] - 1) if x["mais_cashback"] else 0.0
+            return -(p + c * 0.5)
+
+        lojas.sort(key=lambda x: (ganho(x), x["estabelecimento_nome"]))
+        return {"agora": agora.isoformat(), "lojas": lojas}
 
     app.include_router(router)
 

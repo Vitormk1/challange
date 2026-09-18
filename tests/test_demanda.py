@@ -16,7 +16,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from ai.demanda import (  # noqa: E402
-    Bateria, Local, Tarifa, fator_cashback, folga_kw, melhor_janela,
+    Bateria, Local, Tarifa, fator_cashback, folga_kw, melhor_hora_de_carregar,
+    melhor_janela, metas_de_bateria,
     plano_do_dia, repartir, solar_kw,
 )
 
@@ -184,6 +185,40 @@ class TestaIncentivo(unittest.TestCase):
         self.assertIsNone(m["melhor_em"])
 
 
+class TestaMelhorHoraDeCarregar(unittest.TestCase):
+    """As duas parcelas: pagar menos e receber mais."""
+
+    def test_na_ponta_sugere_esperar_o_preco_cair(self):
+        r = melhor_hora_de_carregar(loja(), QUINTA.replace(hour=19))
+        self.assertIsNotNone(r["mais_barato"])
+        self.assertGreaterEqual(r["mais_barato"]["quando"].hour, 21)
+        self.assertGreater(r["mais_barato"]["economia_pct"], 0)
+        self.assertTrue(r["agora"]["em_ponta"])
+
+    def test_de_madrugada_sugere_esperar_o_sol(self):
+        """Sem sol ainda, o credito de amanha de manha e o unico argumento.
+
+        As 5h nao ha preco melhor a frente -- ja e fora de ponta --, mas ha
+        cashback melhor assim que o telhado comecar a gerar. E exatamente o
+        caso que `melhor_janela` deixava mudo.
+        """
+        l = loja(solar_kwp=80.0, carga_base_kw=10.0)
+        r = melhor_hora_de_carregar(l, QUINTA.replace(hour=5))
+        self.assertIsNone(r["mais_barato"])
+        self.assertIsNotNone(r["mais_cashback"])
+        self.assertGreater(r["mais_cashback"]["fator"], r["agora"]["cashback_fator"])
+        self.assertTrue(6 <= r["mais_cashback"]["quando"].hour <= 17)
+
+    def test_loja_sem_sol_nao_promete_cashback_melhor(self):
+        r = melhor_hora_de_carregar(loja(solar_kwp=0.0), QUINTA.replace(hour=10))
+        self.assertIsNone(r["mais_cashback"])
+
+    def test_sem_tarifa_devolve_as_duas_parcelas_vazias(self):
+        r = melhor_hora_de_carregar(loja(tarifa=None), QUINTA)
+        self.assertIsNone(r["mais_barato"])
+        self.assertIsNone(r["mais_cashback"])
+
+
 class TestaPlanoDoDia(unittest.TestCase):
     def test_vinte_e_quatro_horas(self):
         self.assertEqual(len(plano_do_dia(loja(), QUINTA)), 24)
@@ -229,3 +264,58 @@ class TestaPlanoDoDia(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestaBateriaGuiadaPorReserva(unittest.TestCase):
+    """A bateria tem de chegar carregada na hora que a loja JA sabe que vem."""
+
+    def loja_com_bateria(self, **troca):
+        base = dict(demanda_contratada_kw=60.0, carga_base_kw=20.0, solar_kwp=30.0,
+                    bateria=Bateria(capacidade_kwh=60.0, potencia_kw=30.0, soc=0.20),
+                    tarifa=Tarifa(fora_ponta_kwh=0.80, ponta_kwh=2.15,
+                                  ponta_inicio=18, ponta_fim=21))
+        base.update(troca)
+        return Local(**base)
+
+    # Tres vagas de 22 kW reservadas para as 19h: 66 kW em cima de uma loja
+    # que tem 60 contratados e 20 de carga base. Sem bateria preparada, estoura.
+    RESERVA_NA_PONTA = {19: 66.0}
+
+    def test_meta_sobe_antes_da_reserva(self):
+        metas = metas_de_bateria(self.loja_com_bateria(), QUINTA, self.RESERVA_NA_PONTA)
+        self.assertGreater(metas[18], metas[12],
+                           "a meta tem de subir chegando perto da hora reservada")
+        self.assertGreater(metas[18], 0.5)
+
+    def test_sem_reserva_nao_ha_meta_a_perseguir(self):
+        metas = metas_de_bateria(self.loja_com_bateria(), QUINTA, {})
+        self.assertTrue(all(m <= 0.2 for m in metas),
+                        "sem demanda marcada a bateria nao precisa se preparar")
+
+    def test_chega_na_reserva_com_mais_carga_do_que_a_regra_gulosa(self):
+        l = self.loja_com_bateria()
+        linhas = plano_do_dia(l, QUINTA, self.RESERVA_NA_PONTA)
+        soc_as_18 = next(x["bateria_soc"] for x in linhas if x["hora"] == 18)
+        self.assertGreater(soc_as_18, l.bateria.soc,
+                           "a bateria tem de chegar as 18h com mais carga que comecou")
+
+    def test_nao_carrega_da_rede_dentro_da_ponta(self):
+        """Carregar bateria na hora cara para descarregar na hora cara e perda."""
+        linhas = plano_do_dia(self.loja_com_bateria(), QUINTA, self.RESERVA_NA_PONTA)
+        for x in linhas:
+            if x["em_ponta"]:
+                self.assertGreaterEqual(x["bateria_kw"], 0.0,
+                                        f"carregou da rede as {x['hora']}h, dentro da ponta")
+
+    def test_carga_da_rede_nunca_cria_um_pico_novo(self):
+        l = self.loja_com_bateria()
+        teto = l.demanda_contratada_kw * (1.0 - l.margem_seguranca)
+        for x in plano_do_dia(l, QUINTA, self.RESERVA_NA_PONTA):
+            self.assertLessEqual(round(x["rede_kw"], 6), round(max(teto, 66.0 + 20.0), 6))
+
+    def test_loja_sem_bateria_continua_funcionando(self):
+        l = Local(demanda_contratada_kw=60.0, carga_base_kw=20.0,
+                  tarifa=Tarifa(0.80, 2.15, 18, 21))
+        linhas = plano_do_dia(l, QUINTA, self.RESERVA_NA_PONTA)
+        self.assertEqual(len(linhas), 24)
+        self.assertTrue(all(x["bateria_kw"] == 0.0 for x in linhas))

@@ -101,6 +101,97 @@ async function carregarFidelidade(){
   }
 }
 
+/* ------------------------------------------------- melhor hora de carregar
+
+   A conta já existia em ai/demanda.py (`melhor_janela`) e só era consultada
+   pela telinha da vaga. Quem decide a hora de carregar, porém, é quem dirige,
+   e no aplicativo dele isso não aparecia em lugar nenhum.
+
+   A seção some quando nenhuma loja tem hora melhor à frente. Um card dizendo
+   "não há economia agora" ocupa a mesma altura e não muda decisão nenhuma. */
+
+const FATOR_TEXTO = {
+  0.5: "metade do cashback",
+  1: "cashback normal",
+  1.5: "uma vez e meia o cashback",
+};
+
+function textoDoFator(f){
+  if (f === null || f === undefined) return "";
+  return FATOR_TEXTO[f] || `cashback ×${String(f).replace(".", ",")}`;
+}
+
+function horaCurta(iso){
+  const d = new Date(iso);
+  const hoje = new Date().toDateString() === d.toDateString();
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return hoje ? `às ${hora}` : `amanhã às ${hora}`;
+}
+
+async function carregarMelhorHora(){
+  const bloco  = document.querySelector("#blocoMelhorHora");
+  const alvo   = document.querySelector("#melhorHora");
+  const outras = document.querySelector("#melhorHoraOutras");
+  const nota   = document.querySelector("#melhorHoraNota");
+  if (!bloco || !alvo) return;
+
+  let dados;
+  try {
+    dados = await api.melhorHora();
+  } catch {
+    return;                        // seção continua escondida; o resto da tela serve
+  }
+
+  const uteis = (dados.lojas || []).filter(l => l.mais_barato || l.mais_cashback);
+  if (!uteis.length) return;
+
+  /* Duas razões para esperar, e a tela escolhe qual contar primeiro. Preço
+     ganha de cashback: a economia sai do bolso agora, o crédito só vale na
+     próxima compra. */
+  const motivo = l => l.mais_barato
+    ? { quando: l.mais_barato.quando,
+        frase: `você paga ${String(l.mais_barato.economia_pct).replace(".", ",")}% menos pelo kWh`,
+        curto: `−${String(l.mais_barato.economia_pct).replace(".", ",")}%` }
+    : { quando: l.mais_cashback.quando,
+        frase: `o cashback vale ${String(l.mais_cashback.vezes_mais).replace(".", ",")}× mais`,
+        curto: `${String(l.mais_cashback.vezes_mais).replace(".", ",")}× cashback` };
+
+  const [primeira, ...resto] = uteis;
+  const m = motivo(primeira);
+  const segunda = primeira.mais_barato && primeira.mais_cashback
+    ? `<p class="melhor-hora-extra">E ${horaCurta(primeira.mais_cashback.quando)} o cashback
+       vale ${String(primeira.mais_cashback.vezes_mais).replace(".", ",")}× mais.</p>`
+    : "";
+
+  alvo.innerHTML = `
+    <p class="melhor-hora-loja">${primeira.estabelecimento_nome}</p>
+    <p class="melhor-hora-destaque">
+      <b>${horaCurta(m.quando)}</b>
+      <span>${m.frase}</span>
+    </p>
+    ${segunda}
+    <p class="melhor-hora-agora">
+      Agora: ${primeira.agora.em_ponta ? "horário de ponta" : "fora de ponta"}
+      · ${textoDoFator(primeira.agora.cashback_fator)}
+    </p>`;
+
+  if (resto.length && outras){
+    outras.hidden = false;
+    outras.innerHTML = resto.slice(0, 3).map(l => {
+      const r = motivo(l);
+      return `<li><span>${l.estabelecimento_nome}</span>
+                  <b>${horaCurta(r.quando)}</b>
+                  <i>${r.curto}</i></li>`;
+    }).join("");
+  }
+
+  if (nota){
+    nota.textContent = "A conta é a tarifa da loja hora a hora. O cashback "
+      + "acompanha: cai pela metade na ponta e sobe quando há sol sobrando.";
+  }
+  bloco.hidden = false;
+}
+
 /* ----------------------------------------------------------------- barra */
 
 /* O avatar aparece em dois tamanhos e em duas telas, entao mora aqui, onde as
@@ -361,6 +452,7 @@ if (usuario?.papel === "motorista"){
     saudacao.textContent = primeiro ? `Olá, ${primeiro}` : "Olá";
   }
   espera.push(carregarFidelidade());
+  espera.push(carregarMelhorHora());
 } else if (usuario && exigir){
   // Sessão de loja aberta nesta área: manda para a tela de entrada, não para
   // o painel.
