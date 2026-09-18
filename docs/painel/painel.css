@@ -210,35 +210,40 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
 /* ==========================================================================
    Avisos
 
-   Canto inferior direito, empilhados, cor e ícone por tipo. A barra de tempo
+   Canto superior direito, empilhados, cor e ícone por tipo. A barra de tempo
    embaixo é o que evita a dúvida "isso vai sumir?" — dá para ver o aviso
    indo embora, e passar o mouse por cima segura enquanto se lê.
+
+   EM CIMA, e não embaixo, por um motivo concreto: o botão de adicionar card
+   é um FAB no canto inferior direito, e o aviso caía exatamente sobre ele.
+   Quem estava montando o layout tinha de esperar a mensagem sair para clicar
+   de novo — e cada clique gerava a mensagem seguinte. Aviso que atrapalha a
+   ação que o gerou é pior que aviso nenhum.
    ========================================================================== */
 .toast-stack {
   position: fixed;
-  /* `top: auto` não é decoração: o style.css da referência declara
-     `.toast-stack { top: 18px }`, e sobrescrever só o `bottom` deixava os
-     dois valendo. Com top e bottom ao mesmo tempo o elemento estica de cima
-     a baixo da tela, e o aviso dentro dele esticava junto — era a faixa que
-     ocupava a lateral inteira. */
-  top: auto;
+  /* Um só dos dois, sempre. O style.css da referência declara
+     `.toast-stack { top: 18px }`; deixar top e bottom valendo ao mesmo tempo
+     estica o elemento de cima a baixo da tela, e o aviso dentro dele estica
+     junto — era a faixa que ocupava a lateral inteira. */
+  top: 18px;
+  bottom: auto;
   left: auto;
   right: 20px;
-  bottom: 20px;
   width: auto;
   height: auto;
   z-index: 13000;
   display: grid;
   gap: 10px;
   justify-items: end;
-  align-content: end;
+  align-content: start;
   pointer-events: none;
 }
 
 .aviso {
   --av-cor: var(--primary, #b4160f);
   position: relative;
-  align-self: end;
+  align-self: start;
   height: auto;
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -254,7 +259,8 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
   pointer-events: auto;
   overflow: hidden;
   opacity: 0;
-  transform: translateY(10px) scale(0.98);
+  /* Entra vindo de cima, que é de onde ele agora aparece. */
+  transform: translateY(-10px) scale(0.98);
   transition: opacity 0.22s ease, transform 0.22s cubic-bezier(.22,.9,.3,1);
 }
 .aviso.is-visivel { opacity: 1; transform: none; }
@@ -336,7 +342,9 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
 @keyframes aviso-tempo { to { transform: scaleX(0); } }
 
 @media (max-width: 640px) {
-  .toast-stack { top: auto; right: 12px; left: 12px; bottom: 12px; justify-items: stretch; }
+  /* No celular o aviso ocupa a largura toda, e embaixo ele cobria o FAB de
+     adicionar card inteiro — não dava nem para desviar o dedo. Em cima. */
+  .toast-stack { top: 12px; bottom: auto; right: 12px; left: 12px; justify-items: stretch; }
   .aviso { width: auto; }
 }
 @media (prefers-reduced-motion: reduce) {

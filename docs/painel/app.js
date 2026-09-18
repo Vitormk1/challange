@@ -22,9 +22,9 @@
    dentro de um `then` seria tarde. Ver docs/painel/carregando.js. */
 const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
 
-import "./static/js/aiEntity.js?v=20260918c";
-import { createTourModule } from "./static/js/tour.js?v=20260918c";
-import { api, BASE, ErroApi } from "./api.js?v=20260918c";
+import "./static/js/aiEntity.js?v=20260918e";
+import { createTourModule } from "./static/js/tour.js?v=20260918e";
+import { api, BASE, ErroApi } from "./api.js?v=20260918e";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -1252,6 +1252,22 @@ function aplicarSpans(cards){
   });
 }
 
+/* A identidade de um layout, para comparar dois.
+
+   Existe porque `JSON.stringify` não serve para isso: ele compara TEXTO, e
+   duas listas com o mesmo conteúdo em ordem de chave diferente saem
+   diferentes. E é exatamente o caso aqui — o que está gravado no banco tem as
+   chaves em `{id, cols, rows, grupo}` e o servidor devolve `{id, grupo, cols,
+   rows}`. O resultado era o aviso "Layout ajustado pelo servidor" disparando
+   a cada gravação, dizendo que algo foi recusado quando nada foi.
+
+   Compara o que importa e na ordem em que importa: quais cards, em que
+   ordem, de que tamanho, com que configuração. */
+const impressao = lista => JSON.stringify((lista || []).map(c => [
+  c.id, c.grupo, Number(c.cols), Number(c.rows),
+  Object.entries(c.config || {}).map(([k, v]) => [k, v]).sort(([a],[b]) => a < b ? -1 : 1),
+]));
+
 /* Guarda o layout no banco. Debounce porque arrastar e redimensionar geram
    muitas mudanças seguidas, e não vale uma requisição por pixel. */
 let gravacaoPendente = null;
@@ -1264,9 +1280,18 @@ function guardarLayout(p, cards){
       // a resposta é o que faz um card recusado aparecer como recusado, em
       // vez de continuar na tela até o próximo recarregamento e sumir lá.
       const salvo = await api.alterarPainel(p.id, {cards});
-      const antes = JSON.stringify(p.cards);
+
+      /* Compara com `cards` — o que ESTA gravação mandou — e não com
+         `p.cards`, que é estado compartilhado e pode ter virado outra coisa
+         enquanto a requisição viajava. A pergunta aqui é "o servidor mudou o
+         que eu mandei?", e quem responde isso é o que foi mandado.
+
+         E se outra gravação entrou no meio, esta resposta já nasceu velha:
+         adotá-la desfaria o que a pessoa acabou de fazer na tela. Sai sem
+         avisar nada — quem chegou depois é que vai ter a última palavra. */
+      if (p.cards !== cards) return;
       p.cards = salvo.cards;
-      if (JSON.stringify(salvo.cards) !== antes){
+      if (impressao(salvo.cards) !== impressao(cards)){
         aviso("Layout ajustado pelo servidor", "atencao",
               {detalhe: "Parte do que você montou não foi aceita e voltou ao que cabe."});
         if (state.section === "painel") renderPainel();
@@ -1276,15 +1301,25 @@ function guardarLayout(p, cards){
     } catch (erro){ avisarErro(erro, "salvar o layout"); }
   }, 500);
 }
-const lerCards = () => [...$$("#dashboardGridLarge [data-dashboard-card]"),
-                        ...$$("#dashboardGridSmall [data-dashboard-card]")]
-  .map(no => ({
-    id: no.dataset.dashboardCard,
-    grupo: no.closest("[data-dashboard-dropzone]").dataset.dashboardDropzone,
-    cols: Number(no.style.getPropertyValue("--dashboard-card-col-span")) || CARDS[no.dataset.dashboardCard].cols,
-    rows: Number(no.style.getPropertyValue("--dashboard-card-row-span")) || CARDS[no.dataset.dashboardCard].rows,
-    config: {},
-  }));
+/* Lê da tela onde cada card está e de que tamanho ficou.
+
+   `anteriores` não é opcional por capricho: a posição e o tamanho estão no
+   DOM, mas o `config` não — a escolha de qual carregador o gráfico de curva
+   mostra vive só no objeto do painel. Sem trazê-la de volta, esta função
+   devolvia `config: {}` para todo mundo, e arrastar QUALQUER card apagava a
+   escolha do gráfico de curva de quem já tinha escolhido. */
+const lerCards = (anteriores = []) => {
+  const guardado = new Map((anteriores || []).map(c => [c.id, c.config || {}]));
+  return [...$$("#dashboardGridLarge [data-dashboard-card]"),
+          ...$$("#dashboardGridSmall [data-dashboard-card]")]
+    .map(no => ({
+      id: no.dataset.dashboardCard,
+      grupo: no.closest("[data-dashboard-dropzone]").dataset.dashboardDropzone,
+      cols: Number(no.style.getPropertyValue("--dashboard-card-col-span")) || CARDS[no.dataset.dashboardCard].cols,
+      rows: Number(no.style.getPropertyValue("--dashboard-card-row-span")) || CARDS[no.dataset.dashboardCard].rows,
+      config: guardado.get(no.dataset.dashboardCard) || {},
+    }));
+};
 
 function ligarArrasto(p, cards){
   let origem = null;
@@ -1303,7 +1338,7 @@ function ligarArrasto(p, cards){
     punho.ondragend = () => {
       card.classList.remove("is-dragging");
       limpar(); origem = null;
-      guardarLayout(p, lerCards());
+      guardarLayout(p, lerCards(p.cards));
       desenharGraficos();
     };
   });
@@ -1324,7 +1359,7 @@ function ligarArrasto(p, cards){
       const depois = card.classList.contains("is-drop-target-after");
       limpar();
       card.parentNode.insertBefore(origem, depois ? card.nextSibling : card);
-      guardarLayout(p, lerCards());
+      guardarLayout(p, lerCards(p.cards));
     };
   });
 
@@ -1448,7 +1483,7 @@ function ligarRedimensionar(p, cards){
         card.style.cursor = "";
         medida.remove();
         arrasto = null;
-        guardarLayout(p, lerCards());
+        guardarLayout(p, lerCards(p.cards));
         desenharGraficos();
         ligarRedimensionar(p, cards);   // religa o cursor de hover
       };
