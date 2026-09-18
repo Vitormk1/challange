@@ -161,7 +161,19 @@ estão em **[RESERVAS.md](RESERVAS.md)** — inclusive a parte que ainda falta.
 
 ## Arquitetura de dados
 
-A carteira Pix, os eventos do webhook e as variáveis da Asaas estão documentados
+Dois desenhos, na raiz do repositório:
+
+| | |
+|---|---|
+| [**arquitetura-do-sistema.png**](arquitetura-do-sistema.png) | os 38 componentes e como o fluxo corre entre eles |
+| [**estrutura-do-banco.png**](estrutura-do-banco.png) | as 17 tabelas, coluna a coluna, com as chaves e o que acontece ao apagar |
+
+O do banco é **gerado do esquema em produção** — criou tabela ou coluna, roda
+de novo e ela aparece. O da arquitetura é escrito à mão, depois de auditar o
+código: quando o sistema mudar, alguém precisa refazer a auditoria. As
+ferramentas ficam fora da árvore do git, de propósito; só as imagens entram.
+
+A carteira, os eventos do webhook e as variáveis da Asaas estão documentados
 em [CARTEIRA.md](CARTEIRA.md).
 
 O mapa completo de como a informação se move entre o painel e o Postgres — tabelas, quem escreve em

@@ -68,20 +68,39 @@ def chamar_openrouter(chave: str, corpo: dict, titulo: str, tempo: int = 45) -> 
 
     Só 429 e 5xx são retentados. 4xx que não seja 429 é erro nosso — prompt
     grande demais, modelo escrito errado — e repetir não conserta.
+
+    **Quatro tentativas, e não duas.** Duas era o suficiente quando o 429 era
+    raro. Medido em 18/09/2026, o provedor que a OpenRouter escolhe para o
+    Mistral Small (DeepInfra) recusou 2 de 3 chamadas seguidas com
+    `engine_overloaded`: com duas tentativas a assistente falhava quase metade
+    das vezes. Com quatro e uma espera que dobra, a chance de sair sem resposta
+    cai para algo perto de 1 em 80, e o custo de errar continua sendo uma
+    chamada a mais — a que falha não é cobrada.
+
+    O que limita não é o número de tentativas, é o relógio: `tempo` é o
+    orçamento TOTAL. Quatro tentativas de 45s mais as esperas dariam três
+    minutos de requisição pendurada, e o Render corta antes disso. Um 429
+    volta em menos de um segundo, então na prática cabem as quatro; se o
+    provedor pendurar, a primeira já gasta o orçamento e desiste — que é o
+    comportamento certo.
     """
     ultimo = None
-    for tentativa in (1, 2):
+    fim = time.monotonic() + tempo
+    for tentativa in (1, 2, 3, 4):
+        restante = fim - time.monotonic()
+        if restante <= 1 and tentativa > 1:
+            break
         try:
             r = requests.post(
-                OPENROUTER_URL, timeout=tempo,
+                OPENROUTER_URL, timeout=max(5.0, restante),
                 headers={"Authorization": f"Bearer {chave}",
                          "Content-Type": "application/json",
                          "X-Title": titulo},
                 json=corpo)
             if r.status_code == 429 or r.status_code >= 500:
                 ultimo = f"HTTP {r.status_code}"
-                if tentativa == 1:
-                    time.sleep(1.5)
+                if tentativa < 4:
+                    time.sleep(min(1.5 * 2 ** (tentativa - 1), max(0.0, fim - time.monotonic())))
                     continue
                 raise HTTPException(503,
                     "A assistente está congestionada agora. Tente de novo em alguns segundos.")
@@ -89,10 +108,18 @@ def chamar_openrouter(chave: str, corpo: dict, titulo: str, tempo: int = 45) -> 
             return r.json()
         except requests.RequestException as erro:
             ultimo = str(erro)
-            if tentativa == 1:
-                time.sleep(1.5)
+            if tentativa < 4:
+                time.sleep(min(1.5 * 2 ** (tentativa - 1), max(0.0, fim - time.monotonic())))
                 continue
             raise HTTPException(502, f"a OpenRouter não respondeu: {ultimo}")
+    # Só se chega aqui pelo `break`: o orçamento acabou antes das quatro. Quem
+    # decide a mensagem é o último erro, e não o motivo da saída — desistir por
+    # falta de tempo depois de três 429 continua sendo congestionamento, e
+    # dizer "não respondeu" mandaria a pessoa procurar o problema no lugar
+    # errado.
+    if ultimo and ultimo.startswith("HTTP "):
+        raise HTTPException(503,
+            "A assistente está congestionada agora. Tente de novo em alguns segundos.")
     raise HTTPException(502, f"a OpenRouter não respondeu: {ultimo}")
 MODELO_PADRAO = "mistralai/mistral-small-24b-instruct-2501"
 
@@ -974,8 +1001,18 @@ def vincular_cliente(cliente_id: int, corpo: dict = Body(...), u: dict = Depends
 #
 # A resposta devolve o layout já normalizado, e o painel adota o que voltou.
 # É assim que um card descartado fica visível em vez de "salvei e sumiu".
+#
+# ⚠️ Esta lista É o objeto CARDS de docs/painel/app.js. Quando um card nasce
+# lá e não chega aqui, a tela o desenha, deixa arrastar, deixa salvar — e o
+# servidor o descarta em silêncio no caminho de volta. Foi o que aconteceu com
+# `demanda`, `bateria` e `cashback`: os três existiam na tela e sumiam ao
+# fechar o seletor. `tests/test_cards.py` compara os dois lados para isso não
+# se repetir.
+#
+# `teto` era o nome antigo do `cashback` e saiu: nenhum painel salvo usa.
 CARDS_PERMITIDOS = {
-    "vaga", "retorno", "teto", "horas", "pontos", "previsao", "curva",
+    "vaga", "retorno", "cashback", "horas", "pontos", "previsao", "curva",
+    "demanda", "bateria",
     "lucro", "vendas", "sessoes", "clientes", "energia", "ticket", "cupons",
 }
 GRUPOS_PERMITIDOS = {"large", "small"}
@@ -983,7 +1020,10 @@ GRUPOS_PERMITIDOS = {"large", "small"}
 # quem não pode — e é justamente aí que mora o perigo: se a tela filtra e
 # depois salva o que está na tela, um operador abrindo um painel
 # compartilhado apaga em silêncio os cards do gerente. Aconteceu.
-CARDS_FINANCEIROS = {"retorno", "teto", "lucro", "vendas", "ticket"}
+CARDS_FINANCEIROS = {"retorno", "cashback", "lucro", "vendas", "ticket",
+                     # Demanda e bateria mostram tarifa, teto contratado e o
+                     # custo de estourar: é conta de dinheiro, não de operação.
+                     "demanda", "bateria"}
 COLUNAS_GRADE, MIN_COLS, MIN_ROWS, MAX_ROWS = 20, 4, 2, 8
 
 

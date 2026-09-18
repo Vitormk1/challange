@@ -22,9 +22,9 @@
    dentro de um `then` seria tarde. Ver docs/painel/carregando.js. */
 const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
 
-import "./static/js/aiEntity.js?v=20260918b";
-import { createTourModule } from "./static/js/tour.js?v=20260918b";
-import { api, BASE, ErroApi } from "./api.js?v=20260918b";
+import "./static/js/aiEntity.js?v=20260918c";
+import { createTourModule } from "./static/js/tour.js?v=20260918c";
+import { api, BASE, ErroApi } from "./api.js?v=20260918c";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -2716,8 +2716,13 @@ function initAssistente(){
       state.conversa.push({papel:"assistant", texto:r.resposta});
     } catch (erro){
       if (erro instanceof ErroApi && erro.semSessao) return mostrarLogin("Sua sessão expirou. Entre de novo.", "erro");
-      const motivo = erro instanceof ErroApi && erro.status === 503
-        ? "O assistente não está configurado neste servidor (falta a chave da OpenRouter)."
+      /* A mensagem vem do servidor, e não de um palpite daqui.
+         Antes, qualquer 503 virava "falta a chave da OpenRouter" — e 503 é
+         justamente o que o servidor devolve quando o provedor está lotado,
+         que é o caso comum. Quem lia ia procurar uma chave que estava certa,
+         configurada, e não tinha nada a ver com o problema. */
+      const motivo = erro instanceof ErroApi && erro.message && erro.status !== 0
+        ? erro.message
         : "Não consegui responder agora. Tente de novo em instantes.";
       dizer(motivo, "assistant");
       aviso("O assistente não respondeu", "erro", {detalhe: motivo});

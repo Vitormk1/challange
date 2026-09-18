@@ -142,8 +142,40 @@ async function carregarMelhorHora(){
     return;                        // seção continua escondida; o resto da tela serve
   }
 
-  const uteis = (dados.lojas || []).filter(l => l.mais_barato || l.mais_cashback);
-  if (!uteis.length) return;
+  const lojas = dados.lojas || [];
+  if (!lojas.length) return;
+
+  const uteis = lojas.filter(l => l.mais_barato || l.mais_cashback);
+
+  /* Nenhuma loja tem hora melhor à frente — e isso é a maior parte do dia.
+     Fora da ponta não há preço melhor a sugerir, e perto do meio-dia o sol já
+     está no pico. Antes a seção inteira ficava escondida nessas horas, o que
+     fazia a funcionalidade não existir para quem abrisse o app de dia.
+
+     "Agora é a melhor hora" é resposta, e é a que a pessoa precisa para
+     decidir carregar em vez de esperar. Escolhe a loja pelo que ela oferece
+     agora: primeiro o maior multiplicador de cashback, depois o menor preço. */
+  if (!uteis.length){
+    const melhor = [...lojas].sort((a, b) =>
+      (b.agora.cashback_fator - a.agora.cashback_fator) ||
+      (a.agora.preco_kwh_brl - b.agora.preco_kwh_brl))[0];
+
+    bloco.hidden = false;
+    if (outras) outras.hidden = true;
+    alvo.innerHTML = `
+      <p class="melhor-hora-loja">${melhor.estabelecimento_nome}</p>
+      <p class="melhor-hora-destaque">
+        <b>Agora</b>
+        <span>é a melhor hora nas próximas 12 horas</span>
+      </p>
+      <p class="melhor-hora-agora">
+        ${melhor.agora.em_ponta ? "Horário de ponta" : "Fora de ponta"}
+        · ${textoDoFator(melhor.agora.cashback_fator)}
+      </p>`;
+    if (nota) nota.textContent = "Nenhuma loja fica mais barata ou paga mais " +
+      "crédito nas próximas horas. Se for carregar hoje, é agora.";
+    return;
+  }
 
   /* Duas razões para esperar, e a tela escolhe qual contar primeiro. Preço
      ganha de cashback: a economia sai do bolso agora, o crédito só vale na

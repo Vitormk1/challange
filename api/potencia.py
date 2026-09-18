@@ -345,9 +345,14 @@ def registrar_potencia(app, usuario_atual):
                 continue                      # loja sem preco cadastrado nao opina
             r = melhor_hora_de_carregar(local, agora)
             barato, credito = r["mais_barato"], r["mais_cashback"]
-            if not barato and not credito:
-                continue                      # nada a sugerir nesta loja agora
+            # Loja sem nada melhor a frente NAO e descartada. "Agora e a
+            # melhor hora" e resposta, e e a resposta certa na maior parte do
+            # dia: fora da ponta nao ha preco melhor a sugerir, e perto do
+            # meio-dia o sol ja esta no pico. Descartar essas lojas esvaziava
+            # a lista, a secao inteira ficava escondida, e a funcionalidade
+            # simplesmente nao existia para quem abrisse o aplicativo de dia.
             lojas.append({
+                "nada_melhor_a_frente": not barato and not credito,
                 "estabelecimento_id": l["id"],
                 "estabelecimento_nome": l["nome"],
                 "agora": {
@@ -370,6 +375,9 @@ def registrar_potencia(app, usuario_atual):
         # mais que credito porque sai do bolso na hora; o credito so vale na
         # proxima compra. Empate: nome, para a ordem nao dancar a cada
         # atualizacao da tela.
+        # Quem nao tem nada a ganhar esperando vai para o fim, mas continua na
+        # lista: a tela usa a primeira dessas para dizer "agora e a melhor
+        # hora" quando nenhuma loja tem sugestao.
         def ganho(x):
             p = x["mais_barato"]["economia_pct"] if x["mais_barato"] else 0.0
             c = 100.0 * (x["mais_cashback"]["vezes_mais"] - 1) if x["mais_cashback"] else 0.0
