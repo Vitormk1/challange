@@ -1,0 +1,70 @@
+/* ==========================================================================
+   Acompanhar a recarga — a tela que o QR abre
+
+   Usa os tokens do cliente.css. O que muda aqui é a hierarquia: quem abriu
+   esta página quer UM número, e ele fica do tamanho de um número que se lê
+   de relance, com o telefone na mão e o carro do lado.
+   ========================================================================== */
+
+.sessao-marca { border-radius: 9px; }
+
+.sessao-estado {
+  align-self: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--cl-primaria-fraca);
+  color: var(--cl-primaria);
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+  white-space: nowrap;
+}
+.sessao-estado.is-concluida { background: rgba(12,107,69,.12); color: var(--cl-ok); }
+.sessao-estado.is-interrompida { background: rgba(120,120,130,.14); color: var(--cl-suave); }
+
+.sessao-carga { text-align: center; }
+
+.sessao-pct {
+  margin: 4px 0 0;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.sessao-pct b { font-size: 4.6rem; font-weight: 700; }
+.sessao-pct i { font-size: 1.6rem; font-style: normal; color: var(--cl-suave); margin-left: 4px; }
+
+.sessao-barra {
+  height: 10px;
+  margin: 18px 0 0;
+  border-radius: 999px;
+  background: var(--cl-linha);
+  overflow: hidden;
+}
+.sessao-barra span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: var(--cl-ok);
+  transition: width .6s ease;
+}
+
+.sessao-linha {
+  display: flex;
+  justify-content: center;
+  gap: 34px;
+  margin: 18px 0 0;
+}
+.sessao-linha span { display: grid; gap: 2px; }
+.sessao-linha b { font-size: 1.12rem; font-weight: 700; }
+.sessao-linha i {
+  font-style: normal;
+  font-size: .76rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--cl-suave);
+}
+
+/* O aviso de vaga ocupada é a única coisa desta tela que pede ação. Ganha
+   cor de alerta, e só aparece quando há o que avisar. */
+.sessao-aviso { border-color: var(--cl-primaria); }
+.sessao-aviso p { margin: 0; font-size: .92rem; line-height: 1.5; }

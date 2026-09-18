@@ -721,7 +721,12 @@ CAMPOS_EDITAVEIS = {
                          "fidelidade_tipo", "fidelidade_cashback_pct",
                          "fidelidade_tiers_desconto_inicial_pct", "fidelidade_tiers_a_partir_da_compra",
                          "fidelidade_tiers_desconto_top_pct",
-                         "fidelidade_creditos_reais_por_credito", "fidelidade_creditos_minutos_por_credito"},
+                         "fidelidade_creditos_reais_por_credito", "fidelidade_creditos_minutos_por_credito",
+                         # Leilao de potencia: o premio por aceitar carregar
+                         # mais devagar quando falta folga na loja.
+                         "leilao_ativo", "leilao_teto_fator",
+                         "leilao_op1_potencia_pct", "leilao_op1_fator",
+                         "leilao_op2_potencia_pct", "leilao_op2_fator"},
 }
 
 
@@ -1116,6 +1121,9 @@ registrar_reservas(app, usuario_atual)
 
 from potencia import registrar_potencia
 registrar_potencia(app, usuario_atual)
+
+from telinha import registrar_telinha
+registrar_telinha(app)
 
 # ---------------------------------------------------------------- perfil ---
 

@@ -2534,9 +2534,12 @@ function renderFidelidade(){
       </div>
       <div class="fidelidade-opcoes" role="radiogroup" aria-label="Modelo de fidelidade">${cartoes}</div>
       ${config}
-    </article>`;
+    </article>
+    ${blocoLeilao(e, editavel)}`;
 
   if (!editavel) return;
+  const fl = $("#formLeilao");
+  if (fl) fl.onsubmit = salvarLeilao;
 
   $$("[data-fidelidade-opcao]", $("#screen-fidelidade")).forEach(b => b.onclick = () => {
     fidelidadeSelecao = b.dataset.fidelidadeOpcao;
@@ -2545,6 +2548,105 @@ function renderFidelidade(){
   const form = $("#formFidelidade");
   if (form) form.onsubmit = salvarFidelidade;
 }
+
+/* ==========================================================================
+   Leilao de potencia
+
+   Mora na tela de Fidelidade, e nao numa aba propria, porque e a mesma moeda:
+   o premio por aceitar carregar devagar e um multiplicador em cima do cashback
+   que a loja ja devolve. Separar em duas telas faria o lojista configurar
+   incentivo em dois lugares sem perceber que um multiplica o outro.
+
+   Duas opcoes, e nao uma lista livre. A escolha aparece na telinha da vaga,
+   para alguem em pe ao lado do carro: tres botoes cabem, seis nao.
+   ========================================================================== */
+const LEILAO_CAMPOS = [
+  {k:"leilao_op1_potencia_pct", r:"Opção 1 — % da potência", t:"number", passo:"5",
+   ajuda:"Quanto da potência da vaga esta opção entrega. O resto volta para quem tem pressa."},
+  {k:"leilao_op1_fator", r:"Opção 1 — multiplicador do cashback", t:"number", passo:"0.1"},
+  {k:"leilao_op2_potencia_pct", r:"Opção 2 — % da potência", t:"number", passo:"5"},
+  {k:"leilao_op2_fator", r:"Opção 2 — multiplicador do cashback", t:"number", passo:"0.1"},
+  {k:"leilao_teto_fator", r:"Teto do multiplicador", t:"number", passo:"0.1",
+   ajuda:"O sistema nunca passa disto, mesmo somando com o bônus de sol. Protege a margem."},
+];
+
+function blocoLeilao(e, editavel){
+  const ligado = !!e.leilao_ativo;
+  return `<article class="table-card">
+    <div class="table-toolbar">
+      <div class="toolbar-left"><h3 class="table-title">Leilão de potência</h3></div>
+      <div class="toolbar-right"><span class="table-meta">${
+        ligado ? "Ligado — a telinha pergunta quando falta folga" : "Desligado"}</span></div>
+    </div>
+    <div class="fidelidade-config">
+      <div class="card-heading">
+        <div><h3>Quando falta potência, a vaga pergunta em vez de cortar</h3>
+        <p>Com vários carros disputando a mesma folga, a telinha oferece carregar
+        mais devagar em troca de mais cashback. Quem tem pressa continua levando
+        a potência cheia — e leva mais, porque alguém abriu mão.</p></div>
+      </div>
+      <form class="inline-form" id="formLeilao">
+        <label class="campo-form">
+          <span>Leilão ativo</span>
+          <select data-campo="leilao_ativo" ${editavel ? "" : "disabled"}>
+            <option value="false" ${ligado ? "" : "selected"}>Não</option>
+            <option value="true"  ${ligado ? "selected" : ""}>Sim</option>
+          </select>
+        </label>
+        ${LEILAO_CAMPOS.map(c => campoHtml(c, e[c.k])).join("")}
+        <div class="filter-modal-actions">
+          <button class="primary-button" type="submit" ${editavel ? "" : "disabled"}>Salvar leilão</button>
+        </div>
+      </form>
+      <div class="refresh-status" id="leilaoStatus" aria-live="polite"></div>
+    </div>
+  </article>`;
+}
+
+async function salvarLeilao(ev){
+  ev.preventDefault();
+  const payload = {leilao_ativo: $("#formLeilao [data-campo=leilao_ativo]").value === "true"};
+  for (const c of LEILAO_CAMPOS){
+    const el = $(`#formLeilao [data-campo="${c.k}"]`);
+    payload[c.k] = el.value === "" ? null : Number(el.value);
+  }
+
+  /* Conferir aqui e cortesia, nao seguranca -- o banco tem CHECK nas mesmas
+     faixas. Mas um 429 do servidor nao diz QUAL campo estava errado, e o
+     lojista ficaria adivinhando. */
+  if (payload.leilao_ativo){
+    const teto = payload.leilao_teto_fator || 2;
+    for (const [pct, fator, nome] of [
+        [payload.leilao_op1_potencia_pct, payload.leilao_op1_fator, "Opção 1"],
+        [payload.leilao_op2_potencia_pct, payload.leilao_op2_fator, "Opção 2"]]){
+      if (pct === null && fator === null) continue;
+      if (pct === null || fator === null){
+        toast(`${nome}: preencha os dois campos ou deixe os dois vazios.`, "error"); return;
+      }
+      if (pct < 10 || pct > 100){ toast(`${nome}: a potência vai de 10% a 100%.`, "error"); return; }
+      if (fator < 1){ toast(`${nome}: o multiplicador não pode ser menor que 1 — seria punir quem espera.`, "error"); return; }
+      if (fator > teto){ toast(`${nome}: o multiplicador passa do teto de ${teto}×.`, "error"); return; }
+    }
+    if (payload.leilao_op1_potencia_pct === null && payload.leilao_op2_potencia_pct === null){
+      toast("Ligue pelo menos uma opção, senão não há o que oferecer.", "error"); return;
+    }
+  }
+
+  const botao = $("#formLeilao button[type=submit]");
+  botao.disabled = true;
+  try {
+    await comAviso("Salvando leilão de potência...",
+      () => api.alterar("estabelecimentos", loja().id, payload),
+      {sucesso: "Leilão atualizado",
+       detalhe: payload.leilao_ativo
+         ? "A telinha passa a perguntar quando faltar folga."
+         : "A vaga volta a entregar o que couber, sem perguntar."});
+    await carregarDados();
+    renderTudo();
+  } catch { /* comAviso ja mostrou */ }
+  finally { if (botao) botao.disabled = false; }
+}
+
 
 async function salvarFidelidade(ev){
   ev.preventDefault();

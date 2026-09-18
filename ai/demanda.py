@@ -321,6 +321,67 @@ def repartir(pedidos_kw: list[float], disponivel_kw: float) -> list[float]:
 # venha. Seis horas cobrem a distancia entre o sol da tarde e a ponta.
 HORIZONTE_BATERIA_H = 6.0
 
+def ha_disputa(pedidos_kw: list[float], disponivel_kw: float) -> bool:
+    """Se todos levarem o que pediram, estoura? Entao ha o que leiloar.
+
+    Sem disputa o leilao nao deve nem aparecer: perguntar "aceita menos?" a
+    quem poderia levar tudo e pedir desconto sem motivo, e a pessoa aprende a
+    ignorar a pergunta -- inclusive no dia em que ela importa.
+    """
+    return sum(pedidos_kw) > disponivel_kw + 1e-9
+
+
+@dataclass(frozen=True)
+class Oferta:
+    """Uma linha do leilao, ja traduzida para o que a pessoa ve na telinha."""
+
+    rotulo: str
+    potencia_pct: float          # quanto da potencia da vaga ela aceita
+    potencia_kw: float           # o que isso da em kW, aqui e agora
+    cashback_fator: float        # multiplicador final, hora + paciencia
+    minutos_a_mais: float        # o preco da escolha, em tempo
+
+
+def ofertas_de_leilao(nominal_kw: float, disponivel_kw: float, fator_hora: float,
+                      opcoes: list[tuple[float, float]], teto_fator: float = 2.0,
+                      energia_kwh: float = 20.0) -> list[Oferta]:
+    """Traduz a configuracao da loja no que a telinha mostra.
+
+    `opcoes` sao os pares (percentual da potencia, multiplicador) que o lojista
+    definiu no painel. A primeira linha da lista de volta e sempre a potencia
+    cheia, sem premio: a escolha de nao participar precisa estar na tela com o
+    mesmo peso das outras, senao vira pegadinha.
+
+    `minutos_a_mais` e o que torna a escolha honesta. Dizer "aceite 40% e ganhe
+    o dobro de cashback" sem dizer que isso custa quarenta minutos e vender
+    sem mostrar o preco. A conta e simples de proposito -- energia dividida por
+    potencia --, e nao a curva de recarga: a curva depende do estado da bateria
+    do carro, que a telinha so sabe depois de plugar, e a oferta precisa
+    aparecer antes.
+    """
+    cheia_kw = min(nominal_kw, disponivel_kw) if disponivel_kw > 0 else 0.0
+    horas = lambda kw: (energia_kwh / kw) if kw > 0 else 0.0
+    base_h = horas(cheia_kw)
+
+    ofertas = [Oferta("Potência cheia", 100.0, round(cheia_kw, 2),
+                      round(fator_hora, 2), 0.0)]
+    for pct, bonus in opcoes:
+        if not pct or not bonus:
+            continue
+        kw = min(nominal_kw * pct / 100.0, max(0.0, disponivel_kw))
+        if kw <= 0:
+            continue
+        fator = min(fator_hora * bonus, teto_fator)
+        ofertas.append(Oferta(
+            rotulo=f"{int(pct)}% da potência",
+            potencia_pct=float(pct),
+            potencia_kw=round(kw, 2),
+            cashback_fator=round(fator, 2),
+            minutos_a_mais=round(max(0.0, horas(kw) - base_h) * 60.0),
+        ))
+    return ofertas
+
+
 FATOR_PONTA = 0.5          # na ponta o credito cai pela metade
 FATOR_SOL = 1.5            # com sol sobrando, uma vez e meia
 FATOR_NORMAL = 1.0
