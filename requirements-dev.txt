@@ -1,2 +1,12 @@
 -r requirements.txt
-httpx>=0.28,<1
+
+# Só para os testes: o TestClient do Starlette não vem com cliente HTTP.
+#
+# httpx2, e nao httpx. A partir do Starlette 1.6 o TestClient importa httpx2 e
+# levanta RuntimeError se nao achar -- com httpx instalado no lugar, as duas
+# suites que usam TestClient nem importam, e o `discover` roda 67 dos 97 testes.
+# O erro que ele mostra e de import e passa batido; o que denuncia e o total.
+#
+# Fica fora do requirements.txt de proposito: o Render nao tem por que
+# instalar cliente de teste em producao.
+httpx2>=2.13

@@ -197,8 +197,9 @@ recebe. Criado só por `main`.
 manda no máximo 800 — o resto continua no banco, que é onde tem que ficar.
 
 **`cupons`** — `codigo` (único), `sessao_id`, `desconto_brl`, `emitido_em`, `usado_em`,
-`expira_em`. É o **mecanismo de atribuição**: a telinha emite o código no fim da recarga, a pessoa
-digita no caixa, e é isso que liga a venda àquela recarga.
+`expira_em`. É o **mecanismo de atribuição**: o código sai no fim da recarga, a pessoa digita no
+caixa, e é isso que liga a venda àquela recarga. Hoje quem escreve aqui é só o `seed.py` — ver a
+pendência na seção 8.
 
 **`vendas`** — `estabelecimento_id`, `cupom_id`, `sessao_id`, `valor_brl`, `momento`. Só entram
 vendas com cupom: sem cupom digitado, não há como afirmar que o carregador trouxe aquela compra.
@@ -295,17 +296,33 @@ guarda. Uma preferência nova não exige mexer no servidor.
 
 1. Motorista encosta na vaga e pluga. A **telinha** (`docs/vaga/`) mostra tempo até 80%, tempo até
    cheio e o custo — previsão de `ai/charge_curve.py`, modelo CC-CV com joelho derivado do C-rate.
-2. Nasce uma linha em `sessoes` com `previsao_fim` e `previsao_custo_brl` **gravadas no início**.
-3. Enquanto carrega, uma linha em `leituras` a cada 5 minutos.
-4. Fim da recarga: `fim`, `energia_kwh`, `soc_final`, `custo_energia_brl` e — se o ponto for `pago`
-   — `valor_cobrado_brl`.
-5. **Toda recarga** emite um `cupom` com o cashback daquela sessão. A pessoa digita no caixa.
+   Se faltar folga na rede e houver outro carro pedindo, ela pergunta antes de começar: é o
+   **leilão de potência**, menos kW em troca de mais crédito.
+2. `POST /vagas/{id}/sessao` abre a linha em `sessoes` e devolve um `token` — o segredo do QR.
+   Se o motorista aceitou uma oferta, `leilao_potencia_pct` e `leilao_fator` ficam gravados ali.
+3. Enquanto carrega, `POST /sessoes/{token}/leitura` a cada minuto grava uma linha em `leituras`
+   e atualiza a sessão: `energia_kwh`, `valor_cobrado_brl`, `cashback_brl` e `custo_energia_brl`.
+   O custo vai **por incremento**, com a tarifa da hora em que cada pedaço foi entregue — uma
+   recarga que atravessa as 18h não pode ter a energia da tarde reprecificada pela ponta.
+4. Em paralelo, quem leu o QR acompanha em `GET /s/{token}`, sem login e sem instalar nada.
+   Token e não id sequencial: id na URL deixaria qualquer um varrer as recargas dos outros.
+5. Fim da recarga: `situacao` vira `concluida` e entra o `fim`.
 6. O caixa lança a `venda` com o `cupom_id`. **É só aqui que a venda vira "atribuída".**
 7. **Painel**: `GET /dados` traz tudo, `metricas()` soma no navegador e os cards desenham. Não há
    WebSocket — é carregamento explícito, como no BMS.
 
-> **Etapa 1 a 4 hoje vêm do `seed.py`.** Quando o carregador falar OCPP, entra um processo separado
-> escrevendo `sessoes` e `leituras`, e a seção 1 deste arquivo precisa ganhar a linha dele.
+> **O elo 5 → 6 ainda não fecha sozinho.** Quem escreve em `cupons` hoje é só o `seed.py`. Uma
+> sessão aberta pela telinha calcula o `cashback_brl` e para ali: ela não tem `cliente_id`, porque
+> não há login no carregador, então não existe a quem atribuir o crédito. O caminho natural é o
+> motorista reivindicar a sessão pelo QR — ele já está logado no celular, e o token prova que
+> esteve ao lado daquela vaga. **Está pendente.**
+
+> **Sem rede, nada dos passos 2 a 5 acontece** e a recarga corre só no navegador, como antes de a
+> telinha ter servidor. É deliberado: tela apagada ao lado da vaga é pior que nenhuma tela.
+
+> **Os trinta dias de histórico vêm do `seed.py`.** Quando o carregador falar OCPP, as leituras
+> deixam de vir da telinha e passam a vir do equipamento, e a seção 1 deste arquivo precisa ganhar
+> a linha dele.
 
 ---
 

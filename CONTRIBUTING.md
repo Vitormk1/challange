@@ -194,6 +194,35 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000 --app-dir api --reload
 
 Abre em <http://127.0.0.1:8000/painel/>.
 
+### 4. Rodar os testes
+
+```bash
+pip install -r requirements-dev.txt
+python -m unittest discover -s tests
+```
+
+São **97 testes**, e nenhum deles precisa de rede ou de banco — dá para rodar
+com o `.env` vazio. Rode antes de abrir o PR.
+
+O `requirements-dev.txt` existe só por causa do `TestClient` do Starlette, que
+não traz cliente HTTP. A partir do Starlette 1.6 ele quer **`httpx2`**, e não o
+`httpx` — com o pacote errado instalado, as duas suítes que usam `TestClient`
+nem importam e o `discover` roda **67 em vez de 97**. Ele acusa dois erros, mas
+a mensagem é de import e passa batido. O que denuncia é o total: confira o
+número.
+
+### 5. Conferir contra a produção
+
+```bash
+set -a && . ./.env && set +a
+python api/auditoria.py https://smartcharge.ia.br        # 91 de 91
+python api/conferir_fluxos.py https://smartcharge.ia.br  # 81 de 81
+```
+
+Os dois rodam **contra o que está no ar**, não contra um ambiente de teste. O
+`conferir_fluxos` cria um motorista de teste e o apaga no fim. Nenhum dos dois
+cria cobrança na Asaas, que está em produção.
+
 ---
 
 ## ⚠️ O banco é compartilhado — cuidado com o seed

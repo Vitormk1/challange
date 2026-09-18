@@ -17,8 +17,9 @@ Recarga de veículos elétricos **como ativo comercial**. Dois produtos, um sist
 | **Apresentação** | <https://smartcharge.ia.br/painel/> | a própria API |
 | **Painel do lojista** | `.../painel/dashboard.html` | a própria API |
 | **Mapa de carregadores** | `.../painel/mapa.html` | a própria API |
+| **Telinha da vaga** | `.../vaga/?id=23` | a própria API |
 | **Dossiê** | `vitormk1.github.io/challange/` | GitHub Pages |
-| **Telinha da vaga** | `vitormk1.github.io/challange/vaga/` | GitHub Pages |
+| **Telinha sem servidor** | `vitormk1.github.io/challange/vaga/` | GitHub Pages |
 
 `/painel/` é a porta de entrada e não pede login: dali saem os dois caminhos,
 o painel (que pede) e o mapa (que não pede).
@@ -30,8 +31,20 @@ responde 200 e a requisição seguinte volta 401. Servindo a página pela própr
 API, o cookie é de primeira parte, `SameSite=Lax` basta e o CORS deixa de
 existir. O porquê inteiro está em [HOSPEDAGEM.md](HOSPEDAGEM.md), seção 4.
 
-O dossiê e a telinha continuam no Pages porque são estáticos de verdade — não
-têm login nem banco. A cópia do painel que ficou lá só redireciona.
+O dossiê continua no Pages porque é estático de verdade. A cópia do painel que
+ficou lá só redireciona.
+
+A telinha existe nos dois lugares, e a diferença importa. Servida pela API,
+com `?id=` de uma vaga real, ela **abre uma sessão de verdade**: entra no
+histórico da loja, mostra o QR que o motorista lê para acompanhar do celular,
+e roda o leilão de potência quando falta folga na rede. No Pages ela roda
+sozinha, em modo de demonstração — as chamadas são relativas e não encontram a
+API, então cai no caminho de sempre e a recarga corre no navegador.
+
+Isso é de propósito, e é a propriedade que nenhuma outra tela do sistema tem:
+uma tela ao lado do carregador precisa continuar acesa com a internet da loja
+fora do ar, que é justamente quando ela mais importa. A degradação é por
+funcionalidade, não por tela quebrada.
 
 ---
 
@@ -39,9 +52,14 @@ têm login nem banco. A cópia do painel que ficou lá só redireciona.
 
 ```
 docs/
-  index.html        o dossiê do projeto
+  index.html        o dossiê do projeto (servido pelo GitHub Pages)
   img/              a logo, em três tamanhos (256, 180 e 32)
-  vaga/             a telinha da vaga · serve também o celular pelo QR
+  vaga/
+    index.html      a telinha da vaga · mostra o QR que o motorista lê
+    vaga.js         a recarga: curva, custo e cashback, tudo no navegador
+    online.js       o outro lado — abre a sessão no servidor, roda o leilão
+                    de potência e busca o QR. Sem rede, nada disso aparece
+                    e a recarga corre como antes
   painel/
     index.html      o site de apresentação
     site.css        a folha dele — independente da referência
@@ -51,6 +69,14 @@ docs/
     mapa.js         Leaflet, pinos e a lista lateral
     dashboard.html  a página inteira: login, painel e os diálogos
     app.js          o painel — cards, edição, avisos, ditado, gráficos
+    cliente.html    o app do motorista: fidelidade, reservas e melhor hora
+    cliente.js      o que preenche essa tela
+    sessao.html     acompanhar a recarga no celular, sem login — é para onde
+    sessao.js       o QR da telinha leva
+    carteira.html   saldo, extrato e as cobranças Pix/boleto/cartão
+    entrar.html     login e cadastro
+    verificar.html  confirmação de e-mail
+    ajustes.html    perfil, foto e senha
     api.js          a conversa com a API, e o redirecionamento do Pages
     style.css       a folha da referência (447 KB), copiada sem alterar layout
     marca.css       a identidade preto-e-vermelho: só tokens de cor
@@ -65,15 +91,28 @@ api/
   auth.py           senhas (scrypt), sessões e o que cada papel pode fazer
   main.py           a API: login, dados por papel, painéis salvos, assistente
                     e transcrição de áudio — e serve o painel
+  carteira.py       a carteira do motorista e a integração com a Asaas
+  reservas.py       reservar uma vaga, e os R$ 10 que voltam na recarga
+  potencia.py       gerenciamento de demanda: folga, repartição, melhor hora
+  telinha.py        as sessões da vaga: leilão de potência, leituras e o QR
+  correio.py        envio de e-mail pela Resend, por HTTP
+  protecao.py       limite de tentativas, cabeçalhos de segurança e HSTS
+  exportar.py       despeja o banco num JSON, para conferência e backup
   seed.py           trinta dias de operação de três lojas, para demonstração
                     (APAGA o banco antes de recriar; pergunta antes)
-  exportar.py       despeja o banco num JSON, para conferência e backup
+  semear_*.py       cargas pontuais: mapa, demanda, bateria e a conta de demo
   trocar_senha.py   troca a senha de um usuário, antes de publicar
-  protecao.py       limite de tentativas, cabeçalhos de segurança e HSTS
+  testar_email.py   confere a configuração de e-mail sem mandar de verdade
   auditoria.py      dispara requisições reais contra a API e diz o que passou
+  conferir_fluxos.py percorre os fluxos de ponta a ponta, contra a produção
+  validar_armazenamento.py  confere que nada sensível foi parar onde não devia
 ai/
+  demanda.py        gerenciamento de demanda de potência — o único módulo de
+                    análise chamado em execução (por potencia, reservas e
+                    telinha): folga, repartição, bateria, leilão, melhor hora
   charge_curve.py   previsão de tempo de recarga (o núcleo do produto)
   break_even.py     até que percentual de cashback se paga, por segmento
+tests/              97 testes, sem rede e sem banco
 render.yaml         a configuração do serviço, versionada
 ```
 
@@ -419,6 +458,53 @@ comparação usa o mesmo código**, e o erro contra o realizado aparece no paine
 
 ---
 
+## Gerenciamento de demanda de potência
+
+`ai/demanda.py` é função pura, sem banco e sem relógio, e é isso que a pureza
+compra: dá para testar o pior caso — meio-dia de verão, ponta com a bateria
+vazia, quatro carros pedindo junto — sem servidor e sem esperar o dia chegar.
+São 53 dos 97 testes.
+
+**O teto.** A loja tem uma demanda contratada. O que os carregadores podem puxar
+é o que sobra dela depois da carga base da própria loja, com uma margem de
+segurança. No Grupo A ultrapassar gera penalidade faturada; no Grupo B não há
+demanda contratada e o teto vale como limite do disjuntor. O módulo guarda o
+grupo para a tela dizer a verdade em cada caso.
+
+**A repartição.** Quando o pedido passa do teto, a potência é repartida por
+*water-filling* — max-min justo. Quem pede pouco recebe tudo que pediu; o
+aperto cai sobre quem pede muito. Não é fila e não é divisão igual: dividir
+igual puniria o carro pequeno para aliviar o grande.
+
+**O sol muda o cashback.** Quando a geração solar passa do consumo da loja, a
+energia que sobra é mais barata que vendê-la de volta à rede. O `fator_cashback`
+multiplica o crédito nessas horas — o motorista ganha mais por carregar quando
+convém à loja, sem ninguém negociar nada.
+
+**Melhor hora, no app do motorista.** A conta de qual hora é mais barata já
+existia e só a telinha usava. Quem decide a hora de carregar, porém, é quem
+dirige. O card mostra duas coisas separadas, e não uma média: a hora mais barata
+(que vem da tarifa) e a hora de mais crédito (que vem do sol sobrando). Somar as
+duas num índice único daria um número que ninguém sabe ler.
+
+**A bateria olha as reservas.** A meta de carga da bateria não é uma regra fixa
+do tipo "carregue de madrugada": ela é calculada a partir do que as reservas do
+dia prometem puxar. O horizonte é de 6 horas — sem ele a meta só apareceria
+dentro da ponta, quando já é tarde para carregar barato.
+
+**O leilão de potência.** Quando falta folga *e* há outro carro pedindo, a
+telinha pergunta antes de começar: menos kW entregues em troca de mais crédito.
+O lojista configura as opções no painel, com um teto de multiplicador.
+
+O prêmio só vale se três coisas forem verdade ao mesmo tempo: a loja oferece
+aquela opção, o leilão está ligado, e **há disputa agora**. A terceira não é
+detalhe — sem ela bastaria mandar a escolha numa loja vazia para levar o dobro
+de cashback sem abrir mão de nada, e a loja pagaria prêmio por uma escassez que
+não existe. O prêmio compra potência de volta; sem ninguém na fila, não há o
+que comprar.
+
+---
+
 ## Modelo de negócio
 
 **Recarga paga, com cashback na loja.** O motorista paga a energia por kWh — a
@@ -431,6 +517,36 @@ O percentual de cashback é configurado por ponto, e o painel calcula até onde
 ele se paga: margem da energia + lucro da visita − amortização do equipamento,
 sobre o valor médio cobrado por recarga. O teto é travado em 100%, porque
 devolver mais do que a pessoa pagou não é cashback.
+
+### A cadeia da tarifa
+
+| degrau | onde mora | quanto |
+|---|---|---|
+| a distribuidora cobra da loja | `estabelecimentos.tarifa_kwh_brl` | R$ 0,7890/kWh |
+| na ponta, 18h–21h em dia útil | `tarifa_ponta_kwh_brl` | R$ 2,1500/kWh |
+| a loja cobra do motorista | `carregadores.preco_kwh_brl` | 1,15× a 3,04× a tarifa |
+| o que sobra | a margem da recarga | o resto |
+
+A tarifa base vem da Enel SP, Resolução Homologatória ANEEL 3.596/2026 — a
+ANEEL homologa a mesma para todo o grupo B convencional, e o custo efetivo
+varia com o ICMS e o regime tributário de cada loja.
+
+**O markup é do lojista, ponto a ponto.** Não há um número imposto pelo
+sistema: os 36 pontos em produção vão de 1,15× a 3,04×, mediana 1,65×. O
+`ai/break_even.py` mostra a sensibilidade — nenhum segmento fica negativo entre
+1,40× e 2,00×, e o caso que aperta é o supermercado, que é justamente o que
+não se pagava no modelo de cortesia.
+
+**Na ponta a margem da energia é negativa**, e isso não é um furo. A R$ 2,15/kWh
+a loja compra mais caro do que quase todo ponto cobra. Na ponta a recarga se
+paga pela **visita**, não pela energia — e é exatamente por isso que existem a
+bateria (carregada fora da ponta, olhando as reservas do dia) e o leilão de
+potência (menos kW entregues em troca de mais crédito).
+
+Cada sessão grava os dois lados: `valor_cobrado_brl` é o que o motorista pagou,
+`custo_energia_brl` é o que a energia custou à loja. O custo vai por incremento,
+com a tarifa da hora em que cada pedaço foi entregue — uma recarga que atravessa
+as 18h não pode ter a energia da tarde reprecificada pelo preço da noite.
 
 > **Modelo anterior, descontinuado.** Até 2026 havia um modo "cortesia": a
 > energia saía de graça até um teto em kWh e a loja absorvia o custo como
