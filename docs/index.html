@@ -176,6 +176,15 @@
     margin-top:12vh;padding:34px 0 12vh;border-top:1px solid var(--rule);
     font-size:.82rem;color:var(--ink-3);display:flex;flex-direction:column;gap:8px;
   }
+
+  /* Prints das telas novas. A legenda fica FORA da moldura e em cinza: ela
+     explica, não compete com a imagem. */
+  .print{margin:26px 0 0}
+  .print img{width:100%;height:auto;display:block;border-radius:14px;
+             border:1px solid var(--line);background:#0b0c0e}
+  .print figcaption{margin:10px 2px 0;font-size:.86rem;line-height:1.5;color:var(--ink-3)}
+  .prints{display:grid;gap:20px;margin:26px 0 0}
+  @media (min-width:760px){ .prints.duo{grid-template-columns:1.35fr 1fr;align-items:start} }
 </style>
 <link rel="stylesheet" href="./painel/carregando.css?v=20260918a">
 <script src="./painel/carregando.js?v=20260918a"></script>
@@ -487,6 +496,66 @@
       <a href="vaga/?full=1">Em tela cheia, como fica na parede →</a><br>
       <span style="font-size:.86rem;color:var(--ink-3);display:inline-block;margin-top:10px">O cenário muda pela barra de endereço:<br>
       <code>vaga/?soc=0.55&amp;compra=80&amp;ponto=22</code> — carro em 55%, R$ 80 de compra já registrada, ponto de 22 kW.</span></p>
+    </div>
+  </section>
+
+  <section>
+    <h3>Leilão de potência: a vaga pergunta em vez de cortar</h3>
+    <div class="body">
+      <p>Quando vários carros disputam a mesma folga, o sistema divide a potência pelo que cada bateria realmente aceita. É justo, e ignora a única informação que só o motorista tem: <strong>se ele tem pressa</strong>. Quem vai ficar duas horas no mercado não precisa de 50 kW. Quem parou dez minutos, precisa.</p>
+      <p>Então a vaga pergunta. <strong>Aceitar menos potência rende mais cashback</strong> — o mesmo multiplicador que já existia para o horário, agora também para a paciência. Não é moeda nova: é o crédito da loja, multiplicado.</p>
+      <p>Duas regras que a tela respeita, e que são o que separa isso de um truque:</p>
+      <ul class="plain">
+        <li><strong>A oferta só aparece quando falta potência de verdade.</strong> Perguntar "aceita menos?" a quem poderia levar tudo é pedir desconto sem motivo — e a pessoa aprende a ignorar a pergunta, inclusive no dia em que ela importa.</li>
+        <li><strong>Cada opção diz o preço em minutos.</strong> Oferecer o dobro de cashback sem dizer que custa 56 minutos é vender sem mostrar a etiqueta.</li>
+      </ul>
+      <p>A potência cheia é a primeira da lista e do mesmo tamanho das outras. Quem não quer participar não deve ter que procurar a saída.</p>
+    </div>
+    <figure class="print">
+      <img src="./painel/img/novo/leilao.png" alt="A telinha da vaga perguntando: potência cheia a 50 kW com 1× de cashback, 60% da potência a 30 kW com 1,5× e mais 16 minutos, ou 30% a 15 kW com 2× e mais 56 minutos." width="2066" height="1421" loading="lazy" decoding="async">
+      <figcaption>Tela real, com dados da loja de demonstração. O lojista define as duas opções e o teto do multiplicador na aba de Fidelidade do painel — no mesmo lugar do cashback, porque é a mesma moeda.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h3>A telinha virou sessão de verdade — sem perder o offline</h3>
+    <div class="body">
+      <p>A telinha sempre calculou tudo dentro do próprio navegador, e isso continua. É o que faz ela funcionar com a internet da loja fora do ar, que é exatamente quando uma tela ao lado do carregador mais importa.</p>
+      <p>O que mudou é o outro lado. <strong>Quando há rede</strong>, a recarga passa a existir no servidor: entra no histórico da loja, aparece na curva de demanda, conta para a fidelidade — e o QR do rodapé, que antes era só um desenho, virou um código de verdade.</p>
+      <p>Quem aponta a câmera cai numa página que acompanha a recarga ao vivo. <strong>Sem instalar nada e sem fazer login:</strong> quem leu o código estava fisicamente ao lado daquela vaga, e exigir cadastro ali seria cobrar pedágio no pior momento possível. O código é aleatório e não sequencial, então ninguém varre a recarga dos outros trocando um número na URL.</p>
+      <p>Sem rede, nada disso aparece e a recarga corre como antes. A degradação é por funcionalidade, não por tela quebrada.</p>
+    </div>
+    <div class="prints duo">
+      <figure class="print" style="margin:0">
+        <img src="./painel/img/novo/telinha-qr.png" alt="A telinha da vaga carregando, com o QR real no rodapé." width="2066" height="1421" loading="lazy" decoding="async">
+        <figcaption>O QR é gerado no servidor. A política de segurança do site proíbe script de terceiro, e trazer uma biblioteca de QR por CDN custaria abrir essa porta na mesma origem do cookie de sessão.</figcaption>
+      </figure>
+      <figure class="print" style="margin:0">
+        <img src="./painel/img/novo/sessao.png" alt="A página no celular: 34% de carga, kWh entregues, potência atual, quanto já custou e quanto voltou como crédito." width="1200" height="1333" loading="lazy" decoding="async">
+        <figcaption>E a tela diz por que aquele crédito está maior: "você aceitou 60% da potência para outro carro poder carregar junto".</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <h3>A bateria da loja olha a agenda</h3>
+    <div class="body">
+      <p>A regra da bateria era gulosa e só olhava para trás: guardava sempre que sobrava sol, devolvia sempre que entrava o horário de ponta. Funciona num dia comum e falha justamente no dia que importa — aquele em que três reservas caem às 19h. O sol já se pôs, a bateria gastou o excedente do meio-dia numa ponta qualquer, e chega vazia na hora em que era para servir.</p>
+      <p>Agora ela persegue uma <strong>meta</strong>, e a meta sai das reservas do próprio sistema. <strong>Uma reserva é uma sessão que a loja já sabe que vai acontecer</strong>, com hora marcada — dá para calcular quanta energia vai faltar e exigir que a bateria chegue lá com ela dentro.</p>
+      <p>O horizonte é de seis horas, e não é enfeite. Sem ele a meta só aparecia no passo da própria reserva — que às 18h já é ponta, quando carregar da rede está proibido. A bateria acordava tarde e chegava com <em>menos</em> carga do que começou o dia. Foi um teste que pegou isso, não a revisão.</p>
+      <p>Medido na loja de demonstração: às 18h a bateria chega com <strong>43% de carga em vez de 12%</strong>.</p>
+    </div>
+    <div class="pull">
+      <p>No painel, o card <strong>Bateria e as reservas</strong> desenha a carga contra a meta. Sem a linha tracejada, um degrau de carga às 14h parece capricho do algoritmo.</p>
+    </div>
+  </section>
+
+  <section>
+    <h3>A melhor hora para carregar, na mão de quem dirige</h3>
+    <div class="body">
+      <p>A conta de qual é a hora mais barata já existia desde o trabalho de demanda de potência — e só a telinha consultava. Quem decide a hora de carregar, porém, é quem dirige, e no aplicativo dele isso não aparecia em lugar nenhum.</p>
+      <p>Ao expor, apareceu um buraco que valia mais que a funcionalidade: <strong>fora do horário de ponta a conta fica muda</strong>, porque não existe hora mais barata à frente quando já estamos na hora barata. O card ficaria invisível o dia inteiro.</p>
+      <p>Então passaram a ser <strong>duas parcelas</strong>: a hora mais barata e a hora de mais cashback. Não uma média entre elas — somar preço e crédito num índice único daria um número que ninguém sabe ler. São duas frases que a tela sabe falar: <em>"às 21h você paga 40% menos"</em> e <em>"às 11h o crédito vale 1,5× mais"</em>.</p>
     </div>
   </section>
 

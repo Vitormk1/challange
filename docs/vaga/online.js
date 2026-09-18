@@ -136,7 +136,9 @@ function mostrarQr(token){
   const img = document.createElement("img");
   img.src = `/s/${encodeURIComponent(token)}/qr.svg`;
   img.alt = "";
-  img.width = 64; img.height = 64;
+  // 96 e nao 64: o codigo e lido de meio metro, com o celular na mao e a
+  // tela as vezes atras de um vidro. Cada milimetro ajuda a camera a travar.
+  img.width = 96; img.height = 96;
   img.decoding = "async";
   caixa.prepend(img);
   const texto = caixa.querySelector("span");

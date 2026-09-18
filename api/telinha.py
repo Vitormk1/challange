@@ -351,8 +351,18 @@ def registrar_telinha(app):
         alvo = f"https://smartcharge.ia.br/painel/sessao.html?t={token}"
         try:
             import segno
+            import io as _io
             desenho = segno.make(alvo, error="m")
-            svg = desenho.svg_inline(scale=1, border=2, dark="#0D0D0F", light="#FFFFFF")
+            # `save(kind="svg")` e NAO `svg_inline`. O svg_inline omite o
+            # xmlns de proposito, porque foi feito para ser colado dentro do
+            # HTML, onde o namespace ja esta implicito. Servido como arquivo e
+            # carregado por <img>, um SVG sem xmlns nao e reconhecido: o
+            # navegador recebe 200, nao parseia, e a imagem fica com largura
+            # natural zero -- some da tela sem erro nenhum no console.
+            buf = _io.BytesIO()
+            desenho.save(buf, kind="svg", scale=8, border=2,
+                         dark="#0D0D0F", light="#FFFFFF")
+            svg = buf.getvalue().decode("utf-8")
         except Exception:
             # Sem a biblioteca a telinha nao fica sem saida: mostra o endereco
             # em texto, que funciona digitado. Pior, e nao quebrado.
