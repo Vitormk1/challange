@@ -67,9 +67,16 @@ def novo_token() -> str:
 
 
 def _vaga(cur, carregador_id: int) -> dict:
+    # `e.*` vem PRIMEIRO e os apelidos depois, de proposito: numa linha de
+    # dicionario a ultima coluna com o mesmo nome vence, e tanto carregadores
+    # quanto estabelecimentos tem `id` e `nome`. Com a ordem invertida, `id`
+    # virava o do carregador e `local_da_loja` recebia a loja errada -- silencio
+    # total, resultado errado. Os dois ids ficam explicitos para ninguem ter de
+    # lembrar dessa regra ao ler o codigo.
     cur.execute(
-        "SELECT c.id, c.nome AS vaga, c.potencia_kw, c.preco_kwh_brl, c.cashback_pct,"
-        "       c.carencia_min, c.taxa_ociosidade_min, e.*"
+        "SELECT e.*, e.id AS estabelecimento_id,"
+        "       c.id AS carregador_id, c.nome AS vaga, c.potencia_kw,"
+        "       c.preco_kwh_brl, c.cashback_pct, c.carencia_min, c.taxa_ociosidade_min"
         "  FROM carregadores c JOIN estabelecimentos e ON e.id = c.estabelecimento_id"
         " WHERE c.id = %s AND c.ativo AND e.ativo", (carregador_id,))
     linha = cur.fetchone()
@@ -197,17 +204,36 @@ def registrar_telinha(app):
             if ja:
                 return {"token": ja["token"], "reaproveitada": True}
 
-            # O fator so vale se a loja realmente oferece aquela opcao. Sem
-            # esta conferencia, bastaria mandar `leilao_fator: 99` no corpo
-            # para a recarga render cem vezes mais cashback -- a telinha e
-            # codigo que roda na loja, e nada do que vem dela e confiavel.
+            # O fator so vale se TRES coisas forem verdade ao mesmo tempo: a
+            # loja oferece aquela opcao, o leilao esta ligado, e ha disputa
+            # agora.
+            #
+            # A terceira e a que faltava e nao e detalhe. Sem ela, bastaria
+            # mandar `leilao_potencia_pct: 30` numa loja vazia para levar o
+            # dobro de cashback sem abrir mao de nada -- a loja pagaria o
+            # premio por uma escassez que nao existe. O premio compra potencia
+            # de volta; sem ninguem na fila, nao ha o que comprar.
+            #
+            # E a conferencia da opcao existe porque a telinha e codigo que
+            # roda na loja: sem isso, `leilao_fator: 99` no corpo faria a
+            # recarga render cem vezes mais.
+            cur.execute(
+                "SELECT count(*) AS n FROM sessoes s"
+                "  JOIN carregadores c ON c.id = s.carregador_id"
+                " WHERE c.estabelecimento_id = %s AND s.situacao = 'ativa'",
+                (v["estabelecimento_id"],))
+            ativas = int(cur.fetchone()["n"])
+            local_agora = local_da_loja(v)
+            folga_agora = folga_kw(local_agora, agora, carga_agora_kw(cur, v["estabelecimento_id"]))
+            nominal = float(v["potencia_kw"])
+            disputa = ha_disputa([nominal] * (ativas + 1), folga_agora.disponivel_kw)
+
             validos = {p for p, _ in _opcoes_da_loja(v)}
             teto = float(v["leilao_teto_fator"] or 2.0)
-            if pct is not None and float(pct) in validos and v["leilao_ativo"]:
+            if pct is not None and float(pct) in validos and v["leilao_ativo"] and disputa:
                 pct = float(pct)
                 par = dict(_opcoes_da_loja(v))[pct]
-                local = local_da_loja(v)
-                fator = min(fator_cashback(local, agora) * par, teto)
+                fator = min(fator_cashback(local_agora, agora) * par, teto)
             else:
                 pct, fator = None, None
 
