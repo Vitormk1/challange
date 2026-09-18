@@ -22,9 +22,9 @@
    dentro de um `then` seria tarde. Ver docs/painel/carregando.js. */
 const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
 
-import "./static/js/aiEntity.js?v=20260917n";
-import { createTourModule } from "./static/js/tour.js?v=20260917n";
-import { api, BASE, ErroApi } from "./api.js?v=20260917n";
+import "./static/js/aiEntity.js?v=20260918a";
+import { createTourModule } from "./static/js/tour.js?v=20260918a";
+import { api, BASE, ErroApi } from "./api.js?v=20260918a";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -345,6 +345,7 @@ const CARDS = {
   previsao: {t:"Erro da previsão",        g:"Operação", tam:"large", cols:9,  rows:4, min:{cols:7, rows:3}, mob:3},
   curva:    {t:"Curva de recarga",        g:"Operação", tam:"large", cols:20, rows:5, min:{cols:9, rows:4}, mob:4},
   demanda:  {t:"Demanda de potência",     g:"Energia",  tam:"large", cols:20, rows:5, min:{cols:9, rows:4}, mob:4, financeiro:true},
+  bateria:  {t:"Bateria e as reservas",   g:"Energia",  tam:"large", cols:20, rows:5, min:{cols:9, rows:4}, mob:4, financeiro:true},
   lucro:    {t:"Lucro atribuído",         g:"Retorno",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
   vendas:   {t:"Vendas atribuídas",       g:"Retorno",  tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}, financeiro:true},
   sessoes:  {t:"Sessões no período",      g:"Operação", tam:"small", cols:5,  rows:2, min:{cols:4, rows:2}},
@@ -360,7 +361,10 @@ const layoutPadrao = () => (pode("ver_financeiro")
   // `demanda` entra no padrão, e não como card opcional: ultrapassar a demanda
   // contratada é multa na fatura, e quem não sabe que o card existe não vai
   // procurá-lo no menu antes de o problema acontecer.
-  ? ["retorno","demanda","cashback","lucro","sessoes","energia"]
+  // `bateria` entra junto: ela é a outra metade da mesma conta. O card de
+  // demanda diz quanto cabe agora; este diz se a bateria está pronta para o
+  // que já está reservado. Separados, cada um conta meia história.
+  ? ["retorno","demanda","bateria","cashback","lucro","sessoes","energia"]
   : ["horas","pontos","sessoes","clientes","energia","cupons"]
 ).map(id => ({id, grupo:CARDS[id].tam, cols:CARDS[id].cols, rows:CARDS[id].rows, config:{}}));
 
@@ -1605,6 +1609,134 @@ async function desenharDemanda(){
 }
 
 
+/* ==========================================================================
+   Bateria e as reservas
+
+   O card de demanda responde "quanto cabe agora". Este responde outra coisa:
+   "a bateria esta pronta para o que ja esta marcado?".
+
+   A regra antiga da bateria era gulosa e so olhava para tras -- guardava
+   quando sobrava sol, devolvia quando entrava a ponta. Num dia comum
+   funcionava; no dia em que tres reservas caem as 19h ela chegava vazia,
+   porque tinha gasto o excedente do meio-dia numa ponta qualquer.
+
+   Agora ela persegue uma META, calculada a partir das reservas do proprio
+   sistema (ver `metas_de_bateria` em ai/demanda.py). Desenhar a meta junto do
+   estado de carga e o que mostra a diferenca: sem a linha tracejada, um degrau
+   de carga as 14h parece capricho do algoritmo.
+   ========================================================================== */
+async function desenharBateria(){
+  const alvo = $("#chartBateria");
+  if (!alvo || !state.estabelecimentoId) return;
+
+  try {
+    if (!demandaCache || demandaCache.id !== state.estabelecimentoId){
+      const d = await api.demanda(state.estabelecimentoId);
+      demandaCache = { id: state.estabelecimentoId, dados: d };
+    }
+  } catch {
+    alvo.innerHTML = "";
+    $("#bateriaLegenda").textContent = "Não consegui carregar a bateria agora.";
+    return;
+  }
+
+  const d = demandaCache.dados;
+  const horas = d.dia || [];
+  const temBateria = horas.some(h => h.bateria_meta_soc > 0 || h.bateria_kw !== 0);
+
+  if (!temBateria){
+    alvo.innerHTML = "";
+    $("#bateriaResumo").innerHTML = "";
+    $("#bateriaLegenda").innerHTML =
+      "Esta loja não tem bateria cadastrada. Preencha <b>bateria_kwh</b> e "
+      + "<b>bateria_kw</b> no cadastro do estabelecimento para o card ganhar conteúdo.";
+    return;
+  }
+
+  /* O resumo responde a pergunta do lojista, nesta ordem: ela esta cheia? ela
+     precisa estar? e por causa de que hora? */
+  const agoraH = new Date().getHours();
+  const linhaAgora = horas.find(h => h.hora === agoraH) || horas[horas.length - 1];
+  const pico = horas.reduce((a, b) => (b.bateria_meta_soc > a.bateria_meta_soc ? b : a), horas[0]);
+  const prepara = pico.bateria_meta_soc > (linhaAgora?.bateria_meta_soc || 0) + 0.01;
+
+  $("#bateriaResumo").innerHTML = `
+    <div class="demanda-numero">
+      <b>${Math.round((linhaAgora?.bateria_soc || 0) * 100)}%</b>
+      <small>de carga agora</small>
+    </div>
+    <div class="demanda-numero">
+      <b>${Math.round(pico.bateria_meta_soc * 100)}%</b>
+      <small>é a meta do dia</small>
+    </div>
+    <div class="demanda-numero">
+      <b>${pico.hora}h</b>
+      <small>a hora que exige a meta</small>
+    </div>
+    ${prepara ? chip("preparando para a demanda marcada", "ok") : ""}`;
+
+  const W = 640, H = 240, L = 40, R = 14, T = 16, B = 28;
+  const slot = (W - L - R) / Math.max(1, horas.length);
+  const y = frac => H - B - frac * (H - T - B);
+  const x = i => L + slot * i + slot / 2;
+
+  let g = "";
+  for (let k = 0; k <= 4; k++){
+    const v = k / 4;
+    g += `<line x1="${L}" y1="${y(v).toFixed(1)}" x2="${W - R}" y2="${y(v).toFixed(1)}"
+                stroke="${cor("--chart-grid")}" stroke-width="1"/>
+          <text x="${L - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end" font-size="10"
+                fill="${cor("--muted")}">${Math.round(v * 100)}%</text>`;
+  }
+
+  horas.forEach((h, i) => {
+    if (h.em_ponta){
+      g += `<rect x="${(L + slot * i).toFixed(1)}" y="${T}" width="${slot.toFixed(1)}"
+                  height="${(H - T - B).toFixed(1)}" fill="${cor("--status-warning")}" opacity="0.10"/>`;
+    }
+    /* Carga e descarga como barrinhas na base: e o que mostra de ONDE veio a
+       carga. Guardando (negativo) em verde, entregando em vermelho. */
+    if (Math.abs(h.bateria_kw) > 0.05){
+      const guardando = h.bateria_kw < 0;
+      const alt = Math.min(34, Math.abs(h.bateria_kw) * 1.1);
+      g += `<rect x="${(x(i) - slot * 0.22).toFixed(1)}" y="${(H - B - alt).toFixed(1)}"
+                  width="${(slot * 0.44).toFixed(1)}" height="${alt.toFixed(1)}" rx="1.5"
+                  fill="${cor(guardando ? "--status-ok" : "--primary")}" opacity="0.30"
+                  ><title>${h.hora}h — ${guardando ? "guardando" : "entregando"} ${num(Math.abs(h.bateria_kw), 1)} kW</title></rect>`;
+    }
+    if (i % 3 === 0){
+      g += `<text x="${x(i).toFixed(1)}" y="${H - B + 15}" text-anchor="middle"
+                  font-size="10" fill="${cor("--muted")}">${h.hora}h</text>`;
+    }
+  });
+
+  const caminho = (campo) => horas
+    .map((h, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(h[campo] || 0).toFixed(1)}`).join(" ");
+
+  // A meta primeiro, por baixo: ela e o pano de fundo do que aconteceu.
+  g += `<path d="${caminho("bateria_meta_soc")}" fill="none" stroke="${cor("--status-critical")}"
+              stroke-width="2" stroke-dasharray="6 4" stroke-linejoin="round"/>`;
+  g += `<path d="${caminho("bateria_soc")}" fill="none" stroke="${cor("--status-ok")}"
+              stroke-width="2.5" stroke-linejoin="round"/>`;
+
+  alvo.innerHTML = g;
+
+  const dia = d.dia_e_hoje ? "" :
+    `<br><b>Dia ${new Date(d.dia_referencia + "T12:00:00").toLocaleDateString("pt-BR",
+      {day: "2-digit", month: "2-digit"})}</b> — último com medição nesta loja.`;
+
+  $("#bateriaLegenda").innerHTML =
+    `<span style="color:${cor("--status-ok")}">▬</span> carga da bateria &nbsp;
+     <span style="color:${cor("--status-critical")}">▬</span> meta vinda das reservas &nbsp;
+     <span style="color:${cor("--status-ok")}">■</span> guardando &nbsp;
+     <span style="color:${cor("--primary")}">■</span> entregando`
+    + `<br>A meta sai das reservas já marcadas: o sistema soma quanta energia vai faltar
+       nas próximas ${6} horas e exige que a bateria chegue lá com ela dentro. Por isso
+       ela carrega ANTES da hora cara, e não durante.`
+    + dia;
+}
+
+
 const ICO_EDITAR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
 const ICO_EXCLUIR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>';
 const ICO_PESSOAS = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>';
@@ -1904,6 +2036,12 @@ function corpoCard(id, config){
     case "cashback": return `<div class="trend-card">
                        ${cabecaCard("Cashback","Quanto esta loja aguenta devolver")}
                        <div id="cashbackCard"></div></div>`;
+    case "bateria":  return `<div class="trend-card">
+                       ${cabecaCard("Energia","A bateria se prepara para o que já está marcado")}
+                       <div id="bateriaResumo" class="demanda-resumo"></div>
+                       <svg id="chartBateria" viewBox="0 0 640 240" preserveAspectRatio="none" role="img"
+                            aria-label="Estado de carga da bateria contra a meta ao longo do dia"></svg>
+                       <p class="dashboard-kpi-meta" id="bateriaLegenda"></p></div>`;
     case "demanda":  return `<div class="trend-card">
                        ${cabecaCard("Energia","Demanda de potência ao longo do dia")}
                        <div id="demandaResumo" class="demanda-resumo"></div>
@@ -2224,6 +2362,7 @@ function desenharGraficos(){
   }
 
   if ($("#chartDemanda")) desenharDemanda();
+  if ($("#chartBateria")) desenharBateria();
 
   if ($("#pontosAoVivo")){
     const cs = carregadoresDaLoja();

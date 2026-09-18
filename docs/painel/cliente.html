@@ -7,12 +7,12 @@
 <meta name="description" content="Suas recargas e o cashback acumulado nas lojas parceiras do Smart Charge.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#F4F4F6">
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260917n">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260917n">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260917n">
-<link rel="stylesheet" href="./cliente.css?v=20260917n">
-<link rel="stylesheet" href="./carregando.css?v=20260917n">
-<script src="./carregando.js?v=20260917n"></script>
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260918a">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260918a">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260918a">
+<link rel="stylesheet" href="./cliente.css?v=20260918a">
+<link rel="stylesheet" href="./carregando.css?v=20260918a">
+<script src="./carregando.js?v=20260918a"></script>
 <noscript><style>#carregando{display:none}</style></noscript>
 </head>
 <body class="pagina-cliente">
@@ -46,6 +46,19 @@
   </header>
 
   <p class="nota-cliente" data-estado-conexao role="status" hidden></p>
+
+  <!-- Melhor hora para carregar. Fica antes da fidelidade de propósito: é a
+       única coisa desta tela que pede uma ação AGORA, e o resto é extrato.
+       A seção inteira some quando nenhuma loja tem hora melhor à frente —
+       um card dizendo "não há economia" ocupa espaço e não muda decisão. -->
+  <section class="bloco-cliente" id="blocoMelhorHora" aria-labelledby="tituloMelhorHora" hidden>
+    <h2 id="tituloMelhorHora">Melhor hora para carregar</h2>
+    <div class="cartao-cliente">
+      <div class="melhor-hora" id="melhorHora"></div>
+      <ul class="melhor-hora-outras" id="melhorHoraOutras" hidden></ul>
+      <p class="nota-cliente" id="melhorHoraNota"></p>
+    </div>
+  </section>
 
   <section class="bloco-cliente" aria-labelledby="tituloFidelidade">
     <h2 id="tituloFidelidade">Fidelidade por loja</h2>
@@ -183,6 +196,6 @@
   servidor. Ative-o e recarregue a página.</p>
 </noscript>
 
-<script type="module" src="./cliente.js?v=20260917o"></script>
+<script type="module" src="./cliente.js?v=20260918a"></script>
 </body>
 </html>

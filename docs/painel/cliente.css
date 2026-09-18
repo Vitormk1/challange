@@ -409,6 +409,61 @@ body:not(.tem-barra) { --barra-h: 0px; }
    atributo mas o elemento continuava visível, como grade vazia. */
 .vazio-cliente[hidden], .extrato-carteira[hidden] { display: none; }
 
+/* ---------- melhor hora para carregar ----------
+   O número que decide é a economia, e é ele que fica grande. O nome da loja
+   vem antes e pequeno, porque quem já sabe onde carrega só quer a hora. */
+.melhor-hora-loja {
+  margin: 0;
+  font-size: .78rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--cl-suave);
+}
+.melhor-hora-destaque {
+  display: grid;
+  gap: 2px;
+  margin: 8px 0 0;
+}
+.melhor-hora-destaque b {
+  font-size: 1.64rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--cl-ok);
+}
+.melhor-hora-destaque span { font-size: .9rem; color: var(--cl-texto); }
+.melhor-hora-agora {
+  margin: 12px 0 0;
+  font-size: .8rem;
+  color: var(--cl-suave);
+}
+
+/* As outras lojas: lista sóbria, sem repetir o destaque. Mesma anatomia do
+   extrato, para a tela não ganhar um segundo idioma. */
+.melhor-hora-outras {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--cl-linha);
+  list-style: none;
+}
+.melhor-hora-outras[hidden] { display: none; }
+.melhor-hora-outras li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: .86rem;
+  color: var(--cl-suave);
+}
+.melhor-hora-outras li span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.melhor-hora-outras li b { color: var(--cl-texto); font-weight: 600; white-space: nowrap; }
+.melhor-hora-outras li i { font-style: normal; color: var(--cl-ok); white-space: nowrap; }
+
 /* ==========================================================================
    Convivência com o mapa
 
@@ -742,4 +797,10 @@ body:not(.tem-barra) { --barra-h: 0px; }
     from { opacity: 0; transform: translateY(8px) scale(.98); }
     to   { opacity: 1; transform: none; }
   }
+}
+.melhor-hora-extra {
+  margin: 10px 0 0;
+  font-size: .84rem;
+  line-height: 1.45;
+  color: var(--cl-texto);
 }

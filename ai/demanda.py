@@ -315,6 +315,12 @@ def repartir(pedidos_kw: list[float], disponivel_kw: float) -> list[float]:
 # pessoa gosta: ela escolhe sozinha a hora barata, e a loja paga menos pela
 # energia que devolve como credito. E o mesmo mecanismo de fidelidade que ja
 # existe, usado como instrumento de demanda.
+# Quantas horas a bateria enxerga a frente ao decidir se carrega. Curto
+# demais e ela acorda dentro da ponta, quando carregar da rede ja nao vale;
+# longo demais e ela vive cheia, gastando ciclo por demanda que talvez nem
+# venha. Seis horas cobrem a distancia entre o sol da tarde e a ponta.
+HORIZONTE_BATERIA_H = 6.0
+
 FATOR_PONTA = 0.5          # na ponta o credito cai pela metade
 FATOR_SOL = 1.5            # com sol sobrando, uma vez e meia
 FATOR_NORMAL = 1.0
@@ -359,9 +365,123 @@ def melhor_janela(local: Local, momento: datetime, horas_a_frente: int = 12) -> 
             "economia_pct": 100.0 * (agora_preco - melhor_preco) / agora_preco}
 
 
+def melhor_hora_de_carregar(local: Local, momento: datetime,
+                            horas_a_frente: int = 12) -> dict:
+    """Os dois motivos para esperar: pagar menos, ou receber mais.
+
+    `melhor_janela` responde so o primeiro, e por isso fica muda o dia inteiro
+    fora da ponta -- se ja estamos na hora barata, nao ha preco melhor a
+    sugerir. Mas existe um segundo motivo, que a loja ja usa e o motorista nao
+    ve: o multiplicador do cashback, que sobe quando sobra sol.
+
+    Entao a resposta tem duas parcelas, e nao uma media entre elas. Somar
+    preco e credito num numero so exigiria saber o cashback_pct da VAGA, que
+    nao esta neste nivel -- e o resultado seria um indice que ninguem sabe
+    ler. Duas parcelas nomeadas a tela sabe explicar: "as 21h voce paga 40%
+    menos" e "as 11h o credito vale uma vez e meia".
+
+    O fator futuro e calculado so com a carga base da loja, porque nao ha como
+    saber quantos carros estarao ligados daqui a tres horas. E a mesma
+    aproximacao que `plano_do_dia` faz para desenhar a curva.
+    """
+    if local.tarifa is None:
+        return {"mais_barato": None, "mais_cashback": None}
+
+    preco_agora = local.tarifa.preco_kwh(momento)
+    fator_agora = fator_cashback(local, momento)
+
+    barato_em, barato_preco = None, preco_agora
+    credito_em, credito_fator = None, fator_agora
+
+    for h in range(1, horas_a_frente + 1):
+        quando = (momento + timedelta(hours=h)).replace(minute=0, second=0, microsecond=0)
+        preco = local.tarifa.preco_kwh(quando)
+        if preco < barato_preco - 1e-9:
+            barato_em, barato_preco = quando, preco
+        fator = fator_cashback(local, quando)
+        if fator > credito_fator + 1e-9:
+            credito_em, credito_fator = quando, fator
+
+    return {
+        "agora": {"preco_kwh_brl": preco_agora, "cashback_fator": fator_agora,
+                  "em_ponta": local.tarifa.em_ponta(momento)},
+        "mais_barato": None if barato_em is None else {
+            "quando": barato_em,
+            "economia_pct": 100.0 * (preco_agora - barato_preco) / preco_agora,
+        },
+        "mais_cashback": None if credito_em is None else {
+            "quando": credito_em,
+            "fator": credito_fator,
+            "vezes_mais": credito_fator / fator_agora if fator_agora > 0 else 0.0,
+        },
+    }
+
+
 # ==========================================================================
 # O dia inteiro: o grafico do painel
 # ==========================================================================
+
+def metas_de_bateria(local: Local, dia: datetime,
+                     carga_carregadores_kw: dict[int, float] | None = None,
+                     passo_min: int = 60) -> list[float]:
+    """Que estado de carga a bateria precisa ter em cada passo do dia.
+
+    A regra antiga era gulosa e so olhava para tras: carregava sempre que
+    sobrava sol, descarregava sempre que entrava na ponta. Funciona num dia
+    comum e falha justamente no dia que importa -- aquele em que tres reservas
+    caem as 18h30. O sol ja se pos, a bateria gastou o excedente do meio-dia
+    numa ponta qualquer, e chega vazia na hora em que era para ela servir.
+
+    Esta funcao olha para frente. As reservas ja dizem o que vem: uma reserva
+    e uma sessao que a loja sabe que vai acontecer, com hora marcada. Entao da
+    para calcular quanta energia a bateria vai precisar entregar mais tarde, e
+    exigir que ela chegue naquela hora com essa energia dentro.
+
+    Devolve uma meta de SoC por passo. O simulador segue a meta; quem nao tem
+    bateria recebe uma lista de zeros e nada muda.
+    """
+    carga_carregadores_kw = carga_carregadores_kw or {}
+    passos = int(24 * 60 / passo_min)
+    horas_passo = passo_min / 60.0
+    if local.bateria is None or local.bateria.capacidade_kwh <= 0:
+        return [0.0] * passos
+
+    inicio = dia.replace(hour=0, minute=0, second=0, microsecond=0)
+    teto_rede = local.demanda_contratada_kw * (1.0 - local.margem_seguranca)
+
+    # Quanto a bateria precisa entregar em cada passo para a rede nao estourar
+    # o teto. So o que passa do teto conta: cobrir consumo que ja cabe na rede
+    # seria gastar ciclo de bateria de graca.
+    falta_kwh = []
+    for i in range(passos):
+        t = inicio + timedelta(minutes=i * passo_min)
+        sol = solar_kw(local.solar_kwp, t, local.latitude)
+        consumo = local.carga_base_kw + float(carga_carregadores_kw.get(t.hour, 0.0))
+        excesso_kw = max(0.0, (consumo - sol) - teto_rede)
+        falta_kwh.append(excesso_kw * horas_passo)
+
+    # A meta de cada passo e o que vai faltar nas proximas HORIZONTE horas.
+    #
+    # O horizonte e o detalhe que faz a coisa funcionar, e a primeira versao
+    # nao tinha: sem ele a meta so aparecia no passo da propria reserva -- que
+    # nas 18h ja e horario de ponta, quando carregar da rede esta proibido. A
+    # bateria "acordava" tarde demais e chegava na reserva com MENOS carga do
+    # que comecou o dia. Seis horas dao tempo de carregar no sol da tarde ou na
+    # rede barata antes de a ponta fechar a porta.
+    cap = local.bateria.capacidade_kwh
+    piso = local.bateria.soc_minimo
+    rend = local.bateria.rendimento or 1.0
+    passos_horizonte = max(1, int(HORIZONTE_BATERIA_H / horas_passo))
+
+    metas = [0.0] * passos
+    for i in range(passos):
+        janela = falta_kwh[i:i + passos_horizonte]
+        # A energia sai da bateria com perda: para entregar 10 kWh e preciso
+        # ter mais que 10 kWh guardados.
+        guardado = sum(janela) / rend
+        metas[i] = min(1.0, piso + guardado / cap) if cap > 0 else 0.0
+    return metas
+
 
 def plano_do_dia(local: Local, dia: datetime, carga_carregadores_kw: dict[int, float] | None = None,
                  passo_min: int = 60) -> list[dict]:
@@ -376,6 +496,8 @@ def plano_do_dia(local: Local, dia: datetime, carga_carregadores_kw: dict[int, f
     inicio = dia.replace(hour=0, minute=0, second=0, microsecond=0)
     passos = int(24 * 60 / passo_min)
     horas_passo = passo_min / 60.0
+    teto_rede = local.demanda_contratada_kw * (1.0 - local.margem_seguranca)
+    metas = metas_de_bateria(local, dia, carga_carregadores_kw, passo_min)
 
     bateria_soc = local.bateria.soc if local.bateria else 0.0
     linhas = []
@@ -386,16 +508,33 @@ def plano_do_dia(local: Local, dia: datetime, carga_carregadores_kw: dict[int, f
         carregadores = float(carga_carregadores_kw.get(t.hour, 0.0))
         consumo = local.carga_base_kw + carregadores
 
-        # A bateria carrega com o que sobra de sol e descarrega na ponta.
+        # A bateria segue a META do passo (ver `metas_de_bateria`), e nao mais
+        # o impulso do momento. Tres casos, nesta ordem:
+        #
+        #   1. sobra sol            -> guarda, sempre. Energia de graca.
+        #   2. abaixo da meta       -> carrega da REDE, mesmo sem sol, porque
+        #                              ha demanda marcada mais tarde. So fora
+        #                              da ponta, e so dentro do teto: criar um
+        #                              pico agora para evitar outro depois nao
+        #                              resolve nada.
+        #   3. na ponta, com carga  -> entrega.
         bat_kw = 0.0
         if local.bateria is not None and local.bateria.capacidade_kwh > 0:
             b = Bateria(local.bateria.capacidade_kwh, local.bateria.potencia_kw,
                         bateria_soc, local.bateria.rendimento, local.bateria.soc_minimo)
+            meta = metas[i] if i < len(metas) else 0.0
+            em_ponta = local.tarifa is not None and local.tarifa.em_ponta(t)
             sobra_sol = sol - consumo
+
             if sobra_sol > 0:
                 bat_kw = -min(sobra_sol, b.carga_disponivel_kw(horas_passo))
-            elif local.tarifa is not None and local.tarifa.em_ponta(t):
+            elif bateria_soc < meta - 1e-9 and not em_ponta:
+                # Espaco que ainda cabe na rede sem encostar no teto.
+                folga_rede = max(0.0, teto_rede - (consumo - sol))
+                bat_kw = -min(folga_rede, b.carga_disponivel_kw(horas_passo))
+            elif em_ponta:
                 bat_kw = min(consumo - sol, b.descarga_disponivel_kw(horas_passo))
+
             delta_kwh = -bat_kw * horas_passo
             bateria_soc = max(0.0, min(1.0, bateria_soc + delta_kwh / b.capacidade_kwh))
 
@@ -408,6 +547,10 @@ def plano_do_dia(local: Local, dia: datetime, carga_carregadores_kw: dict[int, f
             "bateria_kw": round(bat_kw, 2),
             "rede_kw": round(rede, 2),
             "bateria_soc": round(bateria_soc, 3),
+            # A meta e o que a tela usa para mostrar que a bateria estava se
+            # PREPARANDO, e nao so reagindo. Sem ela, um degrau de carga as 15h
+            # parece capricho do algoritmo.
+            "bateria_meta_soc": round(metas[i] if i < len(metas) else 0.0, 3),
             "em_ponta": local.tarifa.em_ponta(t) if local.tarifa else False,
             "ultrapassou": rede > local.demanda_contratada_kw,
         })
