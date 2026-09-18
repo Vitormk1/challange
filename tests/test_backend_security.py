@@ -200,15 +200,37 @@ class SecurityTests(unittest.TestCase):
             self.assertEqual(self.client.post('/perfil/nome',json={'nome':'Outro Nome','senha_atual':'incorreta'}).status_code,429)
             self.assertEqual(self.client.post('/perfil/senha',json={'nova':'outra-senha','senha_atual':'incorreta'}).status_code,429)
 
-    def test_cadastro_resposta_uniforme_com_e_sem_verificacao(self):
-        for active in [True,False]:
-            with patch.object(main,'verificacao_ativa',return_value=active),patch.object(main,'_mandar_verificacao'):
-                new=self.client.post('/auth/cadastrar',json={'nome':'Novo','email':f'novo-{active}@example.com','senha':'senha-segura'})
-                existing=self.client.post('/auth/cadastrar',json={'nome':'Novo','email':'teste@example.com','senha':'senha-segura'})
-            self.assertEqual(new.status_code,existing.status_code)
-            self.assertNotIn('set-cookie',new.headers); self.assertNotIn('set-cookie',existing.headers)
-            self.assertEqual(set(new.json()),set(existing.json()))
-            self.assertEqual(self.b.users[1]['nome'],'Teste')
+    def test_cadastro_em_email_existente_recusa_sem_tocar_na_conta(self):
+        """O cadastro DIZ que o e-mail ja tem conta, e isso e deliberado.
+
+        Ate a versao anterior as duas respostas eram iguais, para nao revelar
+        quais enderecos tem cadastro. O preco apareceu no primeiro teste real:
+        a pessoa clicava, nada acontecia, e a unica saida era adivinhar que ja
+        tinha conta. O sigilo tambem nao se sustentava sozinho -- quem quiser
+        descobrir se um endereco tem conta aqui tem caminhos mais diretos.
+
+        A troca esta assumida e comentada em `main.cadastrar`. O que este
+        teste protege agora e o que NAO pode mudar junto: a tentativa nao
+        altera a conta existente, nao devolve sessao para quem tentou, e a
+        recusa e um 409 limpo, sem vazar nada da conta alheia.
+
+        So o modo com verificacao ligada e exercido: e a configuracao de
+        producao, e sem provedor de e-mail o cadastro entra logado, caminho
+        que o dublê de banco desta suite nao modela.
+        """
+        with patch.object(main,'verificacao_ativa',return_value=True),patch.object(main,'_mandar_verificacao'):
+            novo=self.client.post('/auth/cadastrar',json={'nome':'Novo','email':'novo@example.com','senha':'senha-segura'})
+            existente=self.client.post('/auth/cadastrar',json={'nome':'Invasor','email':'teste@example.com','senha':'senha-segura'})
+
+        self.assertEqual(novo.status_code,200)
+        self.assertEqual(existente.status_code,409)
+        # Nenhuma das duas entra logada: quem se cadastra ainda precisa
+        # verificar o e-mail, e quem tentou um endereco alheio nao ganha nada.
+        self.assertNotIn('set-cookie',novo.headers); self.assertNotIn('set-cookie',existente.headers)
+        # A recusa nao pode virar um oraculo sobre a conta alheia: so o aviso.
+        self.assertEqual(set(existente.json()),{'detail'})
+        # E a conta existente segue intacta -- nome, e nao 'Invasor'.
+        self.assertEqual(self.b.users[1]['nome'],'Teste')
 
     def test_nome_e_url_ficam_texto_no_email(self):
         for name in ['<a/href=https://evil.example>clique</a>','<img/src=x/onerror=alert(1)>','Ana & João']:

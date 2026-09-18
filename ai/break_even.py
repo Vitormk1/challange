@@ -16,9 +16,12 @@ Premissas, todas com fonte:
                 A ANEEL homologa a mesma tarifa para todo o grupo B convencional,
                 entao B3 comercial usa a mesma base da B1 residencial. O custo
                 efetivo varia com ICMS e regime tributario de cada loja.
-    venda       2x a tarifa. E o markup de partida sugerido, no meio da faixa
-                que a rede publica brasileira pratica hoje. Configuravel por
-                ponto no painel.
+    venda       1,65x a tarifa -- a MEDIANA dos 36 pontos em producao, que vao
+                de 1,15x a 3,04x. O markup nao e uma constante do modelo: cada
+                ponto tem o seu em `carregadores.preco_kwh_brl`, configurado
+                pelo lojista no painel. O numero aqui existe so para a tabela
+                ter um valor central; a secao de sensibilidade no fim mostra o
+                que muda entre 1,40x e 2,00x.
     potencia    6,6 kW no carregador de bordo do carro, 92% de eficiencia -- o
                 gargalo e o carro, nao o ponto da loja
     equipamento R$ 6.000 em 5 anos a 3 sessoes/dia = R$ 1,11 por sessao
@@ -36,7 +39,19 @@ TARIFA_KWH = 0.789
 ONBOARD_KW = 6.6
 EFICIENCIA = 0.92
 AMORT_SESSAO = 1.11     # equipamento: R$ 6.000 em 5 anos, 3 sessoes/dia
-MARKUP = 2.0            # preco de venda da energia sobre a tarifa
+
+# Mediana dos 36 pontos em producao. NAO e uma regra: quem define e o lojista,
+# ponto a ponto. A faixa praticada hoje vai de 1,15x (Farmacia Vida Saude) a
+# 3,04x (a vaga rapida do Supermercado Bom Preco).
+MARKUP = 1.65
+FAIXA_MARKUP = (1.40, 1.65, 2.00)
+
+# A conta abaixo usa SO a tarifa fora de ponta. Na ponta -- 18h as 21h em dia
+# util, R$ 2,15/kWh nas lojas com tarifa horaria -- a energia custa mais caro
+# do que quase todo ponto cobra, e a margem da recarga fica negativa. Isso nao
+# e um furo do modelo: e a razao de existirem a bateria e o leilao de potencia.
+# Uma recarga na ponta se paga pela VISITA, nao pela energia.
+TARIFA_PONTA_KWH = 2.15
 
 # (segmento, margem liquida, ticket medio, permanencia tipica em minutos)
 SEGMENTOS = [
@@ -58,12 +73,13 @@ def custo(minutos: float) -> float:
     return energia_kwh(minutos) * TARIFA_KWH
 
 
-def cobrado(minutos: float) -> float:
+def cobrado(minutos: float, markup: float = MARKUP) -> float:
     """O que o motorista paga por aquela recarga."""
-    return custo(minutos) * MARKUP
+    return custo(minutos) * markup
 
 
-def teto_cashback(margem: float, ticket: float, minutos: float) -> tuple[float, float]:
+def teto_cashback(margem: float, ticket: float, minutos: float,
+                  markup: float = MARKUP) -> tuple[float, float]:
     """Quanto de credito cabe por visita, em reais e em percentual.
 
     Tres coisas entram: a margem da energia vendida, o lucro da compra feita
@@ -71,14 +87,14 @@ def teto_cashback(margem: float, ticket: float, minutos: float) -> tuple[float, 
     e o teto -- travado em 100%, porque devolver mais do que a pessoa pagou
     nao e cashback, e pagar para ela carregar.
     """
-    pago = cobrado(minutos)
+    pago = cobrado(minutos, markup)
     sobra = (pago - custo(minutos)) + margem * ticket - AMORT_SESSAO
     pct = min(100.0, max(0.0, sobra) / pago * 100) if pago else 0.0
     return sobra, pct
 
 
 def main() -> None:
-    print(f"tarifa R$ {TARIFA_KWH}/kWh - venda a {MARKUP:.1f}x - "
+    print(f"tarifa R$ {TARIFA_KWH}/kWh - venda a {MARKUP:.2f}x - "
           f"carro aceita {ONBOARD_KW} kW - eficiencia {EFICIENCIA:.0%}")
     print()
     print(f"{'segmento':<22}{'margem':>7}{'ticket':>9}{'perm.':>7}"
@@ -103,6 +119,40 @@ def main() -> None:
     for nome, margem, ticket, minutos in SEGMENTOS:
         sobra, pct = teto_cashback(margem, ticket, minutos)
         print(f"{nome:<22}{cobrado(minutos):>17.2f}{sobra:>18.2f}{pct:>19.1f}%")
+
+    print()
+    print("=" * 92)
+    print("SENSIBILIDADE AO MARKUP -- o lojista escolhe o preco, entao o modelo")
+    print("precisa aguentar a faixa inteira, e nao so o numero do meio.")
+    print("=" * 92)
+    cab = "".join(f"{f'{m:.2f}x':>18}" for m in FAIXA_MARKUP)
+    print(f"{'segmento':<22}{cab}")
+    print("-" * 92)
+    for nome, margem, ticket, minutos in SEGMENTOS:
+        celulas = ""
+        for m in FAIXA_MARKUP:
+            sobra, pct = teto_cashback(margem, ticket, minutos, m)
+            celulas += f"{f'{pct:.0f}%  ({sobra:+.2f})':>18}"
+        print(f"{nome:<22}{celulas}")
+    print()
+    print("Le-se: teto de cashback e, entre parenteses, a sobra por visita.")
+    print("Nenhum segmento fica negativo em nenhum markup da faixa -- o caso")
+    print("que aperta e o supermercado, que e justamente o que NAO se pagava")
+    print("no modelo de cortesia.")
+
+    print()
+    print("=" * 92)
+    print("O QUE ACONTECE NA PONTA (18h-21h, dia util)")
+    print("=" * 92)
+    venda = TARIFA_KWH * MARKUP
+    print(f"  a loja compra a        R$ {TARIFA_PONTA_KWH:.4f}/kWh")
+    print(f"  e vende a              R$ {venda:.4f}/kWh  (markup {MARKUP:.2f}x)")
+    print(f"  margem da energia      R$ {venda - TARIFA_PONTA_KWH:+.4f}/kWh")
+    print()
+    print("  Negativo, e de proposito. Na ponta a recarga nao se paga pela")
+    print("  energia -- se paga pela visita. Quem cobre o buraco e a bateria")
+    print("  (carregada fora da ponta) e o leilao, que corta a potencia")
+    print("  entregue em troca de mais credito.")
 
     print()
     print("Nao entram nesta conta, e precisam entrar antes de qualquer proposta:")

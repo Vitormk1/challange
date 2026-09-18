@@ -68,10 +68,16 @@ class Cursor:
             if args[0] not in self.b.eventos: self.b.eventos.add(args[0]); self.linhas = [{"evento_id":args[0]}]
             return
         if sql.startswith("INSERT INTO carteira_lancamentos"):
-            usuario, valor, ref = args
-            tipo = "estorno" if "'estorno'" in sql else "recarga_pix"
+            # Duas formas do mesmo INSERT: a recarga manda 3 parametros e leva
+            # a descricao embutida no SQL; o estorno manda 4, porque o motivo
+            # passou a ser parametro quando a contestacao de cartao entrou e
+            # precisou de um texto diferente do estorno comum.
+            usuario, valor, *resto = args
+            ref, descricao = resto[-1], resto[0] if len(resto) == 2 else "Pix"
+            tipo = next((t for t in ("estorno","recarga_pix","recarga_boleto","recarga_cartao")
+                         if f"'{t}'" in sql), "recarga_pix")
             self.b.ledger.setdefault(ref, {"usuario_id":usuario,"valor_brl":valor,"tipo":tipo,
-                "id":len(self.b.ledger)+1,"descricao":"Pix","criado_em":datetime.now(timezone.utc)})
+                "id":len(self.b.ledger)+1,"descricao":descricao,"criado_em":datetime.now(timezone.utc)})
             return
         if sql.startswith("SELECT coalesce(-sum"):
             self.linhas = [{"total": -sum((l["valor_brl"] for r,l in self.b.ledger.items() if r.startswith(args[1][:-1]) and l["usuario_id"] == args[0]),Decimal("0"))}]; return
@@ -87,10 +93,13 @@ class Cursor:
         if sql.startswith("UPDATE carteiras SET pix_referencia"):
             self.b.cadastro[args[-1]]["pix_referencia"] = args[0] if "=%s" in sql else None; return
         if sql.startswith("INSERT INTO carteira_pix"):
-            usuario, pagamento, valor, _, base = args
+            # Nove colunas, e nao cinco: `forma`, `url_pagamento`, `url_boleto`
+            # e `expiracao_em` entraram quando a carteira deixou de ser so Pix.
+            usuario, pagamento, valor, _, base, forma, url_pag, url_bol, expira = args
             if pagamento not in self.b.pix:
                 self.b.adicionar_pix(usuario,str(valor),pagamento)
-                self.b.pix[pagamento].update(payload_pix=None,expiracao_em=None,asaas_base=base)
+                self.b.pix[pagamento].update(payload_pix=None,expiracao_em=expira,asaas_base=base,
+                                             forma=forma,url_pagamento=url_pag,url_boleto=url_bol)
             self.linhas = [copy.deepcopy(self.b.pix[pagamento])]; return
         if sql.startswith("UPDATE carteira_pix"):
             p = next(p for p in self.b.pix.values() if p["id"] == args[-1])

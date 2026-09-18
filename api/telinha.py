@@ -40,7 +40,7 @@ from protecao import limitar_telinha
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from ai.demanda import (  # noqa: E402
-    fator_cashback, folga_kw, ha_disputa, ofertas_de_leilao,
+    Tarifa, fator_cashback, folga_kw, ha_disputa, ofertas_de_leilao,
 )
 
 BRASIL = timezone(timedelta(hours=-3))
@@ -94,10 +94,50 @@ def _opcoes_da_loja(linha: dict) -> list[tuple[float, float]]:
     return pares
 
 
+def _tarifa(linha: dict) -> Tarifa:
+    """A tarifa que a loja paga, montada da linha da sessao.
+
+    Nao usa `local_da_loja` de proposito: aquele monta o `Local` inteiro --
+    demanda contratada, carga base, solar, bateria -- e aqui a unica pergunta
+    e quanto custa o kWh agora. Pedir as outras colunas so para descartar
+    deixaria a consulta da telinha mais cara a cada minuto de recarga.
+
+    Sem tarifa de ponta cadastrada, a de fora de ponta vale o dia todo: e o
+    Grupo B sem tarifa branca, que e a maioria das lojas pequenas.
+    """
+    fora = float(linha.get("tarifa_kwh_brl") or 0.0)
+    ponta = linha.get("tarifa_ponta_kwh_brl")
+    return Tarifa(fora_ponta_kwh=fora,
+                  ponta_kwh=float(ponta) if ponta is not None else fora,
+                  ponta_inicio=int(linha.get("ponta_inicio") or 18),
+                  ponta_fim=int(linha.get("ponta_fim") or 21))
+
+
+def custo_acumulado(antes_kwh: float, antes_brl: float, agora_kwh: float,
+                    tarifa: Tarifa, momento: datetime) -> float:
+    """O custo da loja depois de mais uma leitura, por INCREMENTO.
+
+    Deliberadamente nao e `energia_total * tarifa_de_agora`. Uma recarga longa
+    atravessa o comeco da ponta, e ali a tarifa mais que dobra (R$ 0,789 ->
+    R$ 2,15 nas lojas com tarifa horaria). Reprecificar o acumulado faria a
+    loja aparecer, as 18h01, pagando caro por energia que comprou de tarde.
+    Cada pedaco fica com o preco da hora em que foi entregue.
+
+    Energia que anda para tras (telinha reiniciada, contador zerado) nao vira
+    credito: o incremento e travado em zero.
+    """
+    entregue = max(0.0, agora_kwh - antes_kwh)
+    return antes_brl + entregue * tarifa.preco_kwh(momento)
+
+
 def _sessao_por_token(cur, token: str) -> dict:
     cur.execute(
         "SELECT s.*, c.nome AS vaga, c.potencia_kw, c.preco_kwh_brl, c.cashback_pct,"
-        "       e.nome AS loja, e.id AS estabelecimento_id"
+        "       e.nome AS loja, e.id AS estabelecimento_id,"
+        # O que a energia custa a LOJA. E o outro lado do preco de venda, e
+        # sem ele o painel calcula a margem da recarga como se a energia
+        # fosse de graca.
+        "       e.tarifa_kwh_brl, e.tarifa_ponta_kwh_brl, e.ponta_inicio, e.ponta_fim"
         "  FROM sessoes s JOIN carregadores c ON c.id = s.carregador_id"
         "  JOIN estabelecimentos e ON e.id = c.estabelecimento_id"
         " WHERE s.token = %s", (token,))
@@ -280,14 +320,20 @@ def registrar_telinha(app):
                 pct = float(s["cashback_pct"])
                 fator = float(s["leilao_fator"]) if s["leilao_fator"] else 1.0
                 energia = max(0.0, float(kwh))
+
+                custo = custo_acumulado(float(s["energia_kwh"] or 0),
+                                        float(s["custo_energia_brl"] or 0),
+                                        energia, _tarifa(s), _agora())
+
                 cur.execute(
                     "UPDATE sessoes SET energia_kwh = %s, soc_final = %s,"
                     "       valor_cobrado_brl = %s, cashback_brl = %s,"
-                    "       minutos_ocioso = %s"
+                    "       custo_energia_brl = %s, minutos_ocioso = %s"
                     " WHERE id = %s",
                     (energia, None if soc is None else max(0.0, min(1.0, float(soc))),
                      round(energia * preco, 2),
                      round(energia * preco * pct / 100.0 * fator, 2),
+                     round(custo, 2),
                      int(corpo.get("minutos_ocioso") or 0), s["id"]))
             con.commit()
         return {"ok": True}
