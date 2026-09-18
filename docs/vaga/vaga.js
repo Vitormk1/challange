@@ -194,7 +194,7 @@ function tick(t){
    graca, porque a pessoa nao vai desplugar para mudar de ideia.
 ------------------------------------------------------------------ */
 import { conectar, perguntarLeilao, abrirSessao, comecarRelatorios, encerrar, estado }
-  from './online.js?v=20260918a';
+  from './online.js?v=20260918b';
 
 function leituraAtual(){
   const entregue = Math.max(0, (soc - start) * cfg.batteryKwh);

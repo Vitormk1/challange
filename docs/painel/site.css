@@ -1237,3 +1237,36 @@ h3 { font-size: clamp(1.05rem, 1.6vw, 1.25rem); letter-spacing: -0.01em; }
   .cabeca-secao { margin-bottom: 16px; }
   .cabeca-secao p { font-size: .98rem; }
 }
+
+/* ==========================================================================
+   Quadro de tela — os prints das telas novas
+
+   As molduras que já existiam são de celular (`.moldura-celular`, retrato
+   fixo). Estas telas são de monitor, e esticar uma na outra distorceria: o
+   quadro aqui só emoldura e deixa a imagem mandar na própria proporção.
+   ========================================================================== */
+.quadro-tela { margin: 40px 0 0; }
+.quadro-tela img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 16px;
+  border: 1px solid var(--linha);
+  background: #0b0c0e;
+}
+.quadro-tela figcaption {
+  margin: 14px 4px 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--texto-2);
+}
+
+/* A tela de celular ao lado da de monitor: sem o teto de largura ela cresce
+   até ficar do tamanho da outra, e um print de telefone esticado a 900px
+   parece defeito, não escolha. */
+.quadro-tela.e-celular img { max-width: 340px; margin: 0 auto; }
+
+.par-telas { display: grid; gap: 34px; }
+@media (min-width: 900px) {
+  .par-telas { grid-template-columns: 1.4fr 1fr; align-items: start; }
+}
