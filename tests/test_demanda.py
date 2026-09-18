@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from ai.demanda import (  # noqa: E402
     Bateria, Local, Tarifa, fator_cashback, folga_kw, melhor_hora_de_carregar,
-    melhor_janela, metas_de_bateria,
+    ha_disputa, melhor_janela, metas_de_bateria, ofertas_de_leilao,
     plano_do_dia, repartir, solar_kw,
 )
 
@@ -319,3 +319,53 @@ class TestaBateriaGuiadaPorReserva(unittest.TestCase):
         linhas = plano_do_dia(l, QUINTA, self.RESERVA_NA_PONTA)
         self.assertEqual(len(linhas), 24)
         self.assertTrue(all(x["bateria_kw"] == 0.0 for x in linhas))
+
+
+class TestaLeilaoDePotencia(unittest.TestCase):
+    """O leilao so existe quando falta potencia, e a oferta tem de dizer o preco."""
+
+    OPCOES = [(60.0, 1.5), (30.0, 2.0)]
+
+    def test_sem_disputa_nao_ha_leilao(self):
+        self.assertFalse(ha_disputa([7.0, 7.0], 50.0))
+
+    def test_com_disputa_ha_leilao(self):
+        self.assertTrue(ha_disputa([11.0, 11.0, 11.0], 12.0))
+
+    def test_a_primeira_oferta_e_sempre_a_potencia_cheia(self):
+        o = ofertas_de_leilao(11.0, 11.0, 1.0, self.OPCOES)
+        self.assertEqual(o[0].potencia_pct, 100.0)
+        self.assertEqual(o[0].minutos_a_mais, 0.0)
+
+    def test_aceitar_menos_rende_mais_cashback(self):
+        o = ofertas_de_leilao(11.0, 11.0, 1.0, self.OPCOES)
+        self.assertGreater(o[1].cashback_fator, o[0].cashback_fator)
+        self.assertGreater(o[2].cashback_fator, o[1].cashback_fator)
+
+    def test_aceitar_menos_custa_tempo_e_a_tela_diz_quanto(self):
+        o = ofertas_de_leilao(11.0, 11.0, 1.0, self.OPCOES, energia_kwh=22.0)
+        # 22 kWh a 11 kW sao 2h; a 30% (3,3 kW) sao 6h40. A diferenca e o preco.
+        self.assertGreater(o[2].minutos_a_mais, o[1].minutos_a_mais)
+        self.assertGreater(o[2].minutos_a_mais, 60)
+
+    def test_o_teto_do_lojista_e_respeitado(self):
+        o = ofertas_de_leilao(11.0, 11.0, 1.5, [(30.0, 3.0)], teto_fator=2.0)
+        self.assertLessEqual(o[1].cashback_fator, 2.0)
+
+    def test_na_ponta_o_premio_parte_de_um_fator_menor(self):
+        """O leilao multiplica o fator da HORA, nao substitui ele."""
+        fora = ofertas_de_leilao(11.0, 11.0, 1.0, [(50.0, 2.0)])[1].cashback_fator
+        ponta = ofertas_de_leilao(11.0, 11.0, 0.5, [(50.0, 2.0)])[1].cashback_fator
+        self.assertLess(ponta, fora)
+
+    def test_folga_pequena_limita_ate_a_potencia_cheia(self):
+        o = ofertas_de_leilao(11.0, 4.0, 1.0, self.OPCOES)
+        self.assertLessEqual(o[0].potencia_kw, 4.0)
+
+    def test_sem_opcoes_configuradas_so_sobra_a_cheia(self):
+        self.assertEqual(len(ofertas_de_leilao(11.0, 11.0, 1.0, [])), 1)
+
+    def test_opcao_mal_configurada_e_ignorada(self):
+        o = ofertas_de_leilao(11.0, 11.0, 1.0, [(0.0, 2.0), (50.0, 0.0), (40.0, 1.8)])
+        self.assertEqual(len(o), 2)
+        self.assertEqual(o[1].potencia_pct, 40.0)

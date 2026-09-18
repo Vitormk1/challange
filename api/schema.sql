@@ -929,3 +929,72 @@ COMMENT ON COLUMN estabelecimentos.bateria_soc IS
 -- toda. E a consulta que desenha a curva de 24h do painel.
 CREATE INDEX IF NOT EXISTS ix_leituras_carregador_momento
   ON leituras (carregador_id, momento DESC);
+
+
+-- --------------------------------------------------------------------------
+-- Leilao de potencia
+--
+-- Quando varios carros disputam a mesma folga, `repartir` divide pelo que cada
+-- bateria fisicamente aceita. E justo, e ignora uma informacao que so o
+-- motorista tem: se ELE tem pressa. Quem vai ficar duas horas no mercado nao
+-- precisa de 11 kW; quem parou dez minutos, precisa.
+--
+-- O leilao pergunta. Aceitar menos potencia rende mais cashback -- o mesmo
+-- multiplicador que ja existe para a hora do dia (ver fator_cashback em
+-- ai/demanda.py), agora tambem para a paciencia.
+--
+-- Quem define as opcoes e o lojista, na aba de Fidelidade do painel, junto do
+-- programa de cashback. Sao duas, e nao uma lista livre: a telinha mostra a
+-- escolha em tres botoes (cheia, opcao 1, opcao 2) e tres cabem na tela de
+-- quem esta em pe ao lado do carro. Colunas tipadas e anulaveis, no mesmo
+-- desenho das colunas de fidelidade logo acima.
+-- --------------------------------------------------------------------------
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS leilao_ativo boolean NOT NULL DEFAULT false;
+
+-- Teto do multiplicador. Existe para o lojista nao configurar sem querer um
+-- premio que come o retorno da vaga inteira -- ver ai/break_even.py.
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS leilao_teto_fator numeric(4,2)
+  CHECK (leilao_teto_fator IS NULL OR leilao_teto_fator BETWEEN 1 AND 5);
+
+-- Opcao 1: "sem pressa". Opcao 2: "deixa quieto".
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS leilao_op1_potencia_pct numeric(5,2)
+  CHECK (leilao_op1_potencia_pct IS NULL OR leilao_op1_potencia_pct BETWEEN 10 AND 100);
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS leilao_op1_fator numeric(4,2)
+  CHECK (leilao_op1_fator IS NULL OR leilao_op1_fator BETWEEN 1 AND 5);
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS leilao_op2_potencia_pct numeric(5,2)
+  CHECK (leilao_op2_potencia_pct IS NULL OR leilao_op2_potencia_pct BETWEEN 10 AND 100);
+ALTER TABLE estabelecimentos ADD COLUMN IF NOT EXISTS leilao_op2_fator numeric(4,2)
+  CHECK (leilao_op2_fator IS NULL OR leilao_op2_fator BETWEEN 1 AND 5);
+
+COMMENT ON COLUMN estabelecimentos.leilao_ativo IS
+  'Liga a pergunta na telinha quando falta potencia. Desligado, a vaga entrega o que couber, como antes.';
+COMMENT ON COLUMN estabelecimentos.leilao_op1_potencia_pct IS
+  'Percentual da potencia da vaga que a opcao 1 entrega. O resto volta para o bolo de quem tem pressa.';
+
+
+-- --------------------------------------------------------------------------
+-- A sessao da telinha
+--
+-- A telinha nasceu simulando tudo no navegador, com os parametros na URL. Isso
+-- deu a ela uma propriedade que vale manter: funciona com a internet da loja
+-- fora do ar, que e quando uma tela ao lado do carregador mais importa.
+--
+-- O que faltava era o outro lado: quando HA rede, a sessao existir de verdade
+-- no servidor, para o motorista acompanhar do celular e para a recarga entrar
+-- no historico da loja.
+--
+-- `token` e o que vai no QR. Aleatorio e nao sequencial: id sequencial na URL
+-- deixaria qualquer um varrer as sessoes dos outros trocando o numero.
+-- --------------------------------------------------------------------------
+ALTER TABLE sessoes ADD COLUMN IF NOT EXISTS token text;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_sessoes_token ON sessoes (token) WHERE token IS NOT NULL;
+
+-- O que a pessoa escolheu no leilao, guardado na sessao. Sem isto nao da para
+-- explicar depois por que aquela recarga rendeu mais cashback que a tabela.
+ALTER TABLE sessoes ADD COLUMN IF NOT EXISTS leilao_potencia_pct numeric(5,2);
+ALTER TABLE sessoes ADD COLUMN IF NOT EXISTS leilao_fator numeric(4,2);
+
+COMMENT ON COLUMN sessoes.token IS
+  'Segredo do QR da telinha. Quem tem o token acompanha a sessao sem login.';
+COMMENT ON COLUMN sessoes.leilao_fator IS
+  'Multiplicador de cashback aceito no leilao de potencia. Nulo = nao houve leilao.';

@@ -176,6 +176,7 @@ function tick(t){
   last = t;
   const simMinutes = dt * cfg.speed / 60;
   if (soc >= 0.995){
+    aoEncher();
     idleMinutes += simMinutes;
   } else {
     soc = Math.min(0.999, soc + (powerAt(soc) * (simMinutes / 60)) / cfg.batteryKwh);
@@ -184,5 +185,62 @@ function tick(t){
   requestAnimationFrame(tick);
 }
 
-render();
-requestAnimationFrame(tick);
+/* ------------------------------------------------------------------
+   Arranque.
+
+   Sem rede, e o que sempre foi: desenha e roda a simulacao. Com rede, o
+   servidor manda os numeros reais da loja, e se houver disputa de potencia a
+   tela pergunta ANTES de comecar -- depois de plugado a escolha ja nao tem
+   graca, porque a pessoa nao vai desplugar para mudar de ideia.
+------------------------------------------------------------------ */
+import { conectar, perguntarLeilao, abrirSessao, comecarRelatorios, encerrar, estado }
+  from './online.js?v=20260918a';
+
+function leituraAtual(){
+  const entregue = Math.max(0, (soc - start) * cfg.batteryKwh);
+  return {
+    soc: Number(soc.toFixed(3)),
+    potencia_kw: Number(powerAt(soc).toFixed(3)),
+    energia_kwh: Number(entregue.toFixed(3)),
+    minutos_ocioso: Math.round(idleMinutes),
+  };
+}
+
+let encerrada = false;
+function aoEncher(){
+  if (encerrada) return;
+  encerrada = true;
+  encerrar(leituraAtual);
+}
+
+(async () => {
+  const c = await conectar();
+  if (c){
+    cfg.spot = c.vaga;
+    cfg.store = c.loja;
+    cfg.priceKwh = c.preco_kwh_brl;
+    cfg.cashbackPct = c.cashback_pct * (c.cashback_fator || 1);
+    cfg.maxKw = c.potencia_nominal_kw;
+    cfg.idleFee = c.taxa_ociosidade_min || cfg.idleFee;
+    cfg.graceMin = c.carencia_min ?? cfg.graceMin;
+    $('spot').textContent = cfg.spot;
+    $('store').textContent = cfg.store;
+
+    if (c.leilao?.ativo && c.leilao.ofertas?.length > 1){
+      const oferta = await perguntarLeilao(c.leilao.ofertas);
+      if (oferta){
+        // A escolha vira teto de potencia da simulacao: e o que o carregador
+        // faria de verdade, limitando a corrente entregue.
+        cfg.maxKw = Math.min(cfg.maxKw, oferta.potencia_kw);
+        cfg.cashbackPct = c.cashback_pct * oferta.cashback_fator;
+      }
+    } else if (c.limitada_pela_rede){
+      cfg.maxKw = Math.min(cfg.maxKw, c.potencia_liberada_kw);
+    }
+
+    await abrirSessao(cfg.soc);
+    comecarRelatorios(leituraAtual);
+  }
+  render();
+  requestAnimationFrame(tick);
+})();

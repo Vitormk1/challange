@@ -143,6 +143,19 @@
 </div>
 
 
+<!-- O leilão de potência. Fica escondido até o servidor dizer que há disputa;
+     sem rede ou sem disputa, a telinha nunca o mostra. -->
+<div class="leilao" id="leilao" hidden>
+  <div class="leilao-caixa" role="dialog" aria-labelledby="leilaoTitulo">
+    <p class="leilao-olho">Falta potência agora</p>
+    <h2 id="leilaoTitulo">Tem pressa?</h2>
+    <p class="leilao-texto">Outros carros estão carregando nesta loja. Se você
+    puder esperar um pouco mais, leva mais crédito para gastar aqui dentro.</p>
+    <div class="leilao-opcoes" id="leilaoOpcoes"></div>
+    <p class="leilao-nota">Sem escolha em 45 segundos, começamos na potência cheia.</p>
+  </div>
+</div>
+
 <div class="device">
   <div class="screen" id="screen">
     <header>
@@ -217,6 +230,6 @@
   <a href="?full=1">tela cheia</a>
 </p>
 
-<script src="./vaga.js?v=20260918a"></script>
+<script type="module" src="./vaga.js?v=20260918a"></script>
 </body>
 </html>

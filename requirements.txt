@@ -3,3 +3,7 @@ uvicorn[standard]>=0.32
 psycopg[binary,pool]>=3.2
 python-dotenv>=1.0
 requests>=2.31
+
+# QR da telinha. Python puro, sem dependencia transitiva: a telinha gera o
+# codigo no servidor porque a CSP do site proibe script de terceiro.
+segno>=1.6

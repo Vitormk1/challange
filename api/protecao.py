@@ -362,3 +362,27 @@ class CabecalhosDeSeguranca(BaseHTTPMiddleware):
         if protocolo == "https":
             resposta.headers.setdefault("Strict-Transport-Security", HSTS)
         return resposta
+
+
+# A telinha nao tem login: quem chama e o carregador, do lado de fora. Sem
+# limite, qualquer um abriria sessoes em serie com um laco de terminal e
+# encheria a tabela -- e cada sessao aberta segura uma vaga na tela do mapa.
+#
+# O limite e por IP e por carregador ao mesmo tempo. So por IP deixaria uma
+# loja inteira ser bloqueada porque um carregador com defeito reenvia; so por
+# carregador deixaria um atacante varrer todos os ids de uma vez.
+LIMITE_TELINHA_IP = (60, 600)
+LIMITE_TELINHA_VAGA = (12, 600)
+
+
+def limitar_telinha(request: Request, carregador_id: int) -> None:
+    """Teto de sessoes abertas pela telinha, por IP e por vaga."""
+    _limpar_velhas()
+    ip = ip_de(request)
+    for chave, (quantas, janela) in (
+            (f"telinha-ip:{ip}", LIMITE_TELINHA_IP),
+            (f"telinha-vaga:{carregador_id}", LIMITE_TELINHA_VAGA)):
+        ok, espera = _bater(chave, quantas, janela)
+        if not ok:
+            raise HTTPException(429, "Muitas sessões seguidas nesta vaga. "
+                                     f"Espere {espera // 60 + 1} min.")

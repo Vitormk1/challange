@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sua recarga · Smart Charge</title>
+<meta name="description" content="Acompanhe a recarga em andamento, sem instalar nada.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F4F4F6">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260918a">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260918a">
+<link rel="stylesheet" href="./cliente.css?v=20260918a">
+<link rel="stylesheet" href="./sessao.css?v=20260918a">
+<link rel="stylesheet" href="./carregando.css?v=20260918a">
+<script src="./carregando.js?v=20260918a"></script>
+<noscript><style>#carregando{display:none}</style></noscript>
+</head>
+<body class="pagina-cliente">
+<div id="carregando" role="status" aria-live="polite">
+  <div class="carregando-miolo">
+    <span class="carregando-selo" aria-hidden="true"></span>
+    <p class="carregando-marca">Smart Charge</p>
+    <p class="carregando-nota">Carregando…</p>
+  </div>
+</div>
+
+<main class="tela-cliente">
+
+  <header class="cliente-topo">
+    <div class="cliente-perfil">
+      <img class="sessao-marca" src="./img/logo.png?v=20260918a" alt="" width="34" height="34" decoding="async">
+      <div class="cliente-saudacao">
+        <p id="sessaoLoja">Sua recarga</p>
+        <h1 id="sessaoVaga">—</h1>
+      </div>
+    </div>
+    <span class="sessao-estado" id="sessaoEstado">—</span>
+  </header>
+
+  <!-- O número grande é o estado de carga: é o que a pessoa abre o celular
+       para ver, e é o único que merece esse tamanho. -->
+  <section class="bloco-cliente">
+    <div class="cartao-cliente sessao-carga">
+      <p class="sessao-pct"><b id="sessaoSoc">--</b><i>%</i></p>
+      <div class="sessao-barra"><span id="sessaoBarra"></span></div>
+      <p class="sessao-linha">
+        <span><b id="sessaoKwh">0,0 kWh</b><i>entregues</i></span>
+        <span><b id="sessaoKw">— kW</b><i>agora</i></span>
+      </p>
+    </div>
+  </section>
+
+  <section class="bloco-cliente">
+    <h2>O que você já pagou, e o que já voltou</h2>
+    <div class="cartao-cliente">
+      <ul class="extrato-carteira">
+        <li><span>Recarga até agora</span><b class="debito" id="sessaoValor">R$ 0,00</b></li>
+        <li><span>Crédito para gastar na loja</span><b id="sessaoCashback">R$ 0,00</b></li>
+      </ul>
+      <p class="nota-cliente" id="sessaoLeilao" hidden></p>
+    </div>
+  </section>
+
+  <section class="bloco-cliente" id="blocoOcioso" hidden>
+    <div class="cartao-cliente sessao-aviso">
+      <p id="sessaoOcioso"></p>
+    </div>
+  </section>
+
+  <p class="nota-cliente" id="sessaoNota">
+    Esta página se atualiza sozinha. Você não precisa de conta para ver —
+    o código da vaga já é a sua chave.
+  </p>
+
+  <p class="nota-cliente">
+    Projeto acadêmico — Challenge FIAP · GoodWe. Os pontos de recarga são
+    simulados e as localizações são fictícias.
+  </p>
+
+</main>
+
+<script type="module" src="./sessao.js?v=20260918a"></script>
+</body>
+</html>
