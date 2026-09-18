@@ -475,6 +475,121 @@ def main() -> int:
                 ok("lojista NAO entra na carteira do motorista",
                    r.status_code in (401, 403), f"HTTP {r.status_code}")
 
+        # --------------------------------------------- melhor hora
+        secao("melhor hora para carregar")
+        r = motorista.get(f"{API}/melhor-hora", timeout=TEMPO)
+        if ok("motorista consulta a melhor hora", r.status_code == 200,
+              f"HTTP {r.status_code}"):
+            mh = r.json()
+            lojas_mh = mh.get("lojas") or []
+            # A lista NAO pode vir vazia. Ela vinha: a conta so reportava hora
+            # futura se fosse estritamente melhor que agora, e fora da ponta
+            # nao ha preco melhor a sugerir. O card sumia da tela o dia todo, e
+            # nada acusava -- a rota respondia 200 com lista vazia.
+            ok("devolve pelo menos uma loja", len(lojas_mh) > 0,
+               f"{len(lojas_mh)} lojas")
+            if lojas_mh:
+                primeira = lojas_mh[0]
+                ok("toda loja diz como esta AGORA",
+                   all("agora" in l and l["agora"].get("preco_kwh_brl", 0) > 0
+                       for l in lojas_mh),
+                   f"{primeira.get('estabelecimento_nome','?')[:24]}")
+                ok("toda loja tem o sinal de nada-melhor-a-frente",
+                   all("nada_melhor_a_frente" in l for l in lojas_mh))
+
+        r = lojista.get(f"{API}/melhor-hora", timeout=TEMPO)
+        ok("lojista NAO entra na melhor hora do motorista",
+           r.status_code in (401, 403), f"HTTP {r.status_code}")
+
+        # --------------------------------------------- telinha da vaga
+        #
+        # Sem login de proposito: quem chama e o carregador, que nao tem conta.
+        # Abre uma sessao de verdade e apaga no fim, junto com as leituras.
+        secao("telinha da vaga")
+        vaga = uma("SELECT c.id, c.preco_kwh_brl, e.tarifa_kwh_brl"
+                   "  FROM carregadores c JOIN estabelecimentos e ON e.id=c.estabelecimento_id"
+                   " WHERE c.ativo AND e.ativo AND NOT e.leilao_ativo"
+                   "   AND NOT EXISTS (SELECT 1 FROM sessoes s"
+                   "                    WHERE s.carregador_id=c.id AND s.situacao='ativa')"
+                   " ORDER BY c.id LIMIT 1")
+        if not vaga:
+            aviso("nenhuma vaga livre sem leilao: telinha nao conferida")
+        else:
+            r = requests.get(f"{API}/vagas/{vaga['id']}/telinha", timeout=TEMPO)
+            if ok("telinha abre sem login", r.status_code == 200, f"HTTP {r.status_code}"):
+                cfg = r.json()
+                ok("traz preco e potencia liberada",
+                   float(cfg.get("preco_kwh_brl", 0)) > 0
+                   and float(cfg.get("potencia_liberada_kw", -1)) >= 0,
+                   f"R$ {cfg.get('preco_kwh_brl')}/kWh")
+
+            r = requests.post(f"{API}/vagas/{vaga['id']}/sessao",
+                              json={"soc_inicial": 0.30}, timeout=TEMPO)
+            if ok("abre a sessao", r.status_code == 200, f"HTTP {r.status_code}"):
+                token = r.json().get("token")
+                ok("devolve um token, e nao o id", bool(token) and str(token).isascii()
+                   and not str(token).isdigit(), f"{str(token)[:6]}...")
+                linha = uma("SELECT id, situacao FROM sessoes WHERE token=%s", token)
+                ok("sessao GRAVADA no banco", linha is not None
+                   and linha["situacao"] == "ativa")
+                sessao_id = linha["id"] if linha else None
+
+                r = requests.post(f"{API}/sessoes/{token}/leitura",
+                                  json={"soc": 0.42, "potencia_kw": 7.0,
+                                        "energia_kwh": 8.0}, timeout=TEMPO)
+                ok("aceita a leitura", r.status_code == 200, f"HTTP {r.status_code}")
+
+                g = uma("SELECT energia_kwh, valor_cobrado_brl, custo_energia_brl"
+                        "  FROM sessoes WHERE token=%s", token)
+                if g:
+                    cobrado = float(g["valor_cobrado_brl"])
+                    custo = float(g["custo_energia_brl"])
+                    ok("energia GRAVADA", abs(float(g["energia_kwh"]) - 8.0) < 0.01,
+                       f"{g['energia_kwh']} kWh")
+                    ok("o que o motorista paga foi calculado", cobrado > 0,
+                       f"R$ {cobrado:.2f}")
+                    # O que a energia custou A LOJA. Ficava zerado: a coluna
+                    # existia desde o comeco e nada escrevia nela fora do
+                    # seed, entao o painel calculava a margem da recarga como
+                    # se a energia fosse de graca.
+                    ok("o que a energia custou A LOJA foi gravado", custo > 0,
+                       f"R$ {custo:.2f}")
+                    ok("fora da ponta, a margem da recarga e positiva",
+                       cobrado > custo, f"R$ {cobrado - custo:.2f}")
+                    ok("uma leitura foi para a curva do dia",
+                       (uma("SELECT count(*) n FROM leituras WHERE sessao_id=%s",
+                            sessao_id) or {"n": 0})["n"] > 0)
+
+                r = requests.get(f"{API}/s/{token}", timeout=TEMPO)
+                ok("o celular acompanha pelo token, sem login",
+                   r.status_code == 200 and float(r.json().get("energia_kwh", 0)) > 0,
+                   f"HTTP {r.status_code}")
+
+                r = requests.get(f"{API}/s/{token}/qr.svg", timeout=TEMPO)
+                # O xmlns precisa estar la. Sem ele o navegador responde 200,
+                # nao parseia, e a imagem some da tela sem erro no console.
+                ok("o QR sai como SVG utilizavel em <img>",
+                   r.status_code == 200 and "image/svg" in r.headers.get("content-type", "")
+                   and "xmlns" in r.text, f"HTTP {r.status_code}")
+
+                r = requests.post(f"{API}/sessoes/{token}/encerrar", timeout=TEMPO)
+                ok("encerra a sessao", r.status_code == 200, f"HTTP {r.status_code}")
+                fim = uma("SELECT situacao FROM sessoes WHERE token=%s", token)
+                ok("encerramento GRAVADO",
+                   fim is not None and fim["situacao"] == "concluida",
+                   fim["situacao"] if fim else "sumiu")
+
+                r = requests.get(f"{API}/s/{secrets.token_urlsafe(9)}", timeout=TEMPO)
+                ok("token inventado nao abre sessao alheia",
+                   r.status_code == 404, f"HTTP {r.status_code}")
+
+                if sessao_id:
+                    with banco().cursor() as cur:
+                        cur.execute("DELETE FROM leituras WHERE sessao_id=%s", (sessao_id,))
+                        cur.execute("DELETE FROM sessoes WHERE id=%s", (sessao_id,))
+                    ok("sessao de teste removida",
+                       uma("SELECT id FROM sessoes WHERE id=%s", sessao_id) is None)
+
         # ------------------------------------------------------- logout
         secao("sair")
         r = motorista.post(f"{API}/auth/logout", timeout=TEMPO)
