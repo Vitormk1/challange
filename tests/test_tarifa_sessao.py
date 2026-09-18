@@ -21,7 +21,7 @@ RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
 sys.path.insert(0, str(RAIZ / "api"))
 
-from telinha import _tarifa, custo_acumulado  # noqa: E402
+from telinha import _tarifa, energia_e_custo  # noqa: E402
 
 BRASIL = timezone(timedelta(hours=-3))
 
@@ -74,16 +74,18 @@ class TestTarifa(unittest.TestCase):
         self.assertAlmostEqual(t.preco_kwh(aas(14)), FORA)
 
 
-class TestCustoAcumulado(unittest.TestCase):
+class TestEnergiaECusto(unittest.TestCase):
 
     def test_primeira_leitura_parte_do_zero(self):
-        custo = custo_acumulado(0.0, 0.0, 10.0, _tarifa(LOJA_HORARIA), aas(14))
+        e, custo = energia_e_custo(0.0, 0.0, 10.0, _tarifa(LOJA_HORARIA), aas(14))
+        self.assertAlmostEqual(e, 10.0)
         self.assertAlmostEqual(custo, 10.0 * FORA)
 
     def test_so_o_incremento_e_cobrado(self):
         """A leitura manda o acumulado, nao o pedaco. 10 -> 14 custa 4 kWh."""
         antes = 10.0 * FORA
-        custo = custo_acumulado(10.0, antes, 14.0, _tarifa(LOJA_HORARIA), aas(15))
+        e, custo = energia_e_custo(10.0, antes, 14.0, _tarifa(LOJA_HORARIA), aas(15))
+        self.assertAlmostEqual(e, 14.0)
         self.assertAlmostEqual(custo, antes + 4.0 * FORA)
 
     def test_a_virada_da_ponta_nao_reprecifica_o_passado(self):
@@ -94,22 +96,54 @@ class TestCustoAcumulado(unittest.TestCase):
         e a margem da recarga apareceria negativa sem nada ter acontecido.
         """
         t = _tarifa(LOJA_HORARIA)
-        antes = custo_acumulado(0.0, 0.0, 20.0, t, aas(17, 30))
-        depois = custo_acumulado(20.0, antes, 25.0, t, aas(18, 30))
+        e1, antes = energia_e_custo(0.0, 0.0, 20.0, t, aas(17, 30))
+        e2, depois = energia_e_custo(e1, antes, 25.0, t, aas(18, 30))
 
         self.assertAlmostEqual(depois, 20.0 * FORA + 5.0 * PONTA)
         self.assertLess(depois, 25.0 * PONTA)
 
-    def test_energia_para_tras_nao_vira_credito(self):
-        """Telinha reiniciada, contador zerado: o custo nao pode diminuir."""
+    def test_energia_nao_anda_para_tras(self):
+        """Telinha recarregada: ela reporta `(soc - inicial) * capacidade`, e
+        recomecar zera a conta dela. A sessao guarda o maior ja visto."""
         antes = 30.0 * FORA
-        custo = custo_acumulado(30.0, antes, 0.0, _tarifa(LOJA_HORARIA), aas(15))
+        e, custo = energia_e_custo(30.0, antes, 0.0, _tarifa(LOJA_HORARIA), aas(15))
+        self.assertAlmostEqual(e, 30.0)
         self.assertAlmostEqual(custo, antes)
 
     def test_leitura_repetida_nao_cobra_duas_vezes(self):
         antes = 12.0 * FORA
-        custo = custo_acumulado(12.0, antes, 12.0, _tarifa(LOJA_HORARIA), aas(15))
+        e, custo = energia_e_custo(12.0, antes, 12.0, _tarifa(LOJA_HORARIA), aas(15))
+        self.assertAlmostEqual(e, 12.0)
         self.assertAlmostEqual(custo, antes)
+
+    def test_custo_e_energia_nunca_discordam(self):
+        """O bug que apareceu em producao, travado.
+
+        Uma sessao real ficou com R$ 0,14 de custo e R$ 0,00 cobrado: a
+        telinha foi recarregada, a energia voltou a zero e o
+        `valor_cobrado_brl` -- que sai dela -- zerou junto, enquanto o custo
+        guardava o que ja tinha acumulado. Margem negativa de uma recarga que
+        nao aconteceu.
+
+        A invariante: a soma dos incrementos e exatamente a energia guardada,
+        entao o custo nunca descreve mais kWh do que o que o motorista paga.
+        """
+        VENDA = 1.62
+        t = _tarifa(LOJA_SIMPLES)          # tarifa unica: da para comparar direto
+        e, custo = 0.0, 0.0
+        # sobe, cai (telinha recarregada), sobe de novo, repete uma leitura
+        for reportado in (0.18, 0.0, 0.05, 0.05, 0.40, 0.0, 0.9):
+            e, custo = energia_e_custo(e, custo, reportado, t, aas(15))
+            self.assertAlmostEqual(custo, e * FORA, places=6,
+                                   msg=f"custo e energia discordaram em {reportado}")
+            self.assertLessEqual(custo, e * VENDA + 1e-9,
+                                 "custo passou do cobrado: margem negativa falsa")
+        self.assertAlmostEqual(e, 0.9)
+
+    def test_leitura_negativa_nao_quebra(self):
+        e, custo = energia_e_custo(5.0, 5.0 * FORA, -3.0, _tarifa(LOJA_SIMPLES), aas(15))
+        self.assertAlmostEqual(e, 5.0)
+        self.assertAlmostEqual(custo, 5.0 * FORA)
 
     def test_custo_fica_abaixo_do_cobrado_com_markup(self):
         """A margem da recarga precisa ser positiva: e a premissa do modelo.
@@ -122,10 +156,10 @@ class TestCustoAcumulado(unittest.TestCase):
         venda = 1.62
         t = _tarifa(LOJA_HORARIA)
 
-        fora = custo_acumulado(0.0, 0.0, 20.0, t, aas(14))
+        _, fora = energia_e_custo(0.0, 0.0, 20.0, t, aas(14))
         self.assertLess(fora, 20.0 * venda)
 
-        ponta = custo_acumulado(0.0, 0.0, 20.0, t, aas(19))
+        _, ponta = energia_e_custo(0.0, 0.0, 20.0, t, aas(19))
         self.assertGreater(ponta, 20.0 * venda)
 
 

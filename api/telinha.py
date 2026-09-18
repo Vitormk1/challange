@@ -113,21 +113,33 @@ def _tarifa(linha: dict) -> Tarifa:
                   ponta_fim=int(linha.get("ponta_fim") or 21))
 
 
-def custo_acumulado(antes_kwh: float, antes_brl: float, agora_kwh: float,
-                    tarifa: Tarifa, momento: datetime) -> float:
-    """O custo da loja depois de mais uma leitura, por INCREMENTO.
+def energia_e_custo(antes_kwh: float, antes_brl: float, reportado_kwh: float,
+                    tarifa: Tarifa, momento: datetime) -> tuple[float, float]:
+    """Quanta energia a sessao ja entregou, e o que ela custou A LOJA.
 
-    Deliberadamente nao e `energia_total * tarifa_de_agora`. Uma recarga longa
-    atravessa o comeco da ponta, e ali a tarifa mais que dobra (R$ 0,789 ->
-    R$ 2,15 nas lojas com tarifa horaria). Reprecificar o acumulado faria a
-    loja aparecer, as 18h01, pagando caro por energia que comprou de tarde.
-    Cada pedaco fica com o preco da hora em que foi entregue.
+    Os dois saem juntos de proposito, porque precisam falar do mesmo numero.
 
-    Energia que anda para tras (telinha reiniciada, contador zerado) nao vira
-    credito: o incremento e travado em zero.
+    O custo vai por INCREMENTO, e nao `energia_total * tarifa_de_agora`: uma
+    recarga longa atravessa o comeco da ponta, onde a tarifa mais que dobra
+    (R$ 0,789 -> R$ 2,15 nas lojas com tarifa horaria). Reprecificar o
+    acumulado faria a loja aparecer, as 18h01, pagando caro por energia que
+    comprou de tarde. Cada pedaco fica com o preco da hora em que foi entregue.
+
+    E a energia NAO ANDA PARA TRAS. A telinha reporta `(soc - inicial) *
+    capacidade`, entao recarregar a pagina zera a conta dela e a leitura
+    seguinte chega menor que a anterior. Na primeira versao so o custo era
+    travado; a energia continuava sendo o que a telinha dissesse, e o
+    `valor_cobrado_brl` saia dela. Os dois passavam a falar de energias
+    diferentes -- deu uma sessao real com R$ 0,14 de custo e R$ 0,00 cobrado,
+    que e margem negativa de uma recarga que nem aconteceu.
+
+    Travando a energia no maior ja visto, o incremento e sempre >= 0, a soma
+    dos incrementos e exatamente a energia, e as duas contas fecham: o que o
+    motorista paga e o que a loja gastou descrevem os mesmos kWh.
     """
-    entregue = max(0.0, agora_kwh - antes_kwh)
-    return antes_brl + entregue * tarifa.preco_kwh(momento)
+    energia = max(antes_kwh, max(0.0, reportado_kwh))
+    entregue = energia - antes_kwh
+    return energia, antes_brl + entregue * tarifa.preco_kwh(momento)
 
 
 def _sessao_por_token(cur, token: str) -> dict:
@@ -319,11 +331,9 @@ def registrar_telinha(app):
                 preco = float(s["preco_kwh_brl"])
                 pct = float(s["cashback_pct"])
                 fator = float(s["leilao_fator"]) if s["leilao_fator"] else 1.0
-                energia = max(0.0, float(kwh))
-
-                custo = custo_acumulado(float(s["energia_kwh"] or 0),
-                                        float(s["custo_energia_brl"] or 0),
-                                        energia, _tarifa(s), _agora())
+                energia, custo = energia_e_custo(float(s["energia_kwh"] or 0),
+                                                 float(s["custo_energia_brl"] or 0),
+                                                 float(kwh), _tarifa(s), _agora())
 
                 cur.execute(
                     "UPDATE sessoes SET energia_kwh = %s, soc_final = %s,"
