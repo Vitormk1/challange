@@ -22,9 +22,9 @@
    dentro de um `then` seria tarde. Ver docs/painel/carregando.js. */
 const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
 
-import "./static/js/aiEntity.js?v=20260918e";
-import { createTourModule } from "./static/js/tour.js?v=20260918e";
-import { api, BASE, ErroApi } from "./api.js?v=20260918e";
+import "./static/js/aiEntity.js?v=20260923b";
+import { createTourModule } from "./static/js/tour.js?v=20260923b";
+import { api, BASE, ErroApi } from "./api.js?v=20260923b";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -121,6 +121,7 @@ const somenteLeitura = () => !pode("editar_dados");
 const SECOES = {
   painel:      { eyebrow:"Visão do lojista", titulo:"Painel" },
   carregadores:{ eyebrow:"Operação", titulo:"Carregadores", tabela:"carregadores" },
+  solar:       { eyebrow:"Operação", titulo:"Placa solar" },
   sessoes:     { eyebrow:"Operação", titulo:"Sessões", tabela:"sessoes" },
   leituras:    { eyebrow:"Operação", titulo:"Leituras", tabela:"leituras" },
   clientes:    { eyebrow:"Negócio", titulo:"Clientes", tabela:"clientes" },
@@ -742,6 +743,7 @@ async function trocarEstabelecimento(id){
   Object.values(state.tabela).forEach(u => u.selecionados.clear());
   fecharEditor();
   fidelidadeSelecao = undefined;   // o rascunho era da loja anterior
+  solarCache = null;               // a geracao era do telhado da loja anterior
   try {
     await comAviso("Trocando de estabelecimento...", () => carregarDados(),
       {sucesso: () => `Agora vendo ${loja().nome}`,
@@ -834,6 +836,7 @@ function renderSecaoAtual(){
   if (s === "painel") renderPainel();
   else if (s === "financeiro") renderFinanceiro();
   else if (s === "fidelidade") renderFidelidade();
+  else if (s === "solar") renderSolar();
   else if (s === "perfil") renderPerfil();
   else if (TABELAS[s]) renderTabela(s);
 }
@@ -2472,6 +2475,341 @@ function renderFinanceiro(){
 }
 
 /* ==========================================================================
+   placa solar
+
+   O lado da geração. Tudo vem de `/estabelecimentos/{id}/solar`, que devolve
+   a conta pronta — inclusive o `modo`, para esta tela não deduzir
+   "solar_kwp > 0" em meia dúzia de lugares e divergir num deles.
+
+   Os dois SVG daqui pintam com `fill="var(--token)"` no atributo, e não com
+   uma cor resolvida em JS. É desvio deliberado do padrão de `desenharDemanda`,
+   que precisa do `cor()` porque calcula geometria em pixel. Aqui não há nada
+   calculado a partir da cor — e `aplicarTema()` só chama `desenharGraficos()`,
+   que não renderiza seções: um SVG com cor resolvida em JS congelaria no tema
+   anterior ao trocar de claro para escuro.
+   ========================================================================== */
+
+let solarCache = null;          // { id, hora, dados }
+
+/* A geração muda de hora em hora — é o que a posição do sol faz. O relógio
+   nasce UMA vez, no arranque, e não dentro de `renderSolar()`: o render é
+   destrutivo e se chama de novo a cada ação, e um `setInterval` ali dentro
+   vazaria um timer por chamada até o navegador engasgar.
+
+   Checa de minuto em minuto, mas só age quando a HORA vira. Buscar a cada
+   minuto seria pedir ao servidor a mesma conta sessenta vezes. */
+function ligarRelogioSolar(){
+  setInterval(() => {
+    if (state.section !== "solar" || document.hidden || !solarCache) return;
+    if (new Date().getHours() === solarCache.hora) return;
+    solarCache = null;                    // a hora virou: a conta é outra
+    renderSolar();
+  }, 60000);
+}
+
+/* A pilha. O número grande é o que a pessoa abre a tela para ver; as linhas
+   finas são os cortes das faixas, e a tracejada é o piso onde a rede assume. */
+function svgPilha(b){
+  const H = 172, Y0 = 26;
+  const nivel = Math.max(0, Math.min(1, b.soc));
+  const tom = {ok:"--status-ok", warning:"--status-warning", critical:"--status-critical"}[b.tom]
+            || "--status-ok";
+  const y = v => Y0 + H * (1 - v);
+  const corte = (v, r) => `<line x1="20" y1="${y(v)}" x2="100" y2="${y(v)}"
+      stroke="var(--line)" stroke-width="1"></line>
+    <text x="104" y="${y(v) + 3}" font-size="9" fill="var(--muted)">${r}</text>`;
+  return `<svg viewBox="0 0 168 230" role="img"
+      aria-label="Bateria em ${num(b.soc_pct,0)} por cento, faixa ${esc(b.faixa_rotulo)}">
+    <rect x="48" y="8" width="24" height="14" rx="4" fill="var(--line)"></rect>
+    <rect x="20" y="22" width="80" height="180" rx="10"
+          fill="var(--surface)" stroke="var(--line)" stroke-width="2"></rect>
+    <rect x="24" y="${y(nivel)}" width="72" height="${H * nivel}" rx="6"
+          fill="var(${tom})" opacity="0.85">
+      <title>${num(b.soc_pct,0)}% de carga</title></rect>
+    ${corte(0.80,"80")}${corte(0.55,"55")}${corte(0.35,"35")}
+    <line x1="16" y1="${y(b.piso_pct/100)}" x2="104" y2="${y(b.piso_pct/100)}"
+          stroke="var(--status-critical)" stroke-width="2" stroke-dasharray="5 4"></line>
+    <text x="108" y="${y(b.piso_pct/100) + 3}" font-size="9"
+          fill="var(--status-critical)">${num(b.piso_pct,0)}% troca p/ rede</text>
+    <text x="60" y="118" text-anchor="middle" font-size="27" font-weight="700"
+          fill="var(--text)">${num(b.soc_pct,0)}%</text>
+    <text x="60" y="219" text-anchor="middle" font-size="11"
+          fill="var(--muted)">${esc(b.faixa_rotulo)}</text>
+  </svg>`;
+}
+
+/* O telhado, em projeção isométrica. Cada placa é um losango com um gêmeo
+   deslocado atrás — é isso que dá o "meio 3D" sem trazer biblioteca de fora,
+   o que a política de segurança do site (`script-src 'self'`) não permitiria.
+
+   A grade é limitada a 24 desenhos. Um telhado de 146 placas viraria uma
+   string de 15 KB remontada a cada render, e ninguém conta 146 losangos numa
+   tela. Telhado pequeno desenha o número exato; telhado grande desenha 24 e a
+   legenda diz que é recorte -- inventar uma proporção ("cada desenho vale 2")
+   daria 48 onde há 55, que é pior que dizer a verdade. */
+const TELHADO_MAX = 24;
+function svgTelhado(d){
+  const COLS = 6, ROWS = 4, W = 54, H = 30, OX = 300, OY = 64;
+  const quantas = Math.min(TELHADO_MAX, Math.max(d.placas.total, d.tem_solar ? 1 : TELHADO_MAX));
+  const gerando = d.tem_solar && d.agora.solar_kw > 0;
+  const forca = gerando ? Math.max(0, Math.min(1, d.agora.pct_do_pico / 100)) : 0;
+  const placas = [];
+  for (let r = 0; r < ROWS; r++){
+    for (let c = 0; c < COLS; c++){
+      if (placas.length >= quantas) break;
+      const x = OX + (c - r) * W / 2, y = OY + (c + r) * H / 2;
+      const p = (dy) => `${x},${y+dy} ${x+W/2},${y+H/2+dy} ${x},${y+H+dy} ${x-W/2},${y+H/2+dy}`;
+      placas.push(
+        `<polygon points="${p(7)}" fill="var(--line)" opacity="0.5"></polygon>
+         <polygon points="${p(0)}" fill="var(${gerando ? "--status-warning" : "--muted"})"
+           opacity="${(gerando ? 0.22 + 0.78 * forca : 0.18).toFixed(2)}"
+           stroke="var(--line)" stroke-width="1"></polygon>`);
+    }
+  }
+  // O sol anda na horizontal pela hora e na vertical pela elevação. Os dois
+  // números vêm do servidor: o relógio do navegador poria o sol no lugar
+  // errado para quem estivesse com a máquina desacertada.
+  const fx = Math.max(0, Math.min(1, (d.agora.hora - 6) / 12));
+  const sx = 70 + fx * 500;
+  const sy = 56 - Math.max(0, Math.min(1, d.agora.elevacao_graus / 90)) * 34;
+  const sol = d.agora.elevacao_graus > 0
+    ? `<circle cx="${sx.toFixed(0)}" cy="${sy.toFixed(0)}" r="13"
+         fill="var(--status-warning)" opacity="0.9"></circle>
+       ${[0,45,90,135,180,225,270,315].map(a => {
+          const rad = a * Math.PI / 180;
+          return `<line x1="${(sx+Math.cos(rad)*17).toFixed(1)}" y1="${(sy+Math.sin(rad)*17).toFixed(1)}"
+            x2="${(sx+Math.cos(rad)*22).toFixed(1)}" y2="${(sy+Math.sin(rad)*22).toFixed(1)}"
+            stroke="var(--status-warning)" stroke-width="2" opacity="0.7"></line>`;
+        }).join("")}`
+    : `<text x="70" y="34" font-size="12" fill="var(--muted)">sem sol agora</text>`;
+  return `<svg viewBox="0 0 640 250" role="img"
+      aria-label="Telhado com ${d.placas.total} placas, gerando ${num(d.agora.solar_kw,1)} quilowatts">
+    ${sol}${placas.join("")}
+  </svg>`;
+}
+
+/* A curva do dia. Cópia estrutural de `desenharDemanda`: mesmas margens,
+   mesma faixa de ponta, mesmo passo de rótulo. Duas telas que mostram o mesmo
+   dia têm de ter a mesma forma, senão parecem falar de dias diferentes. */
+function svgCurvaSolar(d){
+  const W = 640, H = 240, L = 40, R = 14, T = 16, B = 28;
+  const horas = d.dia;
+  const teto = Math.max(1, ...horas.map(h => Math.max(h.solar_kw, h.rede_kw)));
+  const px = i => L + i * (W - L - R) / Math.max(1, horas.length - 1);
+  const py = v => H - B - (v / teto) * (H - T - B);
+  const linha = (campo) => horas.map((h, i) => `${px(i).toFixed(1)},${py(h[campo]).toFixed(1)}`).join(" ");
+  const ponta = horas.map((h, i) => h.em_ponta
+    ? `<rect x="${(px(i) - 10).toFixed(1)}" y="${T}" width="20" height="${H-T-B}"
+         fill="var(--status-warning)" opacity="0.10"></rect>` : "").join("");
+  const barras = horas.map((h, i) => h.rede_kw > 0
+    ? `<rect x="${(px(i) - 6).toFixed(1)}" y="${py(h.rede_kw).toFixed(1)}" width="12"
+         height="${(H - B - py(h.rede_kw)).toFixed(1)}" fill="var(--muted)" opacity="0.28">
+         <title>${h.hora}h · ${num(h.rede_kw,1)} kW da rede</title></rect>` : "").join("");
+  const soc = d.bateria
+    ? `<polyline points="${horas.map((h,i) => `${px(i).toFixed(1)},${(H-B-(h.bateria_soc)*(H-T-B)).toFixed(1)}`).join(" ")}"
+         fill="none" stroke="var(--status-ok)" stroke-width="1.5"
+         stroke-dasharray="4 3" opacity="0.75"></polyline>` : "";
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Geração solar hora a hora">
+    ${ponta}${barras}
+    <polygon points="${L},${H-B} ${linha("solar_kw")} ${W-R},${H-B}"
+      fill="var(--status-warning)" opacity="0.22"></polygon>
+    <polyline points="${linha("solar_kw")}" fill="none"
+      stroke="var(--status-warning)" stroke-width="2.5"></polyline>
+    ${soc}
+    <line x1="${L}" y1="${H-B}" x2="${W-R}" y2="${H-B}" stroke="var(--line)"></line>
+    ${horas.map((h, i) => i % 3 === 0
+      ? `<text x="${px(i).toFixed(1)}" y="${H-8}" font-size="10" text-anchor="middle"
+           fill="var(--muted)">${h.hora}h</text>` : "").join("")}
+    <text x="4" y="${T+8}" font-size="10" fill="var(--muted)">${num(teto,0)} kW</text>
+  </svg>`;
+}
+
+/* Para onde foi o sol. Divs com largura em %, não SVG: são quatro retângulos
+   e um texto, e o navegador já sabe fazer isso melhor do que eu faria à mão. */
+function barraDestino(r){
+  const partes = [
+    ["carros",    r.para_carros_kwh,  "--primary"],
+    ["loja",      r.para_loja_kwh,    "--status-ok"],
+    ["bateria",   r.para_bateria_kwh, "--status-warning"],
+    ["excedente", r.excedente_kwh,    "--muted"],
+  ].filter(([, kwh]) => kwh > 0.05);
+  const total = r.gerado_kwh || 1;
+  return `<div class="solar-destino">
+    <div class="solar-destino-barra">
+      ${partes.map(([nome, kwh, tok]) => `<span style="width:${(kwh/total*100).toFixed(1)}%;
+        background:var(${tok})" title="${esc(nome)}: ${num(kwh,1)} kWh"></span>`).join("")}
+    </div>
+    <ul class="solar-destino-lista">
+      ${partes.map(([nome, kwh, tok]) => `<li>
+        <i style="background:var(${tok})"></i>
+        <b>${num(kwh/total*100,0)}%</b>
+        <span>${esc(nome)}</span>
+        <small>${num(kwh,1)} kWh</small></li>`).join("")}
+    </ul></div>`;
+}
+
+async function renderSolar(){
+  if (!podeVer("solar")) return;
+  const e = loja();
+  const alvo = $("#screen-solar");
+  if (!alvo || !e) return;
+
+  let d;
+  try {
+    if (!solarCache || solarCache.id !== state.estabelecimentoId){
+      alvo.innerHTML = `<article class="table-card"><div class="empty-state">
+        <p>Carregando a geração de ${esc(e.nome || "")}…</p></div></article>`;
+      solarCache = {id: state.estabelecimentoId, dados: await api.solar(state.estabelecimentoId)};
+    }
+    d = solarCache.dados;
+    solarCache.hora = d.agora.hora;
+  } catch (erro){
+    solarCache = null;
+    alvo.innerHTML = `<article class="table-card"><div class="empty-state">
+      <p>Não consegui carregar a geração agora. Tente recarregar a página.</p></div></article>`;
+    return;
+  }
+
+  const r = d.resumo, p = d.placas, a = d.agora, b = d.bateria;
+  const titulo = `<div class="table-toolbar">
+    <div class="toolbar-left"><h3 class="table-title">Geração solar de ${esc(e.nome || "")}</h3></div>
+    <div class="toolbar-right"><span class="table-meta">
+      ${d.dia_e_hoje ? "hoje" : `último dia com medição: ${esc(d.dia_referencia)}`}
+      · atualiza de hora em hora</span></div></div>`;
+
+  /* Loja sem placa não vê uma tela zerada: vê o que a tela mostraria. Quatro
+     KPIs em R$ 0,00 e uma pilha vazia pareceriam defeito, e um `NaN` escapando
+     de uma divisão por zero pareceria pior ainda. */
+  if (!d.tem_solar){
+    alvo.innerHTML = `<article class="table-card">${titulo}
+      <div class="solar-vazio">
+        <div class="solar-telhado solar-telhado-previa">${svgTelhado(d)}</div>
+        <div>
+          <h4>Esta loja ainda não tem geração solar.</h4>
+          <p>Preencha <code>solar_kwp</code> no cadastro do estabelecimento e esta
+          tela passa a mostrar quanto o telhado gera a cada hora, quanto disso vai
+          para os carros e quanto a loja deixa de pagar de energia.</p>
+          <p class="solar-nota">Os ${p.carregadores} carregadores desta loja
+          precisariam de cerca de <b>${p.necessarias_total || "—"}</b> placas para
+          repor, no dia, a energia que consomem.</p>
+        </div>
+      </div></article>`;
+    return;
+  }
+
+  const semBateria = !d.tem_bateria;
+  const alerta = b && !b.autonomia.cobre_o_dia;
+
+  alvo.innerHTML = `<article class="table-card">${titulo}
+    <div class="dashboard-canvas-grid dashboard-canvas-grid-small" style="padding:18px">
+      <div class="dashboard-card dashboard-card-metric" style="grid-column:span 3;grid-row:span 2">
+        ${kpi("Agora", "Geração atual", `${num(a.solar_kw,1)} kW`,
+          `${num(a.pct_do_pico,0)}% do pico de hoje · sol a ${num(a.elevacao_graus,0)}°
+           · o sistema conta ${num(a.solar_confiavel_kw,1)} kW ao liberar carga`,
+          a.solar_kw > 0 ? "ok" : "")}
+      </div>
+      <div class="dashboard-card dashboard-card-metric" style="grid-column:span 3;grid-row:span 2">
+        ${kpi("No dia", "Total gerado", `${num(r.gerado_kwh,0)} kWh`,
+          `pico de ${num(r.pico_kw,1)} kW às ${r.pico_hora}h
+           · ${num(p.horas_sol_equivalentes,1)} h de sol pleno`)}
+      </div>
+      <div class="dashboard-card dashboard-card-metric" style="grid-column:span 3;grid-row:span 2">
+        ${kpi("No dia", "Custo evitado", brl(r.custo_evitado_brl),
+          r.evitado_bateria_brl > 0
+            ? `${brl(r.evitado_bateria_brl)} vieram da bateria devolvendo na ponta`
+            : `o sol cobriu ${num(r.cobertura_dia_pct,0)}% do consumo do dia`, "ok")}
+      </div>
+      <div class="dashboard-card dashboard-card-metric" style="grid-column:span 3;grid-row:span 2">
+        ${kpi("No dia", "Aproveitamento", `${num(r.aproveitamento_pct,0)}%`,
+          r.excedente_kwh > 0.05
+            ? `do que o telhado gerou, a loja usou — ${num(r.excedente_kwh,1)} kWh sobraram`
+            : "tudo que o telhado gerou a loja usou",
+          r.aproveitamento_pct >= 90 ? "ok" : "warning")}
+      </div>
+    </div>
+
+    <div class="solar-linha">
+      <section class="solar-bloco">
+        ${cabecaCard("O telhado", `${p.total} placas · ${num(d.solar_kwp,0)} kWp`)}
+        <div class="solar-telhado">${svgTelhado(d)}</div>
+        <p class="solar-nota">
+          ${p.total > TELHADO_MAX
+            ? `O desenho mostra ${TELHADO_MAX} das ${p.total} placas`
+            : `${p.total} placas`} de ${num(p.potencia_placa_kwp * 1000, 0)} W.
+          O rateio dá <b>${num(p.por_carregador,1)} placas por vaga</b> — mas placa
+          não pertence a carregador: a energia é a mesma e vai para quem estiver
+          puxando, e às 19h não vai para ninguém porque não há sol.
+        </p>
+        <p class="solar-nota">
+          Para repor no dia o que cada vaga consome (${num(p.horas_uso_dia,1)} h de uso,
+          ${num(p.horas_sol_equivalentes,1)} h de sol pleno), seriam
+          <b>${p.necessarias_por_carregador}</b> placas por vaga —
+          ${p.cobre_os_carregadores
+            ? "o telhado cobre."
+            : `faltam ${p.falta} placas.`}
+        </p>
+        ${d.latitude_estimada ? `<p class="solar-nota solar-nota-fraca">
+          Esta loja está sem coordenada no cadastro: a conta do sol usa a latitude
+          de São Paulo.</p>` : ""}
+      </section>
+
+      ${semBateria ? `
+      <section class="solar-bloco solar-bloco-estreito">
+        ${cabecaCard("Armazenamento", "Sem bateria")}
+        <div class="empty-state" style="padding:22px 6px">
+          <p>Esta loja não tem bateria. ${r.excedente_kwh > 0.05
+            ? `Os <b>${num(r.excedente_kwh,1)} kWh</b> que sobraram do meio-dia foram para a rede.`
+            : "Todo o sol foi consumido na hora em que foi gerado."}</p>
+        </div>
+      </section>` : `
+      <section class="solar-bloco solar-bloco-estreito">
+        ${cabecaCard("Armazenamento", `${num(b.capacidade_kwh,0)} kWh · ${num(b.potencia_kw,0)} kW`)}
+        <div class="solar-pilha" data-tom="${esc(b.tom)}">${svgPilha(b)}</div>
+        <p class="solar-nota">
+          Sobram <b>${num(b.acima_do_piso_pct,0)}%</b> da energia utilizável.
+          Abaixo de ${num(b.piso_pct,0)}% os carregadores passam para a rede —
+          é o piso que o próprio modelo respeita ao calcular a descarga.
+        </p>
+        <p class="solar-nota solar-nota-fraca">
+          A carga é projetada a partir da curva do dia, não medida no equipamento.
+        </p>
+      </section>`}
+    </div>
+
+    ${alerta ? `<div class="table-section-banner" data-tom="warning">
+      <strong>Aviso de segurança:</strong> a bateria chega ao piso de
+      ${num(b.piso_pct,0)}% às <b>${b.autonomia.hora_do_piso}h</b> e os carregadores
+      passam para a rede. Depois disso, <b>${num(b.autonomia.deficit_kwh,1)} kWh</b>
+      vêm da rede dentro da ponta, que é a energia mais cara do dia.
+    </div>` : ""}
+
+    <section class="solar-bloco">
+      ${cabecaCard("No dia", "Para onde foi o sol")}
+      ${barraDestino(r)}
+    </section>
+
+    <section class="solar-bloco">
+      ${cabecaCard("No dia", "Hora a hora")}
+      <div class="solar-curva">${svgCurvaSolar(d)}</div>
+      <p class="solar-nota">
+        A área amarela é a geração; as barras cinzas, o que veio da rede; a faixa
+        clara marca a ponta${d.bateria ? "; a linha tracejada verde é a carga da bateria" : ""}.
+      </p>
+    </section>
+
+    <div class="table-section-banner">
+      <strong>No dia:</strong> o sol cobriu ${num(r.cobertura_dia_pct,0)}% do consumo
+      da loja e evitou ${brl(r.custo_evitado_brl)} de conta de energia.
+      ${r.evitado_bateria_brl > 0
+        ? `Desses, <b>${brl(r.evitado_bateria_brl)}</b> vieram da bateria: o excedente
+           guardado ao meio-dia a ${brl(d.dia[12] ? d.dia[12].preco_kwh_brl : 0)}/kWh
+           voltou na ponta valendo mais.`
+        : ""}
+    </div>
+  </article>`;
+}
+
+/* ==========================================================================
    fidelidade
 
    Um modelo por loja, entre os três que existem. As colunas de cada modelo
@@ -3342,6 +3680,7 @@ async function entrarNoPainel(sessao){
   saudarAssistente();
 
   aplicarAutoRefresh();
+  ligarRelogioSolar();
   const secao = state.prefs.secao;
   setSection(SECOES[secao] && podeVer(secao) ? secao : "painel");
   renderTudo();

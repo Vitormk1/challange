@@ -4,19 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Smart Charge</title>
-<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260918e">
-<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260918e">
-<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260918e">
+<link rel="icon" type="image/png" sizes="32x32" href="./img/logo-32.png?v=20260923b">
+<link rel="icon" type="image/png" sizes="256x256" href="./img/logo.png?v=20260923b">
+<link rel="apple-touch-icon" href="./img/logo-180.png?v=20260923b">
 <meta name="description" content="Painel do lojista: retorno, carregadores, sessões, clientes e vendas atribuídas.">
-<link rel="stylesheet" href="./style.css?v=20260918e">
+<link rel="stylesheet" href="./style.css?v=20260923b">
 <!-- marca.css vem depois do style.css: ele só troca os tokens de cor, e
      precisa vencer os valores originais da referência -->
-<link rel="stylesheet" href="./marca.css?v=20260918e">
-<link rel="stylesheet" href="./static/css/tour.css?v=20260918e">
-<link rel="stylesheet" href="./painel.css?v=20260918e">
-<link rel="stylesheet" href="./login.css?v=20260918e">
-<link rel="stylesheet" href="./carregando.css?v=20260918e">
-<script src="./carregando.js?v=20260918e"></script>
+<link rel="stylesheet" href="./marca.css?v=20260923b">
+<link rel="stylesheet" href="./static/css/tour.css?v=20260923b">
+<link rel="stylesheet" href="./painel.css?v=20260923b">
+<link rel="stylesheet" href="./login.css?v=20260923b">
+<link rel="stylesheet" href="./carregando.css?v=20260923b">
+<script src="./carregando.js?v=20260923b"></script>
 <noscript><style>#carregando{display:none}</style></noscript>
 </head>
 <body class="primary-loading sem-sessao">
@@ -36,7 +36,7 @@
   <div class="dashboard-loading-panel" role="status" aria-live="polite" aria-label="Carregando painel">
     <div class="dashboard-loading-brand">
       <div class="dashboard-loading-mark" aria-hidden="true">
-        <img src="./img/logo.png?v=20260918e" alt="" width="50" height="50" decoding="async">
+        <img src="./img/logo.png?v=20260923b" alt="" width="50" height="50" decoding="async">
       </div>
       <div class="dashboard-loading-copy">
         <p class="eyebrow">Visão do lojista</p>
@@ -60,7 +60,7 @@
     <!-- marca: o anel enche conforme a pessoa preenche o formulário -->
     <div class="login-marca">
       <span class="login-selo" aria-hidden="true">
-        <img src="./img/logo.png?v=20260918e" alt="" width="60" height="60" decoding="async">
+        <img src="./img/logo.png?v=20260923b" alt="" width="60" height="60" decoding="async">
       </span>
       <h1>Smart Charge</h1>
     </div>
@@ -109,7 +109,7 @@
   <aside class="sidebar">
     <button class="brand brand-button" id="brandReloadButton" type="button" aria-label="Recarregar painel">
       <div class="brand-mark" aria-hidden="true">
-        <img src="./img/logo.png?v=20260918e" alt="" width="26" height="26" decoding="async">
+        <img src="./img/logo.png?v=20260923b" alt="" width="26" height="26" decoding="async">
       </div>
       <h1>Smart Charge</h1>
     </button>
@@ -132,7 +132,7 @@
           </button>
           <div class="nav-group-items" id="navGroupOperacao">
             <button class="nav-item active" type="button" data-section="painel"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"></path></svg></span>Painel</span></button>
-            <button class="nav-item" type="button" data-section="carregadores"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7 2h8a2 2 0 0 1 2 2v18H5V4a2 2 0 0 1 2-2Zm11 6h1a2 2 0 0 1 2 2v6h-2v-6h-1V8Zm-6 1-3 5h2.5L11 18l3-5h-2.5L12 9Z"></path></svg></span>Carregadores</span></button>
+            <button class="nav-item" type="button" data-section="carregadores"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7 2h8a2 2 0 0 1 2 2v18H5V4a2 2 0 0 1 2-2Zm11 6h1a2 2 0 0 1 2 2v6h-2v-6h-1V8Zm-6 1-3 5h2.5L11 18l3-5h-2.5L12 9Z"></path></svg></span>Carregadores</span></button><button class="nav-item" type="button" data-section="solar"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M11 2h2v3.1h-2V2Zm7.1 2.5 1.4 1.4-2.2 2.2-1.4-1.4 2.2-2.2ZM4.5 3.9l2.2 2.2-1.4 1.4-2.2-2.2 1.4-1.4ZM5.6 10h4.5l-.5 3.1H4.6L5.6 10Zm6.5 0h4.5l1 3.1h-4.9L12.1 10ZM3.9 15.1h5l-.6 3.7H2.6l1.3-3.7Zm7 0h5.1l.6 3.7h-5.7l-.6 3.7v-3.7h.6Zm7.1 0h5l1.4 3.7h-5.8l-.6-3.7ZM11 18.8h2V22h-2v-3.2Z"></path></svg></span>Placa solar</span></button>
             <button class="nav-item" type="button" data-section="sessoes"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 10.6V6h-2v7.4l5.2 3.1 1-1.7-4.2-2.2Z"></path></svg></span>Sessões</span></button>
             <button class="nav-item" type="button" data-section="leituras"><span class="nav-item-label"><span class="nav-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M3 17h3l3-9 4 14 3-11 2 6h3v2h-4.5l-1-3-3 11-4-14-2 6H3v-2Z"></path></svg></span>Leituras</span></button>
           </div>
@@ -318,7 +318,8 @@
 
         <!-- ---------- TABELAS ---------- -->
         <section class="panel-section" id="section-carregadores"><div class="table-screen" id="screen-carregadores"></div></section>
-        <section class="panel-section" id="section-sessoes"><div class="table-screen" id="screen-sessoes"></div></section>
+        <section class="panel-section" id="section-solar"><div class="table-screen" id="screen-solar"></div></section>
+                <section class="panel-section" id="section-sessoes"><div class="table-screen" id="screen-sessoes"></div></section>
         <section class="panel-section" id="section-leituras"><div class="table-screen" id="screen-leituras"></div></section>
         <section class="panel-section" id="section-clientes"><div class="table-screen" id="screen-clientes"></div></section>
         <section class="panel-section" id="section-vendas"><div class="table-screen" id="screen-vendas"></div></section>
@@ -543,6 +544,6 @@
 
 <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
 
-<script type="module" src="./app.js?v=20260918e"></script>
+<script type="module" src="./app.js?v=20260923b"></script>
 </body>
 </html>

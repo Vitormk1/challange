@@ -120,6 +120,10 @@ export const api = {
      sol, janela de ponta e estado da bateria mudam entre uma carga de tela e
      outra. Vir junto do resto seria servir um número velho. */
   demanda: id => pedir(`/estabelecimentos/${id}/demanda`),
+  /* Rota separada da demanda de propósito: lá o `agora.solar_kw` vem
+     descontado pela confiança de 0,70, que é número de planejamento. Numa
+     tela de geração solar isso seria uma mentira de 30%. */
+  solar:   id => pedir(`/estabelecimentos/${id}/solar`),
   repartir: (id, pedidos_kw) =>
     pedir(`/estabelecimentos/${id}/repartir`, {metodo:"POST", corpo:{pedidos_kw}}),
 

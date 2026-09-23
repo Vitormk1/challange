@@ -620,6 +620,366 @@ def plano_do_dia(local: Local, dia: datetime, carga_carregadores_kw: dict[int, f
 
 
 # ==========================================================================
+# O lado da geracao: o que o telhado entregou, e o que isso poupou
+# ==========================================================================
+#
+# Tudo daqui para baixo recebe o `plano_do_dia` JA PRONTO e nao toca no banco
+# nem no relogio. E a mesma escolha do resto do modulo, e e o que deixa testar
+# o pior caso -- bateria no piso as 19h, dia sem sol -- sem servidor e sem
+# esperar o dia chegar la.
+
+# Placa comercial de 550 W. E constante de modulo, e nao coluna, de proposito:
+# o que a loja cadastra e a potencia instalada em kWp, que e o numero que sai
+# no contrato e na conta de luz. Quantas placas fisicas fazem aquele kWp
+# depende do modelo, e errar o modelo muda a contagem mas nao muda nenhuma
+# conta de energia.
+POTENCIA_PLACA_KWP = 0.55
+
+# As faixas de seguranca da bateria, em intervalos SEMIABERTOS no piso:
+#
+#     [0.80, 1.00]  excelente
+#     [0.55, 0.80)  bom
+#     [0.35, 0.55)  alerta
+#     [0.00, 0.35)  critico
+#
+# A especificacao que chegou dizia "79 a 55 bom, 55 a 35 alerta" -- com o 55
+# nos dois lados e um buraco entre 79 e 80. Semiaberto resolve as duas coisas
+# de uma vez: todo soc entre 0 e 1 cai em exatamente uma faixa, e o 79 do
+# pedido continua em "bom" porque o corte de cima e o 80.
+FAIXAS_BATERIA = (
+    ("excelente", 0.80, "ok"),
+    ("bom",       0.55, "ok"),
+    ("alerta",    0.35, "warning"),
+    ("critico",   0.00, "critical"),
+)
+
+_ROTULOS_FAIXA = {"excelente": "Excelente", "bom": "Bom",
+                  "alerta": "Alerta", "critico": "Alerta maximo"}
+
+# Quando considerar que a bateria "chegou no piso" e a rede tem de assumir.
+#
+# Nao da para comparar `soc == soc_minimo`: `descarga_disponivel_kw` divide a
+# energia util pelo rendimento, entao a descarga vai freando e a bateria para
+# em 0,102 com piso de 0,100 -- perto, nunca igual. Testar igualdade faria o
+# aviso de troca para a rede nunca aparecer.
+#
+# O criterio e a energia UTIL que sobrou: 1% do que da para usar. E relativo, e
+# por isso vale igual para uma bateria de 15 kWh e para uma de 80 kWh.
+RESTO_UTIL_NO_PISO = 0.01
+
+
+@dataclass(frozen=True)
+class FaixaBateria:
+    """Em que pe esta a bateria, com o nome que a tela mostra."""
+
+    nome: str                   # excelente | bom | alerta | critico
+    rotulo: str                 # o mesmo, escrito para gente
+    tom: str                    # ok | warning | critical -- vira token de cor
+    soc_pct: float
+    piso_pct: float
+    acima_do_piso_pct: float    # quanto do UTIL ainda resta, nao do total
+    troca_para_rede: bool
+
+
+def faixa_de_bateria(soc: float, soc_minimo: float = 0.10) -> FaixaBateria:
+    """Classifica o estado de carga e diz se ja e hora de soltar a rede.
+
+    `troca_para_rede` sai do `soc_minimo` da propria `Bateria`, que ja vale
+    0.10 por padrao e ja e obedecido por `descarga_disponivel_kw`. Inventar uma
+    constante nova aqui daria dois pisos no sistema: um que a tela anuncia e
+    outro que o calculo respeita -- e eles divergiriam na primeira vez que
+    alguem mexesse num dos dois.
+
+    `acima_do_piso_pct` mede o que ainda da para usar, nao o que existe: uma
+    bateria em 10% com piso de 10% esta CHEIA de energia inacessivel, e mostrar
+    "10% restantes" faria pensar que ainda ha o que tirar.
+    """
+    soc = max(0.0, min(1.0, soc))
+    piso = max(0.0, min(1.0, soc_minimo))
+    for nome, corte, tom in FAIXAS_BATERIA:
+        if soc >= corte:
+            break
+    else:                                   # pragma: no cover - FAIXAS acaba em 0
+        nome, tom = "critico", "critical"
+    util = 1.0 - piso
+    resto = max(0.0, soc - piso) / util if util > 0 else 0.0
+    return FaixaBateria(
+        nome=nome,
+        rotulo=_ROTULOS_FAIXA.get(nome, nome),
+        tom=tom,
+        soc_pct=round(soc * 100.0, 1),
+        piso_pct=round(piso * 100.0, 1),
+        acima_do_piso_pct=round(resto * 100.0, 1),
+        troca_para_rede=resto <= RESTO_UTIL_NO_PISO,
+    )
+
+
+@dataclass(frozen=True)
+class ResumoSolar:
+    """O dia inteiro de geracao, somado, e o que ele poupou em reais."""
+
+    gerado_kwh: float
+    pico_kw: float
+    pico_hora: int | None
+    aproveitado_kwh: float
+    excedente_kwh: float
+    aproveitamento_pct: float
+    para_carros_kwh: float
+    para_loja_kwh: float
+    para_bateria_kwh: float
+    custo_evitado_brl: float
+    evitado_direto_brl: float
+    evitado_bateria_brl: float
+    evitado_ponta_brl: float
+    consumo_dia_kwh: float
+    cobertura_dia_pct: float
+
+
+def resumo_solar_do_dia(plano: list[dict], tarifa: Tarifa | None,
+                        passo_min: int = 60) -> ResumoSolar:
+    """Soma o dia de `plano_do_dia` e precifica o que o sol substituiu.
+
+    A regra que da o numero certo: **o kWh vale a tarifa da hora em que ele
+    substituiu a rede**, e nao a da hora em que foi gerado. Sol que vai direto
+    para o consumo poupa o preco daquele instante. Sol que foi guardado ao
+    meio-dia por R$ 0,789 e devolvido as 19h poupa R$ 2,15 -- e e ai que a
+    bateria paga o proprio investimento.
+
+    Por isso existe um estoque corrente de quanto do que esta na bateria veio
+    do sol. A descarga saca dele primeiro; o que sair alem disso veio de carga
+    da rede, e isso e arbitragem de tarifa, nao economia de geracao. Misturar
+    os dois inflaria o numero que a loja usa para decidir se vale instalar
+    placa.
+
+    `em_ponta` e lido da propria linha do plano -- a regra de ponta nao e
+    reimplementada aqui.
+    """
+    h = max(0.0, passo_min / 60.0)
+    fora = tarifa.fora_ponta_kwh if tarifa else 0.0
+    ponta = tarifa.ponta_kwh if tarifa else 0.0
+
+    gerado = aproveitado = excedente = 0.0
+    carros = loja = bateria = 0.0
+    evitado_direto = evitado_bateria = evitado_ponta = 0.0
+    consumo_dia = 0.0
+    pico_kw, pico_hora = 0.0, None
+    estoque_solar_kwh = 0.0            # quanto do que ha na bateria veio do sol
+
+    for linha in plano:
+        sol = max(0.0, float(linha.get("solar_kw") or 0.0))
+        carregadores = max(0.0, float(linha.get("carregadores_kw") or 0.0))
+        consumo = max(0.0, float(linha.get("base_kw") or 0.0)) + carregadores
+        bat = float(linha.get("bateria_kw") or 0.0)      # <0 guarda, >0 entrega
+        preco = ponta if linha.get("em_ponta") else fora
+
+        gerado += sol * h
+        consumo_dia += consumo * h
+        if sol > pico_kw:
+            pico_kw, pico_hora = sol, linha.get("hora")
+
+        # O sol atende o consumo primeiro; so o que sobra pode ir para a
+        # bateria; o que nem a bateria quis e excedente.
+        direto = min(sol, consumo)
+        sobra = max(0.0, sol - consumo)
+        para_bateria = min(max(0.0, -bat), sobra)
+        sobrou = sol - direto - para_bateria
+
+        # Rateio do uso direto entre carros e loja, pela participacao de cada
+        # um no consumo daquele passo. Nao ha medicao por circuito, entao e
+        # rateio -- e a tela diz que e.
+        do_carro = direto * (carregadores / consumo) if consumo > 0 else 0.0
+
+        carros += do_carro * h
+        loja += (direto - do_carro) * h
+        bateria += para_bateria * h
+        excedente += sobrou * h
+        aproveitado += (direto + para_bateria) * h
+
+        estoque_solar_kwh += para_bateria * h
+
+        # A bateria entregando: saca do estoque solar primeiro. O que sair
+        # alem dele veio de carga da rede, e nao conta como economia do sol.
+        do_sol_kwh = 0.0
+        if bat > 0:
+            do_sol_kwh = min(estoque_solar_kwh, bat * h)
+            estoque_solar_kwh -= do_sol_kwh
+
+        no_passo = (direto * h + do_sol_kwh) * preco
+        evitado_direto += direto * h * preco
+        evitado_bateria += do_sol_kwh * preco
+        if linha.get("em_ponta"):
+            evitado_ponta += no_passo
+
+    total = evitado_direto + evitado_bateria
+    return ResumoSolar(
+        gerado_kwh=round(gerado, 2),
+        pico_kw=round(pico_kw, 2),
+        pico_hora=pico_hora,
+        aproveitado_kwh=round(aproveitado, 2),
+        excedente_kwh=round(excedente, 2),
+        aproveitamento_pct=round(aproveitado / gerado * 100.0, 1) if gerado > 0 else 0.0,
+        para_carros_kwh=round(carros, 2),
+        para_loja_kwh=round(loja, 2),
+        para_bateria_kwh=round(bateria, 2),
+        custo_evitado_brl=round(total, 2),
+        evitado_direto_brl=round(evitado_direto, 2),
+        evitado_bateria_brl=round(evitado_bateria, 2),
+        evitado_ponta_brl=round(evitado_ponta, 2),
+        consumo_dia_kwh=round(consumo_dia, 2),
+        cobertura_dia_pct=round(min(100.0, aproveitado / consumo_dia * 100.0), 1)
+                          if consumo_dia > 0 else 0.0,
+    )
+
+
+@dataclass(frozen=True)
+class AutonomiaBateria:
+    """Se a carga guardada cobre o dia, e a que horas ela acaba."""
+
+    cobre_o_dia: bool
+    hora_do_piso: int | None
+    horas_no_piso: int
+    deficit_kwh: float
+    troca_para_rede_em: int | None
+
+
+def autonomia_da_bateria(plano: list[dict], capacidade_kwh: float,
+                         soc_minimo: float = 0.10,
+                         passo_min: int = 60) -> AutonomiaBateria:
+    """A que horas a bateria encosta no piso, e o que a rede teve de cobrir.
+
+    `deficit_kwh` e o que veio da rede NA PONTA depois que a bateria chegou ao
+    piso. E a conta que interessa ao lojista: energia cara que ele pagou porque
+    o armazenamento acabou antes da hora. Contar o deficit fora da ponta
+    inflaria o numero com energia barata que ele pagaria de qualquer jeito.
+    """
+    if capacidade_kwh <= 0:
+        return AutonomiaBateria(True, None, 0, 0.0, None)
+
+    h = max(0.0, passo_min / 60.0)
+    piso = max(0.0, min(1.0, soc_minimo))
+    hora_do_piso = None
+    no_piso = 0
+    deficit = 0.0
+
+    for linha in plano:
+        soc = float(linha.get("bateria_soc") or 0.0)
+        # Mesmo criterio de `faixa_de_bateria`: acabou a energia util, e nao
+        # "o numero bateu". A descarga freia perto do piso e nunca encosta.
+        if faixa_de_bateria(soc, piso).troca_para_rede:
+            no_piso += 1
+            if hora_do_piso is None:
+                hora_do_piso = linha.get("hora")
+            if linha.get("em_ponta"):
+                deficit += max(0.0, float(linha.get("rede_kw") or 0.0)) * h
+
+    return AutonomiaBateria(
+        cobre_o_dia=hora_do_piso is None,
+        hora_do_piso=hora_do_piso,
+        horas_no_piso=no_piso,
+        deficit_kwh=round(deficit, 2),
+        troca_para_rede_em=hora_do_piso,
+    )
+
+
+# ==========================================================================
+# Placas: quantas ha no telhado, e quantas uma vaga pediria
+# ==========================================================================
+
+def placas_do_telhado(solar_kwp: float,
+                      potencia_placa_kwp: float = POTENCIA_PLACA_KWP) -> int:
+    """Quantas placas fazem aquela potencia instalada. Arredonda para cima.
+
+    Para cima porque meia placa nao existe: 80 kWp em placas de 550 W sao 146
+    placas entregando 80,3 kWp, e nao 145 entregando 79,75.
+    """
+    if solar_kwp <= 0 or potencia_placa_kwp <= 0:
+        return 0
+    return math.ceil(solar_kwp / potencia_placa_kwp)
+
+
+def horas_de_sol_equivalentes(plano: list[dict], solar_kwp: float,
+                              passo_min: int = 60) -> float:
+    """As "horas de sol pleno" daquele dia: kWh gerado por kWp instalado.
+
+    Sai do proprio plano, e nao de uma constante climatica de tabela. Com isso
+    o numero respeita a estacao e a latitude da loja: o mesmo telhado rende
+    menos em junho que em dezembro, e a conta de dimensionamento acompanha.
+    """
+    if solar_kwp <= 0:
+        return 0.0
+    h = max(0.0, passo_min / 60.0)
+    gerado = sum(max(0.0, float(l.get("solar_kw") or 0.0)) for l in plano) * h
+    return round(gerado / solar_kwp, 2)
+
+
+def placas_para_carregador(potencia_kw: float, horas_uso_dia: float,
+                           horas_sol_equivalentes: float,
+                           potencia_placa_kwp: float = POTENCIA_PLACA_KWP) -> int:
+    """Quantas placas cobririam a ENERGIA que uma vaga consome num dia.
+
+    Por energia, e nao por potencia, porque as duas coisas nao se encontram no
+    tempo: uma vaga de 22 kW as 19h nao tem sol nenhum para puxar. O que a
+    placa faz e repor no dia o que a vaga tirou no dia.
+    """
+    por_placa_kwh = potencia_placa_kwp * horas_sol_equivalentes
+    if potencia_kw <= 0 or horas_uso_dia <= 0 or por_placa_kwh <= 0:
+        return 0
+    return math.ceil(potencia_kw * horas_uso_dia / por_placa_kwh)
+
+
+@dataclass(frozen=True)
+class RateioDePlacas:
+    """O telhado dividido entre as vagas -- contabilmente, nao fisicamente."""
+
+    total: int
+    carregadores: int
+    por_carregador: float            # rateio: total / vagas
+    necessarias: tuple[int, ...]     # uma por vaga, na ordem recebida
+    necessarias_por_carregador: int  # a maior delas, o pior caso
+    necessarias_total: int
+    cobre: bool
+    falta: int
+    horas_sol_equivalentes: float
+    horas_uso_dia: float
+
+
+def rateio_de_placas(solar_kwp: float, carregadores_kw: list[float],
+                     horas_sol_equivalentes: float,
+                     horas_uso_dia: float = 2.0,
+                     potencia_placa_kwp: float = POTENCIA_PLACA_KWP) -> RateioDePlacas:
+    """Quantas placas ha por vaga, e quantas cada vaga pediria.
+
+    `por_carregador` e RATEIO CONTABIL e a tela precisa dizer isso. Placa nao
+    pertence a carregador: a energia e fungivel, o eletron do telhado vai para
+    quem estiver puxando, e as 19h nao vai para ninguem porque nao ha sol.
+    Desenhar "16 placas desta vaga" como se fossem dedicadas seria inventar uma
+    fiacao que nao existe.
+
+    `necessarias` e a conta util -- quantas placas reporiam, no dia, a energia
+    que cada vaga consumiu. `horas_uso_dia` e o unico palpite da funcao, e por
+    isso e parametro com padrao: a tela mostra o valor usado e diz que e
+    premissa.
+    """
+    total = placas_do_telhado(solar_kwp, potencia_placa_kwp)
+    vagas = [max(0.0, float(kw)) for kw in (carregadores_kw or [])]
+    precisa = tuple(placas_para_carregador(kw, horas_uso_dia, horas_sol_equivalentes,
+                                           potencia_placa_kwp) for kw in vagas)
+    soma = sum(precisa)
+    return RateioDePlacas(
+        total=total,
+        carregadores=len(vagas),
+        por_carregador=round(total / len(vagas), 1) if vagas else 0.0,
+        necessarias=precisa,
+        necessarias_por_carregador=max(precisa) if precisa else 0,
+        necessarias_total=soma,
+        cobre=total >= soma,
+        falta=max(0, soma - total),
+        horas_sol_equivalentes=round(horas_sol_equivalentes, 2),
+        horas_uso_dia=horas_uso_dia,
+    )
+
+
+# ==========================================================================
 # Demonstracao
 # ==========================================================================
 

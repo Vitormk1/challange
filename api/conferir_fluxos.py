@@ -314,6 +314,13 @@ def main() -> int:
         ok("a demanda da loja exige sessao de lojista", r.status_code in (401, 403),
            f"HTTP {r.status_code}")
 
+        r = requests.get(f"{API}/estabelecimentos/1/solar", timeout=TEMPO)
+        ok("a geracao solar tambem exige sessao", r.status_code in (401, 403),
+           f"HTTP {r.status_code}")
+        r = motorista.get(f"{API}/estabelecimentos/1/solar", timeout=TEMPO)
+        ok("motorista nao entra na geracao da loja", r.status_code == 403,
+           f"HTTP {r.status_code}")
+
         # ---------------------------------------------------- fidelidade
         secao("fidelidade")
         r = motorista.get(f"{API}/fidelidade", timeout=TEMPO)
@@ -383,6 +390,51 @@ def main() -> int:
                        f"sobra {a['disponivel_kw']} de teto {a['teto_kw']}")
                     ok("a ocupacao fica entre 0 e 1", 0 <= a["ocupacao"] <= 1,
                        str(a["ocupacao"]))
+
+                # ------------------------------------------ placa solar
+                r = lojista.get(f"{API}/estabelecimentos/{est['id']}/solar", timeout=TEMPO)
+                ok("lojista abre a geracao solar da loja dele", r.status_code == 200,
+                   f"HTTP {r.status_code}")
+                if r.status_code == 200:
+                    s = r.json()
+                    ok("a geracao tem as 24 horas", len(s.get("dia", [])) == 24)
+                    ok("o modo vem do servidor",
+                       s.get("modo") in ("rede", "solar", "hibrido"), str(s.get("modo")))
+                    ag, rs = s["agora"], s["resumo"]
+                    # A razao de a rota existir: o numero da tela e o bruto, e
+                    # o do planejamento e menor. Se um dia alguem "consertar"
+                    # isso trocando os dois, esta linha acusa.
+                    ok("a geracao bruta nunca e menor que a confiavel",
+                       ag["solar_kw"] >= ag["solar_confiavel_kw"] - 1e-6,
+                       f"{ag['solar_kw']} bruto vs {ag['solar_confiavel_kw']} contado")
+                    soma = (rs["para_carros_kwh"] + rs["para_loja_kwh"]
+                            + rs["para_bateria_kwh"] + rs["excedente_kwh"])
+                    ok("todo kWh gerado tem um destino",
+                       abs(soma - rs["gerado_kwh"]) < 0.5,
+                       f"{soma:.1f} de {rs['gerado_kwh']:.1f} kWh")
+                    ok("o aproveitado nunca passa do gerado",
+                       rs["aproveitado_kwh"] <= rs["gerado_kwh"] + 1e-6)
+                    # Em Sao Paulo, um telhado rende de 3 a 7 horas de sol
+                    # pleno por dia. Fora dessa banda, algum passo foi contado
+                    # duas vezes.
+                    ok("as horas de sol equivalentes fazem sentido",
+                       not s["tem_solar"]
+                       or 2.0 <= s["placas"]["horas_sol_equivalentes"] <= 8.0,
+                       f"{s['placas']['horas_sol_equivalentes']} h")
+
+                # Loja sem placa responde 200 com `tem_solar: false` -- e nao
+                # 404 nem 500. A tela precisa do corpo para desenhar o convite.
+                sem_sol = uma("SELECT id FROM estabelecimentos"
+                              " WHERE ativo AND NOT so_mapa AND solar_kwp = 0 LIMIT 1")
+                if sem_sol:
+                    r = lojista.get(f"{API}/estabelecimentos/{sem_sol['id']}/solar",
+                                    timeout=TEMPO)
+                    ok("loja sem placa responde sem quebrar",
+                       r.status_code in (200, 403)
+                       and (r.status_code == 403 or r.json()["tem_solar"] is False),
+                       f"HTTP {r.status_code}")
+                else:
+                    aviso("nenhuma loja do painel esta sem solar: modo vazio nao conferido")
 
                 r = lojista.post(f"{API}/estabelecimentos/{est['id']}/repartir",
                                  json={"pedidos_kw": [1000, 1000]}, timeout=TEMPO)

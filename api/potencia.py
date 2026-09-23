@@ -33,9 +33,11 @@ from db import conectar
 # ai/ e irmao de api/, e o servidor roda com api/ no sys.path.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from ai.demanda import (  # noqa: E402
-    Bateria, Local, Tarifa, fator_cashback, folga_kw, melhor_hora_de_carregar,
-    melhor_janela,
-    plano_do_dia, repartir, solar_kw,
+    POTENCIA_PLACA_KWP,
+    Bateria, Local, Tarifa, autonomia_da_bateria, elevacao_solar_graus,
+    faixa_de_bateria, fator_cashback, folga_kw, horas_de_sol_equivalentes,
+    melhor_hora_de_carregar, melhor_janela,
+    plano_do_dia, rateio_de_placas, repartir, resumo_solar_do_dia, solar_kw,
 )
 
 BRASIL = timezone(timedelta(hours=-3))
@@ -255,6 +257,173 @@ def registrar_potencia(app, usuario_atual):
             # potencia que vem da REDE com a contratada -- o que o telhado
             # entrega nao conta, porque nao passa pelo medidor.
             "risco_ultrapassagem": any(l["ultrapassou"] for l in linhas),
+        }
+
+    @router.get("/estabelecimentos/{estabelecimento_id}/solar")
+    def solar(estabelecimento_id: int, u=Depends(lojista)):
+        """O lado da geracao: o telhado, a bateria e o que isso poupou.
+
+        Rota separada da `/demanda`, e nao um campo a mais nela, por um motivo
+        concreto: o `agora.solar_kw` de la vem multiplicado por
+        `confianca_solar` (0,70). Aquilo e numero de PLANEJAMENTO -- o que o
+        sistema se permite prometer ao liberar carga para um carro, sabendo
+        que uma nuvem pode passar. Chamar aquele numero de "geracao atual"
+        numa tela de energia solar seria mentira de 30%.
+
+        Aqui os dois aparecem, nomeados: `solar_kw` e o que o telhado entrega,
+        `solar_confiavel_kw` e o que o sistema conta. A diferenca entre eles e
+        uma frase na tela, nao um numero escondido.
+
+        E por isso a `/demanda` nao foi tocada: `contexto_da_vaga` devolve o
+        `solar_kw` descontado para a telinha, e "consertar" aquele campo
+        subiria em silencio a potencia anunciada ao motorista.
+        """
+        from main import exigir_loja           # evita import circular na subida
+        exigir_loja(u, estabelecimento_id)
+
+        agora = _agora()
+        with conectar() as con, con.cursor() as cur:
+            cur.execute("SELECT * FROM estabelecimentos WHERE id = %s AND ativo",
+                        (estabelecimento_id,))
+            loja = cur.fetchone()
+            if not loja:
+                raise HTTPException(404, "Loja não encontrada.")
+            local = local_da_loja(loja)
+            carregando = carga_agora_kw(cur, estabelecimento_id)
+            referencia, e_hoje = dia_de_referencia(cur, estabelecimento_id, agora)
+            horas = curva_do_dia(cur, estabelecimento_id, referencia)
+            cur.execute("SELECT potencia_kw FROM carregadores"
+                        " WHERE estabelecimento_id = %s AND ativo ORDER BY id",
+                        (estabelecimento_id,))
+            vagas_kw = [float(r["potencia_kw"]) for r in cur.fetchall()]
+            sem_coordenada = loja.get("lat") is None
+
+        linhas = plano_do_dia(local, referencia, horas)
+        resumo = resumo_solar_do_dia(linhas, local.tarifa)
+        hse = horas_de_sol_equivalentes(linhas, local.solar_kwp)
+        placas = rateio_de_placas(local.solar_kwp, vagas_kw, hse)
+
+        tem_solar = local.solar_kwp > 0
+        tem_bateria = local.bateria is not None and local.bateria.capacidade_kwh > 0
+        # O modo vem do servidor para o front nao deduzir `solar_kwp > 0` em
+        # meia duzia de lugares e divergir num deles.
+        modo = "hibrido" if (tem_solar and tem_bateria) else "solar" if tem_solar else "rede"
+
+        # A hora e a do servidor. `desenharBateria` ja mistura o relogio do
+        # navegador com o do servidor; aqui nao: um notebook com a hora errada
+        # destacaria a hora errada na curva.
+        bruto_kw = solar_kw(local.solar_kwp, agora, local.latitude)
+        consumo_kw = local.carga_base_kw + carregando
+        pico_dia = resumo.pico_kw or 0.0
+
+        bateria = None
+        if tem_bateria:
+            b = local.bateria
+            # O soc da hora corrente sai da CURVA, nao da coluna: `bateria_soc`
+            # esta congelado em 0,500 em todas as lojas, e mostrar aquilo como
+            # leitura seria fingir telemetria que nao existe.
+            da_hora = next((l for l in linhas if l["hora"] == agora.hour), None)
+            soc = float(da_hora["bateria_soc"]) if da_hora else b.soc
+            f = faixa_de_bateria(soc, b.soc_minimo)
+            a = autonomia_da_bateria(linhas, b.capacidade_kwh, b.soc_minimo)
+            bateria = {
+                "capacidade_kwh": b.capacidade_kwh,
+                "potencia_kw": b.potencia_kw,
+                "soc": round(soc, 3),
+                "soc_pct": f.soc_pct,
+                "piso_pct": f.piso_pct,
+                "acima_do_piso_pct": f.acima_do_piso_pct,
+                "faixa": f.nome,
+                "faixa_rotulo": f.rotulo,
+                "tom": f.tom,
+                "troca_para_rede": f.troca_para_rede,
+                # A tela DIZ que e projecao em vez de fingir medicao.
+                "soc_e_simulado": True,
+                "autonomia": {
+                    "cobre_o_dia": a.cobre_o_dia,
+                    "hora_do_piso": a.hora_do_piso,
+                    "horas_no_piso": a.horas_no_piso,
+                    "deficit_kwh": a.deficit_kwh,
+                    "troca_para_rede_em": a.troca_para_rede_em,
+                },
+            }
+
+        dia = []
+        for l in linhas:
+            sol = l["solar_kw"]
+            consumo = l["base_kw"] + l["carregadores_kw"]
+            direto = min(sol, consumo)
+            sobra = max(0.0, sol - consumo)
+            p_bat = min(max(0.0, -l["bateria_kw"]), sobra)
+            p_carro = direto * (l["carregadores_kw"] / consumo) if consumo > 0 else 0.0
+            dia.append({**l,
+                        "solar_pct": round(sol / pico_dia * 100.0, 1) if pico_dia > 0 else 0.0,
+                        "para_carros_kw": round(p_carro, 2),
+                        "para_loja_kw": round(direto - p_carro, 2),
+                        "para_bateria_kw": round(p_bat, 2),
+                        "excedente_kw": round(sol - direto - p_bat, 2),
+                        "preco_kwh_brl": round(
+                            local.tarifa.ponta_kwh if l["em_ponta"]
+                            else local.tarifa.fora_ponta_kwh, 4)})
+
+        return {
+            "estabelecimento_id": estabelecimento_id,
+            "modo": modo,
+            "tem_solar": tem_solar,
+            "tem_bateria": tem_bateria,
+            "solar_kwp": local.solar_kwp,
+            "confianca_solar": local.confianca_solar,
+            "latitude": local.latitude,
+            # As tres lojas sem lat/lng caem no padrao de Sao Paulo. A tela
+            # precisa saber para nao reivindicar precisao que nao tem.
+            "latitude_estimada": sem_coordenada,
+            "placas": {
+                "potencia_placa_kwp": POTENCIA_PLACA_KWP,
+                "total": placas.total,
+                "carregadores": placas.carregadores,
+                "por_carregador": placas.por_carregador,
+                "necessarias": list(placas.necessarias),
+                "necessarias_por_carregador": placas.necessarias_por_carregador,
+                "necessarias_total": placas.necessarias_total,
+                "cobre_os_carregadores": placas.cobre,
+                "falta": placas.falta,
+                "horas_sol_equivalentes": placas.horas_sol_equivalentes,
+                "horas_uso_dia": placas.horas_uso_dia,
+            },
+            "agora": {
+                "hora": agora.hour,
+                "solar_kw": round(bruto_kw, 2),
+                "solar_confiavel_kw": round(bruto_kw * local.confianca_solar, 2),
+                "pct_do_pico": round(bruto_kw / pico_dia * 100.0, 1) if pico_dia > 0 else 0.0,
+                "elevacao_graus": round(elevacao_solar_graus(agora, local.latitude), 1),
+                "consumo_kw": round(consumo_kw, 2),
+                "carregando_kw": round(carregando, 2),
+                "cobertura_pct": round(min(100.0, bruto_kw / consumo_kw * 100.0), 1)
+                                 if consumo_kw > 0 else 0.0,
+                "em_ponta": local.tarifa.em_ponta(agora),
+                "preco_kwh_brl": round(local.tarifa.preco_kwh(agora), 4),
+            },
+            "dia": dia,
+            "resumo": {
+                "gerado_kwh": resumo.gerado_kwh,
+                "pico_kw": resumo.pico_kw,
+                "pico_hora": resumo.pico_hora,
+                "aproveitado_kwh": resumo.aproveitado_kwh,
+                "excedente_kwh": resumo.excedente_kwh,
+                "aproveitamento_pct": resumo.aproveitamento_pct,
+                "para_carros_kwh": resumo.para_carros_kwh,
+                "para_loja_kwh": resumo.para_loja_kwh,
+                "para_bateria_kwh": resumo.para_bateria_kwh,
+                "custo_evitado_brl": resumo.custo_evitado_brl,
+                "evitado_direto_brl": resumo.evitado_direto_brl,
+                "evitado_bateria_brl": resumo.evitado_bateria_brl,
+                "evitado_ponta_brl": resumo.evitado_ponta_brl,
+                "consumo_dia_kwh": resumo.consumo_dia_kwh,
+                "cobertura_dia_pct": resumo.cobertura_dia_pct,
+            },
+            "bateria": bateria,
+            "dia_referencia": referencia.date().isoformat(),
+            "dia_e_hoje": e_hoje,
         }
 
     @router.post("/estabelecimentos/{estabelecimento_id}/repartir")
