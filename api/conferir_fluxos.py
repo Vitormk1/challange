@@ -567,6 +567,7 @@ def main() -> int:
         if not vaga:
             aviso("nenhuma vaga livre sem leilao: telinha nao conferida")
         else:
+            cfg = {}          # usado adiante para saber se estamos na ponta
             r = requests.get(f"{API}/vagas/{vaga['id']}/telinha", timeout=TEMPO)
             if ok("telinha abre sem login", r.status_code == 200, f"HTTP {r.status_code}"):
                 cfg = r.json()
@@ -606,8 +607,22 @@ def main() -> int:
                     # se a energia fosse de graca.
                     ok("o que a energia custou A LOJA foi gravado", custo > 0,
                        f"R$ {custo:.2f}")
-                    ok("fora da ponta, a margem da recarga e positiva",
-                       cobrado > custo, f"R$ {cobrado - custo:.2f}")
+                    # A margem da recarga MUDA DE SINAL na ponta, e isso nao e
+                    # defeito: a R$ 2,15/kWh a loja compra mais caro do que
+                    # quase todo ponto cobra. E a razao de existirem a bateria
+                    # e o leilao de potencia.
+                    #
+                    # A primeira versao deste teste exigia margem positiva sem
+                    # olhar a hora. Passava de manha e quebrava depois das 18h
+                    # -- um teste que so vale meio dia nao vale.
+                    em_ponta = bool(cfg.get("em_ponta"))
+                    if em_ponta:
+                        ok("na ponta a energia custa mais do que a recarga rende",
+                           custo > cobrado,
+                           f"R$ {cobrado - custo:.2f} — e por isso que a bateria existe")
+                    else:
+                        ok("fora da ponta a margem da recarga e positiva",
+                           cobrado > custo, f"R$ {cobrado - custo:.2f}")
                     ok("uma leitura foi para a curva do dia",
                        (uma("SELECT count(*) n FROM leituras WHERE sessao_id=%s",
                             sessao_id) or {"n": 0})["n"] > 0)
