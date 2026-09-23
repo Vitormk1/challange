@@ -22,9 +22,9 @@
    dentro de um `then` seria tarde. Ver docs/painel/carregando.js. */
 const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
 
-import "./static/js/aiEntity.js?v=20260923b";
-import { createTourModule } from "./static/js/tour.js?v=20260923b";
-import { api, BASE, ErroApi } from "./api.js?v=20260923b";
+import "./static/js/aiEntity.js?v=20260923d";
+import { createTourModule } from "./static/js/tour.js?v=20260923d";
+import { api, BASE, ErroApi } from "./api.js?v=20260923d";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -102,9 +102,9 @@ const loja = () => state.dados.estabelecimentos.find(e => e.id === state.estabel
 const daLoja = (lista, campo = "estabelecimento_id") => lista.filter(r => r[campo] === state.estabelecimentoId);
 const carregadoresDaLoja = (id = state.estabelecimentoId) =>
   state.dados.carregadores.filter(c => c.estabelecimento_id === id);
-/* O id é opcional e cai na loja aberta. Ele existe porque a tabela de
-   estabelecimentos calcula uma linha por loja, e sem ele todas as linhas
-   mostrariam os números da loja atual. */
+/* O id é opcional e cai na loja aberta. Ele existe para `tetoDaLoja(e)`, que
+   recebe a loja como argumento e precisa das sessões daquela loja — e não das
+   da loja que estiver aberta na tela. */
 const sessoesDaLoja = (id = state.estabelecimentoId) => {
   const ids = new Set(carregadoresDaLoja(id).map(c => c.id));
   return state.dados.sessoes.filter(s => ids.has(s.carregador_id));
@@ -129,7 +129,6 @@ const SECOES = {
   cupons:      { eyebrow:"Negócio", titulo:"Cupons", tabela:"cupons" },
   fidelidade:  { eyebrow:"Negócio", titulo:"Fidelidade" },
   financeiro:  { eyebrow:"Negócio", titulo:"Financeiro" },
-  estabelecimentos:{ eyebrow:"Cadastros", titulo:"Estabelecimentos", tabela:"estabelecimentos" },
   paineis:     { eyebrow:"Cadastros", titulo:"Painéis salvos", tabela:"paineis" },
   perfil:      { eyebrow:"Sua conta", titulo:"Perfil e configurações" },
 };
@@ -277,32 +276,6 @@ const TABELAS = {
       {r:"Emitido", k:"emitido_em", v:l => dataHora(l.emitido_em)},
       {r:"Usado", k:"usado_em", v:l => l.usado_em ? dataHora(l.usado_em) : `<span class="table-cell-muted">não usado</span>`},
       {r:"Sessão", k:"sessao_id", v:l => `#${l.sessao_id}`},
-    ],
-  },
-  estabelecimentos: {
-    novo: "Novo estabelecimento", vazio: "Nenhum estabelecimento cadastrado.",
-    soMain: true,
-    linhas: () => state.dados.estabelecimentos,
-    colunas: [
-      {r:"Nome", k:"nome", v:l => esc(l.nome)},
-      {r:"Segmento", k:"segmento", v:l => esc(l.segmento)},
-      {r:"Margem", k:"margem_liquida_pct", v:l => `${num(l.margem_liquida_pct,1)}%`},
-      {r:"Ticket médio", k:"ticket_medio_brl", v:l => brl(l.ticket_medio_brl)},
-      {r:"Tarifa", k:"tarifa_kwh_brl", v:l => `${brl(l.tarifa_kwh_brl)}/kWh`},
-      {r:"Demanda", k:"demanda_contratada_kw", v:l => l.demanda_contratada_kw ? `${num(l.demanda_contratada_kw,0)} kW` : `<span class="table-cell-muted">—</span>`},
-      {r:"Cashback que se paga", k:"teto", ord: l => tetoDaLoja(l).pct,
-       v:l => { const r = tetoDaLoja(l);
-                return r.pct >= 0.5 ? `${num(r.pct,1)}%` : chip("não se paga","critical"); }},
-    ],
-    campos: [
-      {k:"nome", r:"Nome", t:"text", obrigatorio:true},
-      {k:"segmento", r:"Segmento", t:"select", opcoes:[["pet","Pet shop e clínica"],["restaurante","Restaurante"],["academia","Academia"],["farmacia","Farmácia"],["mercado","Supermercado"],["cafe","Cafeteria"],["outro","Outro"]]},
-      {k:"margem_liquida_pct", r:"Margem líquida (%)", t:"number", passo:"0.1",
-       ajuda:"É daqui que sai o teto de cashback. Margem baixa não sustenta crédito alto."},
-      {k:"ticket_medio_brl", r:"Ticket médio (R$)", t:"number", passo:"1"},
-      {k:"tarifa_kwh_brl", r:"Tarifa de energia (R$/kWh)", t:"number", passo:"0.0001"},
-      {k:"demanda_contratada_kw", r:"Demanda contratada (kW)", t:"number", passo:"1",
-       ajuda:"O carregador não pode empurrar a loja acima disso — a multa de ultrapassagem come o ganho."},
     ],
   },
   paineis: {
@@ -886,10 +859,15 @@ function renderTabela(secao){
     : `<tr><td colspan="${cfg.colunas.length + 1}">
          <div class="empty-state">${esc(termo ? "Nada encontrado para esta busca." : cfg.vazio)}</div></td></tr>`;
 
+  /* A frase tem de nomear quem REALMENTE edita aquela tabela, e não "o
+     gerente" sempre. Numa tabela `soMain`, quem edita é o administrador do
+     sistema — dizer "gerente" mandava o próprio gerente procurar ele mesmo. */
   const aviso = !editavel && cfg.campos ? `
     <div class="aviso-somente-leitura">
       <span aria-hidden="true">🔒</span>
-      <span>Seu papel vê estes registros, mas não altera. Quem edita é o gerente.</span>
+      <span>Seu papel vê estes registros, mas não altera.
+      ${cfg.soMain ? "Esta tabela é do administrador do sistema."
+                   : "Quem edita é o gerente da loja."}</span>
     </div>` : "";
 
   alvo.innerHTML = `${aviso}
@@ -2538,6 +2516,159 @@ function svgPilha(b){
   </svg>`;
 }
 
+/* O CAMINHO DA ENERGIA — o desenho que explica o sistema inteiro numa olhada.
+
+   Sol → placas → inversor → quadro, e do quadro para os três destinos que
+   disputam a mesma energia: os carregadores, a loja e a bateria. A rede entra
+   por baixo quando o sol não dá conta, e a bateria inverte o sentido quando
+   passa a entregar em vez de guardar.
+
+   Cada linha carrega o número real daquela hora, e a espessura acompanha a
+   potência: uma linha grossa é onde a energia está de fato correndo. Linha com
+   fluxo zero fica apagada em vez de sumir — o componente continua existindo,
+   e ver o caminho inteiro é o que faz entender o sistema.
+
+   A animação é CSS puro (`stroke-dashoffset`), não JavaScript: não custa
+   quadro de animação, e `prefers-reduced-motion` desliga sozinho. */
+function svgFluxo(d){
+  const W = 960, H = 400;
+  const a = d.agora;
+  const hora = d.dia.find(l => l.hora === a.hora) || d.dia[0] || {};
+  const bat = Number(hora.bateria_kw || 0);          // <0 guarda, >0 entrega
+
+  /* As linhas que SAEM do quadro carregam o consumo TOTAL de cada destino, e
+     nao a fatia solar dele. Num diagrama unifilar o barramento mistura as
+     fontes: depois que o eletron entra ali, ninguem sabe de qual ele veio.
+     Quem tem cor de origem sao as linhas que CHEGAM -- sol, bateria, rede.
+
+     A primeira versao mostrava a fatia solar nas caixas de destino, e as 19h
+     a tela dizia "Loja 0,0 kW" com uma linha grossa de rede do lado. A loja
+     estava consumindo 18 kW; o que era zero era a parcela vinda do sol. */
+  const fluxos = {
+    sol:      Math.max(0, a.solar_kw),
+    carros:   Math.max(0, hora.carregadores_kw || 0),
+    loja:     Math.max(0, hora.base_kw || 0),
+    guarda:   Math.max(0, -bat),
+    entrega:  Math.max(0, bat),
+    rede:     Math.max(0, hora.rede_kw || 0),
+    excedente: Math.max(0, hora.excedente_kw || 0),
+    solarParaCarros: Math.max(0, hora.para_carros_kw || 0),
+  };
+  const pico = Math.max(1, ...Object.values(fluxos));
+  const grossura = kw => (kw <= 0.01 ? 2 : 2.5 + Math.min(7, (kw / pico) * 7));
+
+  /* Uma caixa de componente. O valor grande é o que está passando por ele
+     agora; o rótulo de baixo é o que o componente É, para quem nunca viu a
+     tela antes não precisar adivinhar. */
+  const caixa = (x, y, w, h, titulo, valor, sub, tom, ativo) => `
+    <g class="fluxo-no ${ativo ? "is-ativo" : ""}">
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="14"
+            fill="var(--surface)" stroke="var(${ativo ? tom : "--line"})"
+            stroke-width="${ativo ? 2 : 1.5}"></rect>
+      <text x="${x + w/2}" y="${y + 22}" text-anchor="middle" font-size="11"
+            font-weight="700" letter-spacing="0.06em"
+            fill="var(--muted)">${esc(titulo.toUpperCase())}</text>
+      <text x="${x + w/2}" y="${y + h/2 + 12}" text-anchor="middle" font-size="23"
+            font-weight="700" fill="var(${ativo ? tom : "--muted"})">${valor}</text>
+      ${sub ? `<text x="${x + w/2}" y="${y + h - 12}" text-anchor="middle" font-size="10"
+            fill="var(--muted)">${esc(sub)}</text>` : ""}
+    </g>`;
+
+  /* Uma linha de energia. `d` é o caminho; `kw` decide espessura, brilho e se
+     as listras andam. O sentido da animação segue o sentido do caminho. */
+  const linha = (caminho, kw, tom, rotulo, rx, ry) => {
+    const ativo = kw > 0.01;
+    return `
+    <g class="fluxo-linha ${ativo ? "is-correndo" : ""}">
+      <path d="${caminho}" fill="none" stroke="var(${ativo ? tom : "--line"})"
+            stroke-width="${grossura(kw)}" stroke-linecap="round"
+            opacity="${ativo ? 0.35 : 0.5}"></path>
+      ${ativo ? `<path d="${caminho}" fill="none" stroke="var(${tom})"
+            stroke-width="${grossura(kw)}" stroke-linecap="round"
+            stroke-dasharray="14 20" class="fluxo-corrente"></path>` : ""}
+      ${rotulo ? `<text x="${rx}" y="${ry}" text-anchor="middle" font-size="11"
+            font-weight="700" fill="var(${ativo ? tom : "--muted"})"
+            opacity="${ativo ? 1 : 0.55}">${rotulo}</text>` : ""}
+    </g>`;
+  };
+
+  const kw = v => `${num(v, 1)} kW`;
+  const AMB = "--status-warning", OK = "--status-ok", RED = "--primary", CINZA = "--muted";
+
+  // O sol sobe e desce pela elevação: é o mesmo número que move o telhado.
+  const alto = a.elevacao_graus > 0;
+  const solY = 62 - Math.max(0, Math.min(1, a.elevacao_graus / 90)) * 22;
+
+  return `<svg viewBox="0 0 ${W} ${H}" class="fluxo-svg" role="img"
+      aria-label="Caminho da energia: ${kw(fluxos.sol)} do sol, ${kw(fluxos.carros)} para os carregadores, ${kw(fluxos.rede)} da rede">
+    <defs>
+      <linearGradient id="fluxoCeu" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(${AMB})" stop-opacity="${alto ? 0.16 : 0.03}"></stop>
+        <stop offset="100%" stop-color="var(${AMB})" stop-opacity="0"></stop>
+      </linearGradient>
+    </defs>
+    <rect x="0" y="0" width="${W}" height="150" fill="url(#fluxoCeu)"></rect>
+
+    ${alto ? `<g class="fluxo-sol">
+        <circle cx="96" cy="${solY.toFixed(0)}" r="17" fill="var(${AMB})" opacity="0.92"></circle>
+        ${[0,45,90,135,180,225,270,315].map(ang => { const r = ang*Math.PI/180;
+          return `<line x1="${(96+Math.cos(r)*22).toFixed(1)}" y1="${(solY+Math.sin(r)*22).toFixed(1)}"
+                        x2="${(96+Math.cos(r)*28).toFixed(1)}" y2="${(solY+Math.sin(r)*28).toFixed(1)}"
+                        stroke="var(${AMB})" stroke-width="2.5" stroke-linecap="round" opacity="0.7"></line>`;
+        }).join("")}
+      </g>` : `<text x="96" y="${solY.toFixed(0)}" text-anchor="middle" font-size="12"
+                     fill="var(--muted)">sem sol agora</text>`}
+
+    ${linha(`M96 ${(solY + 34).toFixed(0)} L96 150`, fluxos.sol, AMB, "", 0, 0)}
+
+    ${caixa(30, 150, 132, 86, "Placas", `${num(d.solar_kwp,0)} kWp`,
+            `${d.placas.total} painéis`, AMB, fluxos.sol > 0.01)}
+    ${linha("M162 193 L228 193", fluxos.sol, AMB, kw(fluxos.sol), 195, 182)}
+
+    ${caixa(228, 150, 122, 86, "Inversor", kw(fluxos.sol), "CC → CA", AMB, fluxos.sol > 0.01)}
+    ${linha("M350 193 L430 193", fluxos.sol, AMB, "", 0, 0)}
+
+    <g class="fluxo-no is-ativo">
+      <rect x="430" y="86" width="14" height="250" rx="7"
+            fill="var(--line)" stroke="var(--border-default, var(--line))"></rect>
+      <text x="437" y="76" text-anchor="middle" font-size="11" font-weight="700"
+            letter-spacing="0.06em" fill="var(--muted)">QUADRO</text>
+    </g>
+
+    ${linha("M444 128 C 520 128, 540 116, 600 116", fluxos.carros, RED, kw(fluxos.carros), 530, 104)}
+    ${caixa(600, 86, 160, 82, "Carregadores", kw(fluxos.carros),
+            fluxos.solarParaCarros > 0.01
+              ? `${num(fluxos.solarParaCarros,1)} kW vindo do sol`
+              : `${d.placas.carregadores} vaga${d.placas.carregadores === 1 ? "" : "s"}`,
+            RED, fluxos.carros > 0.01)}
+
+    ${linha("M444 211 L600 211", fluxos.loja, OK, kw(fluxos.loja), 522, 200)}
+    ${caixa(600, 172, 160, 78, "Loja", kw(fluxos.loja), "iluminação, frio, caixa", OK,
+            fluxos.loja > 0.01)}
+
+    ${fluxos.entrega > 0.01
+      ? linha("M600 296 C 540 296, 520 300, 444 300", fluxos.entrega, OK, kw(fluxos.entrega), 522, 286)
+      : linha("M444 300 C 520 300, 540 296, 600 296", fluxos.guarda, AMB,
+              fluxos.guarda > 0.01 ? kw(fluxos.guarda) : "em espera", 522, 286)}
+    ${caixa(600, 258, 160, 78, "Bateria",
+            d.tem_bateria ? `${num(d.bateria.soc_pct,0)}%` : "—",
+            d.tem_bateria
+              ? (fluxos.entrega > 0.01 ? "entregando" : fluxos.guarda > 0.01 ? "guardando sol" : "parada")
+              : "não instalada",
+            d.tem_bateria ? {ok:OK, warning:AMB, critical:"--status-critical"}[d.bateria.tom] : CINZA,
+            d.tem_bateria && (fluxos.entrega > 0.01 || fluxos.guarda > 0.01))}
+
+    ${linha("M228 336 L 380 336 C 410 336, 420 330, 430 322", fluxos.rede, CINZA, kw(fluxos.rede), 300, 326)}
+    ${caixa(68, 300, 160, 72, "Rede", kw(fluxos.rede),
+            a.em_ponta ? "ponta · energia cara" : "fora de ponta", CINZA, fluxos.rede > 0.01)}
+
+    ${fluxos.excedente > 0.01 ? `
+      ${linha("M430 104 C 400 104, 380 96, 300 96", fluxos.excedente, AMB, kw(fluxos.excedente), 360, 86)}
+      <text x="220" y="100" text-anchor="middle" font-size="11" font-weight="700"
+            fill="var(${AMB})">excedente → rede</text>` : ""}
+  </svg>`;
+}
+
 /* O telhado, em projeção isométrica. Cada placa é um losango com um gêmeo
    deslocado atrás — é isso que dá o "meio 3D" sem trazer biblioteca de fora,
    o que a política de segurança do site (`script-src 'self'`) não permitiria.
@@ -2701,6 +2832,34 @@ async function renderSolar(){
   const alerta = b && !b.autonomia.cobre_o_dia;
 
   alvo.innerHTML = `<article class="table-card">${titulo}
+
+    <section class="solar-fluxo">
+      <div class="solar-fluxo-topo">
+        <div>
+          <p class="eyebrow">Agora, ${a.hora}h</p>
+          <h3>O caminho da energia</h3>
+        </div>
+        <ul class="solar-fluxo-legenda">
+          <li><i style="background:var(--status-warning)"></i>sol</li>
+          <li><i style="background:var(--primary)"></i>carregadores</li>
+          <li><i style="background:var(--status-ok)"></i>loja e bateria</li>
+          <li><i style="background:var(--muted)"></i>rede</li>
+        </ul>
+      </div>
+      ${svgFluxo(d)}
+      <p class="solar-nota">
+        As linhas que <b>chegam</b> ao quadro têm a cor da origem — sol, bateria
+        ou rede. As que <b>saem</b> levam o consumo total de cada destino: depois
+        do barramento a energia se mistura, e não dá para dizer de qual fonte
+        veio cada quilowatt. A espessura acompanha a potência.
+        ${a.em_ponta
+          ? "Estamos na <b>ponta</b>: a energia da rede é a mais cara do dia, e é por isso que a bateria entrega agora."
+          : b && b.troca_para_rede
+            ? "A bateria está no piso, então tudo que falta vem da rede."
+            : "Fora da ponta, o que sobra do sol vai para a bateria em vez de voltar para a rede."}
+      </p>
+    </section>
+
     <div class="dashboard-canvas-grid dashboard-canvas-grid-small" style="padding:18px">
       <div class="dashboard-card dashboard-card-metric" style="grid-column:span 3;grid-row:span 2">
         ${kpi("Agora", "Geração atual", `${num(a.solar_kw,1)} kW`,

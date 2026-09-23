@@ -995,3 +995,54 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
   .solar-vazio { grid-template-columns: minmax(0, 1fr); }
   .solar-telhado-previa { max-width: 280px; }
 }
+
+/* -------- o caminho da energia --------
+   A corrente que anda nas linhas e CSS puro: uma segunda copia do mesmo
+   caminho, tracejada, com o `stroke-dashoffset` correndo. Nao custa quadro de
+   animacao em JavaScript, e quem pediu menos movimento no sistema simplesmente
+   nao ve as listras andarem -- a linha continua la, com a espessura certa. */
+.solar-fluxo {
+  margin: 0 18px 18px;
+  padding: 16px 18px 14px;
+  border: 1px solid var(--line, rgba(22, 22, 26, 0.1));
+  border-radius: var(--radius-lg, 20px);
+  background: var(--surface, #fff);
+}
+.solar-fluxo-topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.solar-fluxo-topo h3 { margin: 2px 0 0; font-size: 1.06rem; color: var(--text, #16161a); }
+.solar-fluxo-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.78rem;
+  color: var(--muted, #5b5b66);
+}
+.solar-fluxo-legenda li { display: flex; align-items: center; gap: 6px; }
+.solar-fluxo-legenda i { width: 9px; height: 9px; border-radius: 2px; }
+
+.fluxo-svg { width: 100%; height: auto; display: block; margin: 6px 0 2px; }
+
+/* O no ativo ganha um halo discreto. Sem isso, com tudo desenhado o tempo
+   todo, nao da para ver num relance QUEM esta funcionando agora. */
+.fluxo-no.is-ativo rect { filter: drop-shadow(0 0 7px rgba(0, 0, 0, 0.12)); }
+
+.fluxo-corrente {
+  animation: fluxo-anda 1.15s linear infinite;
+}
+@keyframes fluxo-anda { to { stroke-dashoffset: -34; } }
+
+.fluxo-sol { animation: fluxo-pulsa 3.4s ease-in-out infinite; transform-origin: 96px 50px; }
+@keyframes fluxo-pulsa { 50% { opacity: 0.72; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fluxo-corrente, .fluxo-sol { animation: none; }
+}
