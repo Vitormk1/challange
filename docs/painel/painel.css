@@ -1046,3 +1046,42 @@ body.loja-unica .client-dropdown-trigger { cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   .fluxo-corrente, .fluxo-sol { animation: none; }
 }
+
+/* -------- configuracoes da loja, dentro do Perfil --------
+   Os campos vieram da tabela "Estabelecimentos", que saiu do menu. Aqui eles
+   ficam agrupados por assunto: um lojista que abre esta tela quer mexer na
+   margem OU na tarifa OU no telhado, quase nunca nos tres de uma vez. */
+#lojaConfig { grid-column: 1 / -1; }
+
+.loja-config-card { margin-top: 4px; }
+.loja-config { display: grid; gap: 4px; }
+
+.loja-config-grupo {
+  border: 0;
+  border-top: 1px solid var(--line, rgba(22, 22, 26, 0.1));
+  margin: 0;
+  padding: 16px 0 6px;
+}
+.loja-config-grupo:first-of-type { border-top: 0; padding-top: 4px; }
+.loja-config-grupo legend {
+  padding: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text, #16161a);
+}
+.loja-config-nota {
+  margin: 4px 0 12px;
+  font-size: 0.82rem;
+  color: var(--muted, #5b5b66);
+}
+.loja-config-campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px 18px;
+}
+
+@media (max-width: 720px) {
+  .loja-config-campos { grid-template-columns: minmax(0, 1fr); }
+}

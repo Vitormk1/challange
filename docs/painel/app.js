@@ -22,9 +22,9 @@
    dentro de um `then` seria tarde. Ver docs/painel/carregando.js. */
 const soltarCortina = window.carregando ? window.carregando.aguardar() : null;
 
-import "./static/js/aiEntity.js?v=20260923d";
-import { createTourModule } from "./static/js/tour.js?v=20260923d";
-import { api, BASE, ErroApi } from "./api.js?v=20260923d";
+import "./static/js/aiEntity.js?v=20260929b";
+import { createTourModule } from "./static/js/tour.js?v=20260929b";
+import { api, BASE, ErroApi } from "./api.js?v=20260929b";
 
 /* -------------------------------------------------------------------------- */
 const $  = (s, r = document) => r.querySelector(s);
@@ -3533,6 +3533,133 @@ function pintarAvatar(no, u){
 
 let perfilCarregado = null;
 
+/* ==========================================================================
+   configurações da loja
+
+   Estes campos moravam na seção "Estabelecimentos", uma tabela CRUD — e
+   ninguém pensa na própria loja como "um registro numa lista". Ao tirar
+   aquela seção eles ficaram sem interface e só se editavam pelo banco.
+
+   Aqui é o lugar deles: são as configurações de quem opera a loja, ao lado
+   das configurações da conta. Nenhum campo é novo no servidor — todos já
+   estavam em `CAMPOS_EDITAVEIS["estabelecimentos"]`.
+
+   `nulo: true` marca os dois campos que o banco aceita vazio. Nos outros, o
+   vazio é descartado em vez de virar `null`: a coluna é NOT NULL e o banco
+   recusaria com uma mensagem que não diz qual campo estava errado.
+   ========================================================================== */
+const LOJA_GRUPOS = [
+  ["Negócio", "De onde sai o teto de cashback que o painel calcula.", [
+    {k:"margem_liquida_pct", r:"Margem líquida (%)", t:"number", passo:"0.1",
+     ajuda:"Margem baixa não sustenta crédito alto — é esta conta que decide."},
+    {k:"ticket_medio_brl", r:"Ticket médio (R$)", t:"number", passo:"1",
+     ajuda:"Quanto a pessoa gasta na loja numa visita típica."},
+  ]],
+  ["Energia da rede", "O que a distribuidora cobra, e o teto que a loja contratou.", [
+    {k:"tarifa_kwh_brl", r:"Tarifa fora de ponta (R$/kWh)", t:"number", passo:"0.0001"},
+    {k:"tarifa_ponta_kwh_brl", r:"Tarifa de ponta (R$/kWh)", t:"number", passo:"0.0001", nulo:true,
+     ajuda:"Vazio = a mesma tarifa o dia todo, que é o caso do Grupo B sem tarifa branca."},
+    {k:"ponta_inicio", r:"Ponta começa às", t:"number", passo:"1"},
+    {k:"ponta_fim", r:"Ponta termina às", t:"number", passo:"1",
+     ajuda:"Fim de semana nunca é ponta, mesmo dentro da janela."},
+    {k:"grupo_tarifario", r:"Grupo tarifário", t:"select",
+     opcoes:[["B","B — sem demanda contratada"],["A","A — demanda faturada"]],
+     ajuda:"No Grupo A ultrapassar a demanda gera multa na fatura; no B o teto vale como limite do disjuntor."},
+    {k:"demanda_contratada_kw", r:"Demanda contratada (kW)", t:"number", passo:"1", nulo:true,
+     ajuda:"O carregador não pode empurrar a loja acima disso."},
+    {k:"carga_base_kw", r:"Consumo da loja (kW)", t:"number", passo:"1",
+     ajuda:"O que a loja puxa sem nenhum carro carregando: luz, frio, caixa."},
+  ]],
+  ["Geração própria", "O telhado e o armazenamento. Deixe em zero se a loja ainda não tem.", [
+    {k:"solar_kwp", r:"Potência solar instalada (kWp)", t:"number", passo:"0.1",
+     ajuda:"É daqui que a seção Placa solar tira a geração hora a hora."},
+    {k:"bateria_kwh", r:"Capacidade da bateria (kWh)", t:"number", passo:"0.1"},
+    {k:"bateria_kw", r:"Potência da bateria (kW)", t:"number", passo:"0.1",
+     ajuda:"A bateria só entra nas contas quando capacidade e potência forem maiores que zero."},
+  ]],
+];
+const LOJA_CAMPOS = LOJA_GRUPOS.flatMap(([, , campos]) => campos);
+
+function blocoLoja(){
+  const e = loja();
+  if (!e.id) return "";
+  const editavel = pode("editar_dados");
+  return `<article class="surface-card loja-config-card">
+    <div class="card-heading"><div>
+      <p class="eyebrow">Configurações</p>
+      <h3>A sua loja — ${esc(e.nome || "")}</h3>
+    </div></div>
+    ${editavel ? "" : `<div class="aviso-somente-leitura">
+      <span aria-hidden="true">🔒</span>
+      <span>Seu papel vê estas configurações, mas não altera.
+      Quem edita é o gerente da loja.</span></div>`}
+    <form class="inline-form loja-config" id="formLoja">
+      ${LOJA_GRUPOS.map(([titulo, nota, campos]) => `
+        <fieldset class="loja-config-grupo">
+          <legend>${esc(titulo)}</legend>
+          <p class="loja-config-nota">${esc(nota)}</p>
+          <div class="loja-config-campos">
+            ${campos.map(c => campoHtml(c, e[c.k])).join("")}
+          </div>
+        </fieldset>`).join("")}
+      <div class="filter-modal-actions">
+        <button class="primary-button" type="submit" ${editavel ? "" : "disabled"}>
+          Salvar configurações da loja</button>
+      </div>
+    </form>
+  </article>`;
+}
+
+async function salvarLoja(ev){
+  ev.preventDefault();
+  const e = loja();
+  const payload = {};
+  for (const c of LOJA_CAMPOS){
+    const el = $(`#formLoja [data-campo="${c.k}"]`);
+    if (!el) continue;
+    if (c.t === "select"){ payload[c.k] = el.value; continue; }
+    if (el.value === ""){
+      // Coluna NOT NULL com campo vazio: não manda. Mandar `null` faria o
+      // banco recusar com uma mensagem que não diz qual campo foi.
+      if (c.nulo) payload[c.k] = null;
+      continue;
+    }
+    payload[c.k] = Number(el.value);
+  }
+
+  /* Conferir aqui é cortesia, não segurança — o banco tem CHECK nas mesmas
+     faixas. Mas o erro do banco não diz QUAL campo estava errado. */
+  const erro =
+      payload.margem_liquida_pct < 0 || payload.margem_liquida_pct > 100
+        ? "A margem líquida vai de 0% a 100%."
+    : payload.tarifa_kwh_brl <= 0
+        ? "A tarifa fora de ponta tem de ser maior que zero."
+    : payload.ponta_inicio >= payload.ponta_fim
+        ? "A ponta tem de começar antes de terminar."
+    : payload.ponta_inicio < 0 || payload.ponta_fim > 24
+        ? "A janela de ponta fica entre 0h e 24h."
+    : (payload.bateria_kwh > 0) !== (payload.bateria_kw > 0)
+        ? "Bateria: preencha capacidade e potência, ou deixe as duas em zero."
+    : null;
+  if (erro){ toast(erro, "error"); return; }
+
+  const botao = $("#formLoja button[type=submit]");
+  botao.disabled = true;
+  try {
+    await comAviso("Salvando configurações da loja...",
+      () => api.alterar("estabelecimentos", e.id, payload),
+      {sucesso: "Configurações salvas",
+       // Sem `esc()`: o `aviso()` já escapa o detalhe. Escapar duas vezes
+       // transforma "Pet & Cia" em "Pet &amp; Cia" na tela.
+       detalhe: `${e.nome} — o teto de potência e o teto de cashback são recalculados a partir daqui.`});
+    demandaCache = null;      // a curva do dia mudou de premissa
+    solarCache = null;        // e a geração também
+    await carregarDados();
+    renderTudo();
+  } catch { /* comAviso já mostrou */ }
+  finally { const b = $("#formLoja button[type=submit]"); if (b) b.disabled = false; }
+}
+
 async function renderPerfil(){
   const alvo = $("#profileDetails");
   if (!alvo) return;
@@ -3561,6 +3688,13 @@ async function renderPerfil(){
     linha("Vê o financeiro", pode("ver_financeiro") ? "sim" : "não"),
     linha("Troca de estabelecimento", pode("trocar_estabelecimento") ? "sim" : "não"),
   ].join("");
+
+  const caixa = $("#lojaConfig");
+  if (caixa){
+    caixa.innerHTML = blocoLoja();
+    const form = $("#formLoja");
+    if (form) form.onsubmit = salvarLoja;   // o render é destrutivo: religa
+  }
 
   const n = perfilCarregado.sessoes_abertas;
   $("#profileSessoesTexto").textContent = n > 1
