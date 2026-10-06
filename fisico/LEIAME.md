@@ -29,11 +29,75 @@ o problema é o TLS, não o meio físico.
 **Pet & Cia Vila Mariana**, vagas `id=1` e `id=2`. 30 kWp de telhado, bateria de
 20 kWh / 10 kW, 18 kW de consumo próprio.
 
-> ⚠️ **Antes de montar, baixe a demanda contratada de 75 kW para 20 kW** no
-> painel: *Perfil e configurações → A sua loja → Energia da rede*. Com 75 kW
-> sobram 53 kW e os dois carros cabem folgados — **o leilão nunca dispara**.
-> Com 20 kW: às 19h sobram 11 kW, um carro cabe e dois disputam. De dia o sol
-> levanta o teto e os dois cabem. É a história inteira numa frase.
+As vagas são de **22 kW** (wallbox trifásico, o padrão comercial) e a loja tem
+**20 kW contratados** — ajustado em 06/10/2026 para o leilão ser demonstrável.
+
+Por que esses números: com os 75 kW contratados e vagas de 7,4 kW que havia
+antes, sobravam 53 kW, os dois carros cabiam folgados e **o leilão nunca
+disparava**. Com 20 kW contratados e vagas de 22 kW:
+
+| hora | um carro | dois carros |
+|---|---|---|
+| 10h e 14h | cabe | **leilão** |
+| 19h | **leilão** | **leilão** |
+
+De dia o sol dá espaço para um; o segundo tem de negociar. À noite, sem sol,
+até um sozinho negocia. Dá para demonstrar a qualquer hora.
+
+Para voltar ao que era: `demanda_contratada_kw = 75` no estabelecimento 1 e
+`potencia_kw = 7.4` nos carregadores 1 e 2.
+
+## Montagem, na ordem
+
+Monte **em quatro etapas e teste cada uma**. Ligar 12 LEDs, um display, três
+botões e três sensores de uma vez e só então ligar a USB é a receita para
+passar a noite procurando um fio.
+
+### Etapa 1 — a placa viva (5 min)
+
+Só o Mega no USB. Abra a Arduino IDE, escolha *Ferramentas → Placa → Arduino
+Mega or Mega 2560* e a porta. Carregue o sketch. Abra o *Monitor Serial* em
+**115200** — tem de aparecer `OLA`.
+
+Se não aparecer, o problema é placa/porta/baud, e não vale seguir.
+
+### Etapa 2 — as vagas (20 min)
+
+O que faz a maquete existir. Nesta etapa ela já abre sessão de verdade.
+
+1. **HC-SR04**: VCC→5V, GND→GND, TRIG→D22, ECHO→D23.
+2. **Botão da vaga 2**: uma perna no D24, a outra no GND. Sem resistor —
+   o sketch usa `INPUT_PULLUP`.
+3. **LED verde da vaga 1**: D42 → resistor 220 Ω → perna longa do LED;
+   perna curta → GND. Repita o verde da vaga 2 no D44.
+4. Rode `python fisico/ponte.py --porta COMx`. Aproxime a mão do HC-SR04:
+   o LED acende e o terminal mostra `sessao aberta · token ...`.
+5. **Abra o painel do lojista.** A sessão está lá. Esta é a etapa que prova
+   que a maquete é real.
+
+### Etapa 3 — a energia (30 min)
+
+1. **LDR**: uma perna no 5V, a outra no A0 **e** num resistor de 10 kΩ que vai
+   ao GND. É um divisor de tensão — sem o resistor, o A0 lê lixo.
+2. **Potenciômetro**: pernas das pontas no 5V e no GND, perna do meio no A1.
+3. **4 LEDs amarelos** nos D30–D33, cada um com resistor.
+4. **2 LEDs vermelhos** nos D39–D40 e **1 branco** no D41.
+5. **LED vermelho do piso** no D38.
+6. Gire o potenciômetro: os amarelos acompanham o dia. Tape o LDR: apagam.
+
+### Etapa 4 — o resto (30 min)
+
+1. **7 segmentos**: catodo comum → GND; os segmentos a,b,c,d,e,f,g nos
+   D2–D8, **cada um com seu resistor de 220 Ω**.
+2. **LEDs amarelos das vagas** (potência cortada) nos D43 e D45.
+3. **Botões do leilão** nos D25 e D26, o outro lado no GND.
+4. **Buzzer**: positivo no D28, negativo no GND.
+5. **Servo**: laranja/amarelo→D9, vermelho→5V, marrom→GND.
+6. **PIR** (opcional): OUT→D27, VCC→5V, GND→GND.
+
+> O servo puxa corrente quando se move. Se a placa reiniciar sozinha ao mexer o
+> ponteiro, alimente o servo por fora (as duas pilhas AA + suporte) com o GND
+> ligado ao do Mega. Pela USB sozinha costuma funcionar com um SG90 sem carga.
 
 ## Ligações
 

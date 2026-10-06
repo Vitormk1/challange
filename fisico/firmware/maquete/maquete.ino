@@ -31,6 +31,7 @@
  * exigiria uma biblioteca de parser e a RAM aqui e pouca. `strtok` resolve.
  */
 
+#include <stdarg.h>
 #include <Servo.h>
 
 // ---------------------------------------------------------------- pinos ---
@@ -69,7 +70,7 @@ const uint8_t POT = A1;                         // relogio do dia
 // mesmo ritmo.
 const unsigned long ACELERACAO = 180;
 
-const float BATERIA_CARRO_KWH = 40.0;   // carro tipico de passeio
+const float BATERIA_CARRO_KWH = 60.0;   // carro tipico de passeio
 const float SOC_CHEIO = 0.995;
 
 // A loja da maquete e a Pet & Cia Vila Mariana: 30 kWp de telhado, bateria de
@@ -141,7 +142,7 @@ void manda(const char *fmt, ...) {
  * quando a chave nao veio -- a ponte pode mandar so o que mudou. */
 float campo(char *resto, const char *chave, float padrao) {
   char busca[16];
-  snprintf(busca, sizeof(busca), "%s=", chave);
+  snprintf(busca, sizeof(busca), ";%s=", chave);
   char *p = strstr(resto, busca);
   if (!p) return padrao;
   return atof(p + strlen(busca));
@@ -244,7 +245,7 @@ void setup() {
   ponteiro.write(0);
 
   for (uint8_t v = 0; v < 2; v++) {
-    vagas[v] = {false, false, 0.0, 0.0, 7.4, 7.4, false, false, 0.0, 0};
+    vagas[v] = {false, false, 0.0, 0.0, 22.0, 22.0, false, false, 0.0, 0};
   }
 
   digitalWrite(LED_LOJA, HIGH);   // a loja consome o tempo todo

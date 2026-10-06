@@ -238,7 +238,7 @@ class Ponte:
         if tipo == "OLA":
             print("maquete conectada.")
             for v, s in self.sessoes.items():
-                self.escrever(f"CFG;vaga={v};kw=7.40;preco=1.60;ponta=0")
+                self.escrever(f"CFG;vaga={v};kw=22.00;preco=1.60;ponta=0")
         elif tipo == "CARRO":
             self.carro_chegou(vaga)
         elif tipo == "LEITURA":
