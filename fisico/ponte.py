@@ -222,6 +222,11 @@ class Ponte:
         linha = linha.strip()
         if not linha:
             return
+        if linha.startswith("#"):
+            # Diagnostico do Mega para quem esta na bancada. Aparece no log da
+            # ponte, mas nao e comando.
+            print(f"  {linha}")
+            return
         partes = linha.split(";")
         tipo = partes[0].upper()
         campos = {}

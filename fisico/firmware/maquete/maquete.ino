@@ -189,14 +189,68 @@ void le_serial() {
 
 // ------------------------------------------------------------ sensores ----
 
-/* Distancia em cm. Devolve 999 quando nao houve eco -- sem o timeout, um
- * sensor desligado trava o `loop` por 30 ms a cada volta e a maquete engasga. */
+/* Distancia em cm, ou SEM_LEITURA quando a medida nao vale.
+ *
+ * "Nao vale" cobre dois casos que sao a MESMA coisa para o sensor e coisas
+ * opostas para a maquete:
+ *
+ *   sem eco      o pulso saiu e nao voltou. Pode ser vaga vazia -- ou um carro
+ *                encostado no sensor, porque o HC-SR04 nao mede abaixo de 2 cm.
+ *   eco absurdo  abaixo de 2 cm o numero e ruido.
+ *
+ * A primeira versao devolvia 999 nos dois casos, o que significava "vazio".
+ * Com o sensor deitado na bancada apontando para a mesa, a vaga ficava ocupada
+ * o tempo todo, e encostar a mao fazia o eco sumir e a vaga "esvaziar": o
+ * comportamento saia invertido, sem a fiacao ter nada de errado.
+ *
+ * O timeout de 20 ms tambem importa: sem ele, um sensor desligado trava o
+ * `loop` por 30 ms a cada volta e a maquete inteira engasga.
+ */
+const long SEM_LEITURA = -1;
+const long PERTO_CM = 8;
+
 long distancia_cm() {
   digitalWrite(TRIG, LOW);  delayMicroseconds(2);
   digitalWrite(TRIG, HIGH); delayMicroseconds(10);
   digitalWrite(TRIG, LOW);
   unsigned long us = pulseIn(ECHO, HIGH, 20000UL);
-  return us ? (long)(us / 58) : 999;
+  if (!us) return SEM_LEITURA;
+  long cm = (long)(us / 58);
+  return (cm < 2 || cm > 400) ? SEM_LEITURA : cm;
+}
+
+/* A vaga 1 esta ocupada?
+ *
+ * Nao basta ler uma vez. Ultrassom e ruidoso, e UMA leitura ruim abriria ou
+ * fecharia uma sessao -- no banco de producao. Pior: `abrir_sessao` aceita 12
+ * aberturas por vaga a cada 10 minutos, e o ruido estouraria esse limite em
+ * segundos, deixando a maquete muda bem na hora da demonstracao.
+ *
+ * Entao o estado so muda depois de LEITURAS_FIRMES leituras seguidas
+ * concordando. Leitura invalida nao conta para lado nenhum: nao confirma nem
+ * desmente, apenas nao avanca o contador.
+ */
+const uint8_t LEITURAS_FIRMES = 5;
+
+// A ultima medida boa, para o diagnostico mostrar sem disparar outro ping --
+// dois pulsos seguidos se atrapalham, o eco de um chega durante o outro.
+long ultima_distancia = SEM_LEITURA;
+
+bool vaga1_ocupada(bool estado_atual) {
+  static uint8_t a_favor = 0, contra = 0;
+  long cm = distancia_cm();
+  ultima_distancia = cm;
+  if (cm == SEM_LEITURA) return estado_atual;
+
+  bool perto = cm <= PERTO_CM;
+  if (perto == estado_atual) { a_favor = contra = 0; return estado_atual; }
+
+  if (perto) { a_favor++; contra = 0; } else { contra++; a_favor = 0; }
+  if (a_favor >= LEITURAS_FIRMES || contra >= LEITURAS_FIRMES) {
+    a_favor = contra = 0;
+    return perto;
+  }
+  return estado_atual;
 }
 
 // ------------------------------------------------------------- display ---
@@ -277,9 +331,22 @@ void loop() {
   sol_kw = geracao_kw(hora_do_dia, luz);
 
   // ---- as vagas ----
-  bool carro1 = distancia_cm() <= 8;
+  bool carro1 = vaga1_ocupada(vagas[0].ocupada);
   bool carro2 = digitalRead(BOTAO_VAGA2) == LOW;
   bool chegou[2] = {carro1, carro2};
+
+  /* Uma linha de diagnostico por segundo, para quem esta na bancada com o
+     Monitor Serial aberto e sem a ponte rodando. Comeca com '#', e a ponte
+     ignora linhas assim -- do contrario o log dela viraria ruido. */
+  static unsigned long t_diag = 0;
+  if (agora - t_diag >= 1000) {
+    t_diag = agora;
+    long cm = ultima_distancia;
+    char buf[16];
+    dtostrf(hora_do_dia, 0, 1, buf);
+    manda("# dist=%ld vaga1=%d vaga2=%d hora=%s luz=%d",
+          cm, carro1 ? 1 : 0, carro2 ? 1 : 0, buf, (int)(luz * 100));
+  }
 
   float carregando_kw = 0.0;
   for (uint8_t v = 0; v < 2; v++) {
